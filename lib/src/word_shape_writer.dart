@@ -43,17 +43,41 @@ extension _WordShapes on _StructuredWordWriter {
     }
     final horizontal = ['margin', 'page', 'text'][drawing.horizontalOrigin];
     final vertical = ['margin', 'page', 'text'][drawing.verticalOrigin];
-    final element = geometry.preset == 'ellipse' ? 'oval' : 'shape';
+    final zeroExtentLine =
+        geometry.preset == 'line' &&
+        (drawing.leftTwips == drawing.rightTwips ||
+            drawing.topTwips == drawing.bottomTwips);
+    final element = zeroExtentLine
+        ? 'line'
+        : geometry.preset == 'ellipse'
+        ? 'oval'
+        : 'shape';
     final prefix = drawing.headerStory ? 'Header' : '';
     _mediaStart(drawing.presentation);
     _xml.add(
-      '<w:pict><v:$element id="_legacy${prefix}Shape${drawing.shapeId}" '
-      'coordorigin="${bounds.left},${bounds.top}" '
-      'coordsize="${bounds.width},${bounds.height}" '
-      'style="position:absolute;margin-left:${drawing.leftTwips / 20}pt;'
-      'margin-top:${drawing.topTwips / 20}pt;'
-      'width:${(drawing.rightTwips - drawing.leftTwips) / 20}pt;'
-      'height:${(drawing.bottomTwips - drawing.topTwips) / 20}pt;'
+      '<w:pict><v:$element id="_legacy${prefix}Shape${drawing.shapeId}" ',
+    );
+    if (zeroExtentLine) {
+      // VML line endpoints are in the parent's coordinate space. A shape
+      // rectangle with a zero dimension instead requires an invalid scale.
+      // Keep source flips in the style; reversing from/to creates negative
+      // line extents in native consumers.
+      _xml.add(
+        'from="${drawing.leftTwips / 20}pt,${drawing.topTwips / 20}pt" '
+        'to="${drawing.rightTwips / 20}pt,${drawing.bottomTwips / 20}pt" '
+        'style="position:absolute;',
+      );
+    } else {
+      _xml.add(
+        'coordorigin="${bounds.left},${bounds.top}" '
+        'coordsize="${bounds.width},${bounds.height}" '
+        'style="position:absolute;margin-left:${drawing.leftTwips / 20}pt;'
+        'margin-top:${drawing.topTwips / 20}pt;'
+        'width:${(drawing.rightTwips - drawing.leftTwips) / 20}pt;'
+        'height:${(drawing.bottomTwips - drawing.topTwips) / 20}pt;',
+      );
+    }
+    _xml.add(
       'mso-position-horizontal-relative:$horizontal;'
       'mso-position-vertical-relative:$vertical;'
       'z-index:${drawing.behindText ? -1 : drawing.shapeId}',

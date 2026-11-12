@@ -100,7 +100,7 @@ extension _WordMedia on _StructuredWordWriter {
           drawing.imageId == null &&
           drawing.textboxId == null &&
           !drawing.shapeDeleted &&
-          _validDrawing(drawing) &&
+          _validDrawing(drawing, allowLine: true) &&
           _canWriteShape(drawing.shape)) {
         _event(owner, drawing.anchorCp, 50, () => _shapeDrawing(drawing));
         continue;
@@ -322,9 +322,15 @@ extension _WordMedia on _StructuredWordWriter {
     _count('pictureReferences');
   }
 
-  bool _validDrawing(LegacyWordDrawing drawing) =>
-      drawing.rightTwips > drawing.leftTwips &&
-      drawing.bottomTwips > drawing.topTwips &&
+  bool _validDrawing(LegacyWordDrawing drawing, {bool allowLine = false}) =>
+      ((drawing.rightTwips > drawing.leftTwips &&
+              drawing.bottomTwips > drawing.topTwips) ||
+          (allowLine &&
+              drawing.shape?.geometry?.preset == 'line' &&
+              drawing.rightTwips >= drawing.leftTwips &&
+              drawing.bottomTwips >= drawing.topTwips &&
+              (drawing.rightTwips > drawing.leftTwips ||
+                  drawing.bottomTwips > drawing.topTwips))) &&
       [
         drawing.leftTwips,
         drawing.topTwips,

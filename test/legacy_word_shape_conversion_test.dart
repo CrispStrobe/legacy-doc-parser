@@ -6,6 +6,7 @@ import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 import 'package:test/test.dart';
 import 'package:xml/xml.dart';
 
+import 'support/media_word_fixture.dart';
 import 'support/officeart_shape_fixture.dart';
 import 'support/structured_word_fixture.dart';
 
@@ -75,6 +76,86 @@ void main() {
     expect(shape.getAttribute('path'), 'm-10,20l50,60c70,80,90,100,110,120xe');
     expect(result.preservedCounts['shapePathCommands'], 4);
   });
+
+  test(
+    'horizontal and vertical lines keep zero extent and independent flips',
+    () {
+      for (final axis in ['h', 'v']) {
+        for (final (flip, bits) in [
+          ('none', 0),
+          ('x', 0x40),
+          ('y', 0x80),
+          ('x y', 0xc0),
+        ]) {
+          final result = convertLegacyWord(
+            officeArtShapeWordFixture(
+              type: 20,
+              flags: 0x0a00 | bits,
+              anchorBounds: axis == 'h'
+                  ? (120, 240, 1560, 240)
+                  : (120, 240, 120, 960),
+            ),
+          );
+          final xml = _xml(result),
+              line = xml.findAllElements('line', namespace: _v).single;
+          expect(line.getAttribute('from'), '6.0pt,12.0pt');
+          expect(
+            line.getAttribute('to'),
+            axis == 'h' ? '78.0pt,12.0pt' : '6.0pt,48.0pt',
+          );
+          expect(line.getAttribute('coordsize'), isNull);
+          expect(line.getAttribute('path'), isNull);
+          expect(line.getAttribute('filled'), 'f');
+          final style = line.getAttribute('style')!;
+          expect(style, isNot(contains('width:')));
+          expect(style, isNot(contains('height:')));
+          expect(style, isNot(contains('margin-left:')));
+          expect(style, isNot(contains('margin-top:')));
+          if (flip == 'none') {
+            expect(style, isNot(contains('flip:')));
+          } else {
+            expect(style, contains('flip:$flip'));
+          }
+          expect(result.preservedCounts['editableShapes'], 1);
+        }
+      }
+    },
+  );
+
+  test(
+    'zero-area non-lines and invalid line extents remain unrendered evidence',
+    () {
+      for (final type in [1, 3, 75, 202]) {
+        for (final bounds in [(120, 240, 1560, 240), (120, 240, 120, 960)]) {
+          final result = convertLegacyWord(
+            officeArtShapeWordFixture(type: type, anchorBounds: bounds),
+          );
+          expect(result.preservedCounts['editableShapes'], isNull);
+          expect(_xml(result).findAllElements('pict', namespace: _w), isEmpty);
+          expect(result.preservedCounts['evidenceArtifacts'], greaterThan(0));
+        }
+      }
+      for (final bounds in [
+        (120, 240, 120, 240), // A point is not a finite-length line.
+        (120, 240, 119, 240),
+        (120, 240, 120, 239),
+        (0, 0, 2000001, 0),
+        (0, 0, 0, 2000001),
+      ]) {
+        final result = convertLegacyWord(
+          officeArtShapeWordFixture(type: 20, anchorBounds: bounds),
+        );
+        expect(result.preservedCounts['editableShapes'], isNull);
+        expect(_xml(result).findAllElements('pict', namespace: _w), isEmpty);
+      }
+      final image = convertLegacyWord(
+        floatingPictureWordFixture(anchorBounds: (120, 240, 1560, 240)),
+      );
+      expect(image.preservedCounts['images'], isNull);
+      expect(_xml(image).findAllElements('drawing', namespace: _w), isEmpty);
+      expect(image.preservedCounts['evidenceArtifacts'], greaterThan(0));
+    },
+  );
 
   test(
     'source solid paint, opacity, line properties and shadow remain editable',

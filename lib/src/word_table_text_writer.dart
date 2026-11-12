@@ -7,6 +7,24 @@ extension _WordTableTextWriter on _StructuredWordWriter {
     LegacyWordTableTextFormat format,
     LegacyWordTableCondition? condition,
   ) {
+    if (format.characterProperties.contains(
+      LegacyWordTableCharacterProperty.highlight,
+    )) {
+      // CT_RPrBase/StyleRunProperties excludes highlight. MS-DOC UpxChpx
+      // likewise excludes properties preserved across CIstd. Keep an
+      // encountered value on resolved runs without writing invalid style XML.
+      _evidenceRecords.add({
+        'kind': 'tableStyleDirectOnlyProperty',
+        'tableStyleId': id,
+        'condition': condition?.name,
+        'property': 'highlight',
+        'colorHex': format.character.highlightHex,
+        'reason':
+            'Highlight is not allowed in native style run properties; '
+            'the encountered source value is applied to resolved runs.',
+      });
+      limitations.add(LegacyWordConversionLimitation.partialFormatting);
+    }
     for (final entry in format.relativeCharacterToggles.entries) {
       if (entry.value != 0x80 && entry.value != 0x81) {
         throw const FormatException('Invalid relative table text toggle.');
@@ -165,15 +183,6 @@ extension _WordTableTextWriter on _StructuredWordWriter {
     }
     if (has('fontSize') && style.fontSizeHalfPoints != null) {
       xml.add('<w:sz w:val="${style.fontSizeHalfPoints}"/>');
-    }
-    if (has('highlight')) {
-      final color = style.highlightHex;
-      final name = color == null
-          ? 'none'
-          : _StructuredWordWriter._highlights[_StructuredWordWriter._color(
-              color,
-            )];
-      if (name != null) xml.add('<w:highlight w:val="$name"/>');
     }
     if (has('underline')) xml.add('<w:u w:val="${_underlineValue(style)}"/>');
     if (has('verticalAlign')) {

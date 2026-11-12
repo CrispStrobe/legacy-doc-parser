@@ -25,6 +25,28 @@ void main(List<String> arguments) {
       '${directory.path}/$name.docx',
     ).writeAsBytesSync(convertLegacyWord(bytes).bytes);
   }
+  for (final axis in ['h', 'v']) {
+    for (final (flip, bits) in [
+      ('none', 0),
+      ('x', 0x40),
+      ('y', 0x80),
+      ('xy', 0xc0),
+    ]) {
+      final name = 'line-$axis-$flip';
+      final bytes = officeArtShapeWordFixture(
+        type: 20,
+        flags: 0x0a00 | bits,
+        values: {0x01c0: 0x00000000, 0x01cb: 25400},
+        anchorBounds: axis == 'h'
+            ? (120, 240, 1560, 240)
+            : (120, 240, 120, 960),
+      );
+      File('${directory.path}/$name.doc').writeAsBytesSync(bytes);
+      File(
+        '${directory.path}/$name.docx',
+      ).writeAsBytesSync(convertLegacyWord(bytes).bytes);
+    }
+  }
   final custom = officeArtShapeWordFixture(
     type: 0,
     values: {

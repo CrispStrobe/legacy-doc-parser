@@ -104,7 +104,11 @@ against the active table and paragraph context.
 
 Supported text differences include alignment, indents, spacing, paragraph
 pagination flags, borders/shading, font size/name/color, emphasis, underline,
-highlight, character spacing and vertical position. The public model records
+character spacing and vertical position. An encountered highlight in a source
+table-style definition is nonconforming (`UpxChpx` excludes properties preserved
+across `CIstd`). Its value remains on resolved runs and in conversion evidence,
+with a partial-formatting diagnostic; no invalid `w:highlight` is written into
+native `StyleRunProperties`. The public model records
 which properties the source actually specified. Native `w:pPr`/`w:rPr` style
 rules emit only those differences, preserving the distinction between absence
 and an explicit default. Conditional tab-change operators and additional text

@@ -74,6 +74,36 @@ XmlDocument _part(Uint8List bytes, String name) => XmlDocument.parse(
 
 void main() {
   test(
+    'nonconforming style highlight remains on runs without invalid style XML',
+    () {
+      final bytes = _one(_textStyle(c: wordSprm(0x2a0c, [7])));
+      expect(_paragraph(bytes).runs.single.style.highlightHex, 'FFFF00');
+      expect(
+        _part(bytes, 'word/styles.xml').findAllElements('w:highlight'),
+        isEmpty,
+      );
+      expect(
+        _part(bytes, 'word/document.xml')
+            .findAllElements('w:highlight')
+            .map((element) => element.getAttribute('w:val')),
+        contains('yellow'),
+      );
+      final result = convertLegacyWordToStructuredDocx(bytes);
+      expect(
+        result.limitations,
+        contains(LegacyWordConversionLimitation.partialFormatting),
+      );
+      final evidence = ZipDecoder()
+          .decodeBytes(result.bytes)
+          .files
+          .where((file) => file.name.endsWith('.json'))
+          .map((file) => utf8.decode(file.content))
+          .join();
+      expect(evidence, contains('tableStyleDirectOnlyProperty'));
+    },
+  );
+
+  test(
     'conditional paragraph and run differences precede direct properties',
     () {
       final style = _textStyle(

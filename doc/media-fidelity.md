@@ -131,6 +131,16 @@ when spaces followed command letters. The writer emits compact numeric paths.
 The probe requires installed LibreOffice, Poppler and PyMuPDF; it does not
 download a renderer or create expected coordinates from its own output.
 
+Horizontal and vertical preset lines may have one zero FSPA extent. They use
+native `v:line` endpoints in the parent coordinate space, with the source
+flip flags, instead of scaling a shape through a zero-sized rectangle. Both
+dimensions zero, reversed extents, out-of-bounds placement and zero-area
+non-line shapes/images remain unrendered evidence. The native probe checks
+all eight horizontal/vertical and none/x/y/xy flip combinations, including
+ordered endpoints, so matching outer bounds cannot conceal lost direction.
+This follows the documented [VML line element](https://learn.microsoft.com/en-us/windows/win32/vml/msdn-online-vml-line-element)
+and [parent-space endpoint coordinates](https://learn.microsoft.com/en-us/windows/win32/vml/from-attribute--line--vml).
+
 ```
 python3 tool/fidelity/shape_render.py --office /path/to/soffice \
   --dart /path/to/dart --output build/shape-render

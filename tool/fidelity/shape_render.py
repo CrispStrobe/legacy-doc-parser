@@ -23,10 +23,14 @@ def near(actual, expected, tolerance=0.02):
 
 
 def check_geometry(name, paths):
-    expected_bounds = [6, 84, 78, 120]
+    axis_line = name.startswith('line-')
+    is_line = name == 'line' or axis_line
+    expected_bounds = ([6, 84, 78, 84] if name.startswith('line-h-')
+                       else [6, 84, 6, 120] if name.startswith('line-v-')
+                       else [6, 84, 78, 120])
     strokes = [path for path in paths if path['color'] is not None]
     fills = [path for path in paths if path['fill'] is not None]
-    if len(strokes) != 1 or len(fills) != (0 if name == 'line' else 1):
+    if len(strokes) != 1 or len(fills) != (0 if is_line else 1):
         raise ValueError('Native PDF lost or added a shape fill/stroke')
     stroke = strokes[0]
     if not near(stroke['bounds'], expected_bounds) or not near(stroke['color'], [0, 0, 0]):
@@ -36,9 +40,16 @@ def check_geometry(name, paths):
     if fills and (not near(fills[0]['fill'], [0.2, 0.4, 0.8], 0.0001)
                   or not near(fills[0]['bounds'], expected_bounds)):
         raise ValueError('Native fill color or bounds changed')
-    if name == 'line':
-        if stroke['items'] != [['l', [6.0, 84.0], [78.0, 120.0]]]:
-            raise ValueError('Native diagonal line endpoints changed')
+    if is_line:
+        start, end = expected_bounds[:2], expected_bounds[2:]
+        if axis_line:
+            _, axis, flip = name.split('-')
+            if (axis == 'h' and 'x' in flip) or (axis == 'v' and 'y' in flip):
+                start, end = end, start
+        items = stroke['items']
+        if (len(items) != 1 or items[0][0] != 'l'
+                or not near(items[0][1], start) or not near(items[0][2], end)):
+            raise ValueError('Native line endpoints or direction changed')
     elif name == 'rect':
         corners = [[6, 84], [78, 84], [78, 120], [6, 120]]
         edges = fills[0]['items']
@@ -110,7 +121,9 @@ def main():
         report['parserCommit'] = command(['git', 'rev-parse', 'HEAD'], cwd=ROOT).strip()
         report['parserWorktreeDirty'] = bool(command(['git', 'status', '--porcelain'], cwd=ROOT).strip())
         command([args.dart, 'run', 'tool/fidelity/shape_probe.dart', output / 'inputs'], cwd=ROOT)
-        for name in ('rect', 'ellipse', 'line', 'custom'):
+        names = ['rect', 'ellipse', 'line', 'custom'] + [
+            f'line-{axis}-{flip}' for axis in ('h', 'v') for flip in ('none', 'x', 'y', 'xy')]
+        for name in names:
             source = output / 'inputs' / (name + '.docx')
             before = digest(source)
             case = report['cases'][name] = {'sourceDocSha256': digest(source.with_suffix('.doc')),

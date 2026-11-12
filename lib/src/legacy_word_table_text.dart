@@ -47,6 +47,9 @@ extension _WordTableText on _StructuredWordParser {
       for (final operation in operations) {
         if (operation.code != code) {
           if (_tableTextPropertySupported(operation, paragraph)) {
+            if (operation.code == 0x2a0c) {
+              warnings.add(LegacyWordWarning.unsupportedFormatting);
+            }
             plain.add(operation);
           } else {
             warnings.add(LegacyWordWarning.unsupportedFormatting);
@@ -69,6 +72,9 @@ extension _WordTableText on _StructuredWordParser {
             throw const FormatException('Nested Word text style condition.');
           }
           if (_tableTextPropertySupported(item, paragraph)) {
+            if (item.code == 0x2a0c) {
+              warnings.add(LegacyWordWarning.unsupportedFormatting);
+            }
             result.add(item);
           } else {
             warnings.add(LegacyWordWarning.unsupportedFormatting);
