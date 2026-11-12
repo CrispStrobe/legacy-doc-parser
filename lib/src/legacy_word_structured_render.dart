@@ -37,16 +37,77 @@ class LegacyWordHtmlRenderer {
   final List<LegacyWordNumberingDefinition> numberingDefinitions;
   final int? defaultTabStopTwips;
   final _HtmlMediaIndex _media;
+  var _renderedBytes = 0;
+  static const _maxCombinedBytes = 64 * 1024 * 1024;
 
-  String render(List<LegacyWordBlock> blocks) => _HtmlWriter(
-    numberingDefinitions,
-    defaultTabStopTwips,
-    _media,
-  ).render(blocks);
+  String render(List<LegacyWordBlock> blocks) => renderAll([blocks]).single;
+
+  /// Reserves all text and placeholder markup before enabling image expansion.
+  /// This prevents image previews from exhausting later stories' text budget.
+  List<String> renderAll(List<List<LegacyWordBlock>> stories) {
+    if (stories.length > 20001) {
+      throw const FormatException('Word preview has too many stories.');
+    }
+    if (_media._events.isEmpty) {
+      final result = <String>[];
+      for (final blocks in stories) {
+        final writer = _HtmlWriter(
+          numberingDefinitions,
+          defaultTabStopTwips,
+          _media,
+        );
+        result.add(writer.render(blocks));
+        _renderedBytes += writer._bytes;
+        if (_renderedBytes > _maxCombinedBytes) {
+          throw const FormatException(
+            'Word story previews exceed the output limit.',
+          );
+        }
+      }
+      return List.unmodifiable(result);
+    }
+    final baselineBytes = <int>[];
+    var totalBaseline = 0;
+    for (final blocks in stories) {
+      final measure = _HtmlWriter(
+        numberingDefinitions,
+        defaultTabStopTwips,
+        _media,
+        measureOnly: true,
+      )..render(blocks);
+      baselineBytes.add(measure._bytes);
+      totalBaseline += measure._bytes;
+      if (totalBaseline > _maxCombinedBytes - _renderedBytes) {
+        throw const FormatException(
+          'Word story previews exceed the output limit.',
+        );
+      }
+    }
+    _media.remainingExpansionBytes =
+        _maxCombinedBytes - _renderedBytes - totalBaseline;
+    final result = <String>[];
+    for (var i = 0; i < stories.length; i++) {
+      final writer = _HtmlWriter(
+        numberingDefinitions,
+        defaultTabStopTwips,
+        _media,
+        imageExpansionBytes: _HtmlWriter._maxBytes - baselineBytes[i],
+      );
+      result.add(writer.render(stories[i]));
+      _renderedBytes += writer._bytes;
+    }
+    return List.unmodifiable(result);
+  }
 }
 
 class _HtmlWriter {
-  _HtmlWriter(this.numberingDefinitions, this.defaultTabStopTwips, this._media);
+  _HtmlWriter(
+    this.numberingDefinitions,
+    this.defaultTabStopTwips,
+    this._media, {
+    this.measureOnly = false,
+    this.imageExpansionBytes = 0,
+  });
   static const _maxBytes = 24 * 1024 * 1024;
   static const _maxItems = 200000;
   static const _escape = HtmlEscape(HtmlEscapeMode.element);
@@ -55,12 +116,13 @@ class _HtmlWriter {
   final List<LegacyWordNumberingDefinition> numberingDefinitions;
   final int? defaultTabStopTwips;
   final _HtmlMediaIndex _media;
+  final bool measureOnly;
+  int imageExpansionBytes;
   final _markers = <LegacyWordParagraph, _HtmlListMarker>{};
   var _bytes = 0;
   var _items = 0;
   var _markerUnits = 0;
   var _tableDepth = 0;
-  var _imageUriCharacters = 0;
 
   String render(List<LegacyWordBlock> blocks) {
     _prepareNumbering(blocks);
@@ -863,7 +925,7 @@ class _HtmlWriter {
     if (_bytes > _maxBytes) {
       throw const FormatException('Word HTML preview exceeds its size limit.');
     }
-    _buffer.write(value);
+    if (!measureOnly) _buffer.write(value);
   }
 }
 

@@ -5,8 +5,9 @@ part of 'legacy_word_structured_render.dart';
 // them remains in the model and receives a small placeholder in HTML.
 const _htmlImageByteLimit = 2 * 1024 * 1024;
 const _htmlImagePixelLimit = 16 * 1024 * 1024;
+const _htmlRasterDecodedPixelLimit = 32 * 1024 * 1024;
 const _htmlImageCacheLimit = 8 * 1024 * 1024;
-const _htmlImageStoryLimit = 3 * 1024 * 1024;
+const _htmlImageEmissionLimit = 3 * 1024 * 1024;
 
 class _HtmlMediaEvent {
   const _HtmlMediaEvent({
@@ -27,9 +28,10 @@ class _HtmlMediaEvent {
 }
 
 class _HtmlImageData {
-  const _HtmlImageData(this.uri, this.width, this.height);
+  const _HtmlImageData(this.uri, this.width, this.height, this.rasterPixels);
   final String uri;
   final int width, height;
+  final int rasterPixels;
 }
 
 class _HtmlMediaIndex {
@@ -100,6 +102,26 @@ class _HtmlMediaIndex {
   final _cache = <String, _HtmlImageData?>{};
   var _inspectedBytes = 0;
   var _cachedCharacters = 0;
+  var _emittedRasterPixels = 0;
+  var _emittedUriCharacters = 0;
+  var remainingExpansionBytes = 0;
+
+  bool canEmit(_HtmlImageData image) =>
+      image.rasterPixels <=
+          _htmlRasterDecodedPixelLimit - _emittedRasterPixels &&
+      image.uri.length <= _htmlImageEmissionLimit - _emittedUriCharacters;
+
+  bool reserveImage(_HtmlImageData image, int expansionBytes) {
+    // Hosts can decode each occurrence independently even when its URI is
+    // shared. Charge every emitted occurrence, across all related stories.
+    if (!canEmit(image) || expansionBytes > remainingExpansionBytes) {
+      return false;
+    }
+    _emittedRasterPixels += image.rasterPixels;
+    _emittedUriCharacters += image.uri.length;
+    remainingExpansionBytes -= expansionBytes;
+    return true;
+  }
 
   int _lowerBound(int cp) {
     var low = 0, high = _events.length;
@@ -181,7 +203,12 @@ class _HtmlMediaIndex {
     }
     final uri = '$prefix${base64.encode(bytes)}';
     _cachedCharacters += uri.length;
-    return _cache[id] = _HtmlImageData(uri, width, height);
+    return _cache[id] = _HtmlImageData(
+      uri,
+      width,
+      height,
+      type == 'image/svg+xml' ? 0 : width * height,
+    );
   }
 
   static bool _sizeAllowed(int width, int height) =>
@@ -265,34 +292,20 @@ extension _HtmlMediaWriter on _HtmlWriter {
     _item();
     // Showing the complete uncropped asset could expose source content outside
     // its visible crop. Until crop playback is shared by HTML hosts, omit it.
-    final data = event.cropped ? null : _media.image(event.imageId);
-    final available =
-        data != null &&
-        data.uri.length <= _htmlImageStoryLimit - _imageUriCharacters &&
-        data.uri.length < _HtmlWriter._maxBytes - _bytes - 1024;
-    final presentation = event.presentation;
-    if (presentation.deleted) {
-      _write(
-        '<del data-word-image-revision="deleted" '
-        'style="background-color:#ffe8e8;border:1px solid #b40000;">'
-        '<span>Deleted image: </span>',
-      );
-    }
-    if (presentation.inserted) {
-      _write(
-        '<ins data-word-image-revision="inserted" '
-        'style="background-color:#e5f5e5;border:1px solid #267326;">',
-      );
-    }
-    if (!available) {
-      _write(
+    final placeholder =
         '<span data-word-image="unavailable" '
         'data-word-image-cp="${event.cp}"'
         '${event.cropped ? ' data-word-image-crop="not-reproduced"' : ''}'
-        '>[Image preview unavailable]</span>',
-      );
-    } else {
-      _imageUriCharacters += data.uri.length;
+        '>[Image preview unavailable]</span>';
+    final data =
+        measureOnly ||
+            event.cropped ||
+            imageExpansionBytes == 0 ||
+            _media.remainingExpansionBytes == 0
+        ? null
+        : _media.image(event.imageId);
+    String? imageMarkup;
+    if (data != null && _media.canEmit(data)) {
       var width = event.widthTwips != null && event.widthTwips! > 0
           ? event.widthTwips! / 15
           : data.width.toDouble();
@@ -308,14 +321,37 @@ extension _HtmlMediaWriter on _HtmlWriter {
         height *= 2048 / largest;
       }
       final layout = event.floating ? 'anchor-approximation' : 'inline';
+      final markup =
+          '<img data-word-image="$layout" data-word-image-cp="${event.cp}"'
+          ' src="${data.uri}" width="${width.ceil().clamp(1, 2048)}"'
+          ' height="${height.ceil().clamp(1, 2048)}"'
+          ' alt="${event.floating ? 'Floating image shown at its text anchor' : 'Embedded image'}"'
+          ' style="max-width:100%;height:auto;object-fit:contain;vertical-align:middle;">';
+      final expansion = (markup.length - placeholder.length).clamp(
+        0,
+        markup.length,
+      );
+      if (expansion <= imageExpansionBytes &&
+          _media.reserveImage(data, expansion)) {
+        imageExpansionBytes -= expansion;
+        imageMarkup = markup;
+      }
+    }
+    final presentation = event.presentation;
+    if (presentation.deleted) {
       _write(
-        '<img data-word-image="$layout" data-word-image-cp="${event.cp}"'
-        ' src="${data.uri}" width="${width.ceil().clamp(1, 2048)}"'
-        ' height="${height.ceil().clamp(1, 2048)}"'
-        ' alt="${event.floating ? 'Floating image shown at its text anchor' : 'Embedded image'}"'
-        ' style="max-width:100%;height:auto;object-fit:contain;vertical-align:middle;">',
+        '<del data-word-image-revision="deleted" '
+        'style="background-color:#ffe8e8;border:1px solid #b40000;">'
+        '<span>Deleted image: </span>',
       );
     }
+    if (presentation.inserted) {
+      _write(
+        '<ins data-word-image-revision="inserted" '
+        'style="background-color:#e5f5e5;border:1px solid #267326;">',
+      );
+    }
+    _write(imageMarkup ?? placeholder);
     if (presentation.inserted) _write('</ins>');
     if (presentation.deleted) _write('</del>');
   }

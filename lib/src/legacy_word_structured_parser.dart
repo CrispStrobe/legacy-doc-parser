@@ -53,7 +53,6 @@ class _StructuredWordParser {
   int runCount = 0;
   int paragraphCount = 0;
   int fieldTextUnits = 0;
-  int renderedHtmlBytes = 0;
   final _fieldResults = <bool>[];
   final _privateFieldSeparators = <int>{};
   final _fieldFlags = <int, int>{};
@@ -142,7 +141,11 @@ class _StructuredWordParser {
       defaultTabStopTwips: source.defaultTabStopTwips,
       media: media,
     );
-    final mainHtml = _renderBlocks(blocks, renderer);
+    final previews = renderer.renderAll([
+      blocks,
+      for (final story in stories) story.blocks,
+    ]);
+    final mainHtml = previews.first;
     for (var i = 0; i < stories.length; i++) {
       final story = stories[i];
       stories[i] = LegacyWordStory(
@@ -152,7 +155,7 @@ class _StructuredWordParser {
         endCp: story.endCp,
         blocks: story.blocks,
         plainText: story.plainText,
-        safeHtml: _renderBlocks(story.blocks, renderer),
+        safeHtml: previews[i + 1],
         sectionIndex: story.sectionIndex,
         headerFooterType: story.headerFooterType,
       );
@@ -256,30 +259,6 @@ class _StructuredWordParser {
 
     content(blocks, 0);
     return plain.toString();
-  }
-
-  String _renderBlocks(
-    List<LegacyWordBlock> blocks,
-    LegacyWordHtmlRenderer renderer,
-  ) {
-    final html = renderer.render(blocks);
-    // The renderer enforces a per-story limit; also cap their combined output
-    // without allocating a second encoded copy of every generated string.
-    for (final rune in html.runes) {
-      renderedHtmlBytes += rune <= 0x7f
-          ? 1
-          : rune <= 0x7ff
-          ? 2
-          : rune <= 0xffff
-          ? 3
-          : 4;
-      if (renderedHtmlBytes > 64 * 1024 * 1024) {
-        throw const FormatException(
-          'Word story previews exceed the output limit.',
-        );
-      }
-    }
-    return html;
   }
 
   void _storyWarnings() {

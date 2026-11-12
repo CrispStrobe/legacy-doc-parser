@@ -101,7 +101,15 @@ the existing validated record limits and a 512 Ki UTF-16-code-unit generation ca
 incomplete or oversized playback becomes a placeholder. The image index accepts
 at most 4,096 assets and 4,096 references, checks at most 64 MiB of raw asset bytes,
 caches at most 8 MiB of ASCII data URIs, and emits at most 3 MiB of image URIs
-per story. These image-specific caps never remove preserved assets
+across all related stories. `renderAll` measures text and placeholder markup
+before image expansion, reserving both the 24 MiB per-story and 64 MiB combined
+HTML allowances. The parser uses this batch path, so an image cannot consume
+the space needed for a later story's text. A shared renderer also caps
+cumulative emitted raster pixels at
+32 Mi pixels across the main and auxiliary stories, charging every occurrence
+even when it reuses the same asset. This bounds separate host decodes of highly
+compressed PNG/JPEG images; later occurrences receive placeholders. These
+image-specific caps never remove preserved assets
 or prevent native conversion. The existing whole-HTML limits still apply.
 
 `legacy_word_preview_parity_test.dart` exercises number formats, nested restarts,
