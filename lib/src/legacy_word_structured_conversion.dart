@@ -40,7 +40,7 @@ class _StructuredWordWriter {
   var _commentParagraphSequence = 0;
   final _storyRanges = <(int, int, String)>[];
   final _events = <String, List<_WordInlineEvent>>{};
-  final _eventOffsets = <String, int>{};
+  final _eventOffsets = <(String, String), int>{};
   final _headerFooters = <int, List<(bool, String, String)>>{};
   final _storyParts = <String, String>{};
   final _numberingIds = <int>{};
