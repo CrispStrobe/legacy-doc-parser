@@ -98,11 +98,11 @@ dart run example/legacy_doc_parser_example.dart input.doc new-copy.docm
 
 See the detailed contracts:
 
-- [Structured conversion](docs/conversion.md)
-- [HTML preview](docs/html-preview.md)
-- [Stories, fields and lists](docs/stories-fields-lists.md)
-- [Media and opaque preservation](docs/media-preservation.md)
-- [JSDoc comparison and attribution](docs/jsdoc-parity.md)
+- [Structured conversion](doc/conversion.md)
+- [HTML preview](doc/html-preview.md)
+- [Stories, fields and lists](doc/stories-fields-lists.md)
+- [Media and opaque preservation](doc/media-preservation.md)
+- [JSDoc comparison and attribution](doc/jsdoc-parity.md)
 
 ## Preservation contract
 
