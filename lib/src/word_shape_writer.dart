@@ -8,6 +8,8 @@ extension _WordShapes on _StructuredWordWriter {
   bool _canWriteShape(LegacyWordOfficeArtShape? shape) {
     if (shape == null ||
         shape.unsupportedProperties.isNotEmpty ||
+        shape.ink != null ||
+        shape.discussionAnchor ||
         (shape.sourceFlags & 0x37) != 0) {
       return false;
     }

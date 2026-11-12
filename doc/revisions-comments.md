@@ -117,9 +117,45 @@ The original 18-byte extended record is immutable in the public model and copied
 into an inert evidence part with its Table-stream offset. The ink-annotation bit
 is retained. Already supported referenced images/objects in comment stories use
 the normal media paths; the ink bit alone is never turned into invented strokes
-or an active `o:ink` element. Proprietary pen-stroke data is not decoded. The
+or an active `o:ink` element. ISF pen-stroke data is not decoded. The
 record does not encode a resolved/done state, so none is fabricated in the native
 thread part. A hidden/private parent keeps its reply branch inert as well.
+
+OfficeArt `pInkData` is now separately exposed as `shape.ink.data` when its
+`IMsoInkData` GUID and exact byte count validate. The immutable payload omits
+that 20-byte envelope and retains the original ISF bytes. The envelope remains
+in the original OfficeArt artifact. Drawing and inline-picture occurrences
+write explicit `officeArtInk` evidence with the source artifact identity,
+occurrence CP, owning story, independently used Ink Boolean flags and header
+inspection result. The `inkPayloads` count measures preserved payload
+occurrences, not rendered or editable ink. Empty, invalid-header and
+unsupported-version ISF payloads remain inert and distinguishable.
+
+`version1Extent` means only that the stream's version and declared byte extent
+match; packets, drawing attributes, compression, transforms and strokes are
+not validated. Each payload is bounded to 16 MiB and the aggregate retained
+media budget is checked before copying it. Malformed envelopes and nonzero
+noncomplex `pInkData` values are rejected. Flags without bytes remain explicit
+loss evidence rather than being counted as an ink payload.
+
+`idDiscussAnchor=1` records a discussion-anchor Boolean. It is **not** a comment
+identifier, so it cannot connect a main-story shape to an otherwise unrelated
+comment. Neither it nor `fInkAnnotation` is used to invent a relationship to
+`ATRDPost10.fInkAtn`. The tests independently assemble the documented empty ISF
+stream and OfficeArt envelope, check byte-exact package evidence and adversarial
+headers, and verify that unrelated comment/shape flags remain independent.
+They do not establish native pen rendering or nonempty stroke round trips.
+The inspected Quds fixtures currently provide threaded comments but no ink
+payload fixture; a native ink sample and an ISF stroke oracle remain required.
+
+Primary format references:
+
+- [MS-DOC ATRDPost10](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/19181fe7-a62a-4e70-9a5f-a0cb1ebe0921)
+- [MS-ODRAW pInkData](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/27649c8d-894d-45e3-9304-3c7c85be2267)
+- [MS-ODRAW IMsoInkData](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/75eca54d-0b10-4796-969f-6ab349fa1fec)
+- [MS-ODRAW Ink Boolean Properties](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/ea9cdb07-e9b9-4412-a811-f5d80ccee608)
+- [MS-ODRAW idDiscussAnchor](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/b81344c5-9175-4b0c-a530-49c5c59fcc6b)
+- [Microsoft Ink Serialized Format specification](https://download.microsoft.com/download/0/B/E/0BE8BDD7-E5E8-422A-ABFD-4342ED7AD886/InkSerializedFormat(ISF)Specification.pdf)
 
 ## Remaining limits
 

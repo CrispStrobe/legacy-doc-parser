@@ -31,12 +31,33 @@ can subsequently move that origin without changing individual cell widths.
 Negative origins remain negative: the native fixture's 108-twip outdent must
 not silently become zero and shift every cell's text by 5.4 points.
 
-DOCX writes the origin as `w:tblInd` and constructs its grid from the absolute
-edges of all rows. Rows beginning or ending inside that grid retain their
+DOCX constructs its grid from the absolute edges of all rows. Under the legacy
+Word placement used by this conversion, a top-level table's `w:tblInd` equals
+the boundary origin plus the first cell's effective leading margin. Nested
+tables use the boundary origin directly. Rows beginning or ending inside that grid retain their
 missing leading or trailing cells through `w:gridBefore`/`w:gridAfter` and
 `w:wBefore`/`w:wAfter`. Differently split and indented rows therefore share a
 grid without inventing content cells. This is property preservation; exact
 placement still needs an independently rendered comparison.
+
+The authored native-origin probe checks zero and nonzero default margins,
+per-cell overrides, negative and positive origins, an independent half-gap,
+and nested tables. On LibreOfficeDev 26.8.0.0.alpha0
+`2c87e51eeaa2b413ff4ae097b2705eea1995d8e5`, all nine cases retained the native
+DOCX indents and produced zero measured horizontal cell-text drift relative
+to the surrounding paragraph. The original fixture's implicit page and font
+defaults differ between binary and OOXML consumers, so these are relative
+table-position measurements, not whole-page goldens. The reviewed measurements
+are in `test/fixtures/word_native/table-origin-golden.json`; the probe never
+updates them automatically.
+
+```sh
+dart run tool/fidelity/table_origin_fixture.dart build/table-origin-fixtures
+python tool/fidelity/table_origin_probe.py --office /path/to/soffice \
+  --fixtures "$PWD/build/table-origin-fixtures" \
+  --output "$PWD/build/table-origin-native" \
+  --golden test/fixtures/word_native/table-origin-golden.json
+```
 
 References: [TDefTableOperand](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/de06ec41-a0ac-4046-9096-cdfaa0091ad9)
 and [Table Properties](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/b39a6648-501c-4361-8366-4f042f579469).
@@ -72,9 +93,27 @@ on a consumer's DOCX defaults. The source `halfGapTwips` remains a separate
 origin offset and is never reused as padding. Zero margins and explicit nil
 widths retain their distinct native representations.
 
-Conditional **paragraph and character** properties are still reported as
-unsupported. Applying those after already coalescing runs can lose source
-toggle boundaries, so this implementation does not guess those results.
+Conditional paragraph and character differences are now applied before source
+character-run segmentation. A structural paragraph prepass identifies each
+paragraph's innermost table, row, and cell. The parser then applies the table
+base, matching `PCnf`/`CCnf` differences, paragraph styles, and direct properties
+in order. No already-coalesced runs are restyled, and the prepass does not emit
+fields, media, references, or revisions a second time. Explicit false values,
+source-relative `0x80`/`0x81` toggles, and character-style changes are evaluated
+against the active table and paragraph context.
+
+Supported text differences include alignment, indents, spacing, paragraph
+pagination flags, borders/shading, font size/name/color, emphasis, underline,
+highlight, character spacing and vertical position. The public model records
+which properties the source actually specified. Native `w:pPr`/`w:rPr` style
+rules emit only those differences, preserving the distinction between absence
+and an explicit default. Conditional tab-change operators and additional text
+properties remain diagnosed as unsupported. Source-relative toggles inside
+table-style definitions resolve current cell text correctly; their raw operands
+are retained as conversion evidence and reported as partial formatting because
+overlapping conditional contexts cannot be represented by one context-free
+native toggle rule. This limitation does not apply to the ordinary CHPX toggles
+whose resolved runs remain explicit native text.
 Differently styled rows retain their resolved cell formatting; the first row's
 style supplies the table-wide native style reference. Floating tables,
 cell-spacing geometry, and additional incremental row operators still require
@@ -92,7 +131,8 @@ Primary references:
 - [CSSA](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/6c5d3dfc-988d-4e2b-a9dd-72b62cb64356)
 - [TInsertOperand](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/082d49fd-8f96-4fd9-ac6e-61bd7c00b90d)
 
-Tests: `test/legacy_word_conditional_table_test.dart` and
+Tests: `test/legacy_word_conditional_table_test.dart`,
+`test/legacy_word_table_text_test.dart`, and
 `test/legacy_word_table_format_test.dart`. The native Office fidelity runner
 remains the independent check for actual border pixels and cell text positions.
 
@@ -127,6 +167,39 @@ instance is encountered first.
 Groups that include start or formatting overrides still report
 `numberingNotReconstructed`. The first-use override and per-level restart rules
 require more than grouping by `lsid`; those instances are not silently merged.
+
+## Marker font inheritance and the indentation oracle
+
+An unlinked list level with no explicit marker font leaves the native font
+unspecified, so its number can inherit the authored paragraph mark's font.
+Previously the parser supplied the stylesheet's default font even for an empty
+LVL character-property array. This could replace an Arial paragraph mark with
+Times New Roman. Explicit marker fonts and fonts from a linked list style remain
+authoritative; no replacement family is guessed.
+
+The native `word` corpus bridge demonstrates this separately from indentation.
+Its source DOC and native DOCX render the `1.` marker using Liberation Sans,
+the installed substitution for the authored Arial. The old conversion rendered
+it using Liberation Serif. With the absent marker override preserved, the
+conversion renders it using Liberation Sans too. Exact source/package/PDF
+hashes, rendered bounds and the binary properties are recorded in
+`doc/evidence/list-marker-font-native.json`.
+
+That fixture still has an 18-point indentation disagreement. Its positive
+`ilfo=1` selects a level whose paragraph properties explicitly set both indents
+to zero. Its paragraph style and direct properties specify left 720 and first
+line -360 twips. [MS-DOC formatting order](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/d8b66123-1a3d-4e06-94c5-5ab16e9b6417)
+applies the [list level properties last](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/1a0bc623-211f-44f6-828b-51993f16e586),
+whereas this LibreOffice import retains the paragraph indents. The parser keeps
+the documented order. A negative `ilfo` still preserves the paragraph's logical
+left and first-line indents, as [sprmPIlfo requires](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/484822ee-a9d9-4af4-8423-29fda67a6a58).
+The disagreement remains open; the font correction is not reported as exact
+pagination or as a reason to reverse all list/style precedence.
+
+`test/legacy_word_list_precedence_test.dart` independently assembles font tables,
+linked and unlinked list styles, direct indentation and both signs of `ilfo`.
+It checks native font inheritance and explicit overrides, invalid font indices,
+and the contrasting positive/negative indentation contracts in model and XML.
 Public continuation references must name an unchained definition with the same
 source id and shared level objects, preventing a continuation from discarding
 different formatting.
@@ -136,6 +209,7 @@ Tests: `test/legacy_word_list_continuation_test.dart`.
 
 ## Residual scope
 
-Floating-table placement, table-style conditional text formatting and list-instance
+Floating-table placement, additional conditional text operators, native relative
+table-style toggle rules, and list-instance
 continuation with overrides need their own property-level interpretation. Retaining nested
 content alone does not establish page-layout equivalence to Microsoft Word.

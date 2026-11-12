@@ -16,6 +16,10 @@ extension _WordTableStyleWriter on _StructuredWordWriter {
         throw const FormatException('Invalid Word table style definition.');
       }
       _tableStyleDefinitions[style.id] = style;
+      _tableTextEvidence(style.id, style.text, null);
+      for (final entry in style.textConditions.entries) {
+        _tableTextEvidence(style.id, entry.value, entry.key);
+      }
     }
     for (final style in document.tableStyles) {
       final seen = <int>{};
@@ -84,7 +88,7 @@ extension _WordTableStyleWriter on _StructuredWordWriter {
       _shading(format.shading!, xml, 'tableCellStyle', null);
     }
     if (format.noWrap != null) {
-      xml.add('<w:noWrap w:val="${format.noWrap! ? 1 : 0}"/>');
+      xml.add('<w:noWrap w:val="${format.noWrap! ? 'on' : 'off'}"/>');
     }
     if (format.margins.isNotEmpty) {
       xml.add('<w:tcMar>');
@@ -120,6 +124,7 @@ extension _WordTableStyleWriter on _StructuredWordWriter {
       if (style.basedOn != null) {
         xml.add('<w:basedOn w:val="LegacyTable${style.basedOn}"/>');
       }
+      _tableTextProperties(style.text, xml);
       xml.add('<w:tblPr>');
       if (style.rowBandSize != null) {
         xml.add('<w:tblStyleRowBandSize w:val="${style.rowBandSize}"/>');
@@ -133,10 +138,16 @@ extension _WordTableStyleWriter on _StructuredWordWriter {
       xml.add('</w:tcPr>');
       for (final condition in LegacyWordTableCondition.values) {
         final rule = style.conditions[condition];
-        if (rule == null) continue;
-        xml.add('<w:tblStylePr w:type="${condition.name}"><w:tcPr>');
-        _tableCellFormat(rule, xml);
-        xml.add('</w:tcPr></w:tblStylePr>');
+        final text = style.textConditions[condition];
+        if (rule == null && text == null) continue;
+        xml.add('<w:tblStylePr w:type="${condition.name}">');
+        if (text != null) _tableTextProperties(text, xml);
+        if (rule != null) {
+          xml.add('<w:tcPr>');
+          _tableCellFormat(rule, xml);
+          xml.add('</w:tcPr>');
+        }
+        xml.add('</w:tblStylePr>');
       }
       xml.add('</w:style>');
       _count('tableStyleDefinitions');

@@ -13,7 +13,14 @@ class _OfficeArtProperties {
       final old = values[entry.key];
       var value = entry.value;
       if (old != null &&
-          const {0x00bf, 0x017f, 0x01bf, 0x01ff, 0x023f}.contains(entry.key)) {
+          const {
+            0x00bf,
+            0x017f,
+            0x01bf,
+            0x01ff,
+            0x023f,
+            0x073f,
+          }.contains(entry.key)) {
         final used = value ~/ 65536;
         final inherited = old ~/ 65536;
         value =
@@ -37,8 +44,68 @@ class _OfficeArtShapeReader {
   final unsupported = <int>{};
   Map<int, int> get p => properties.values;
   int pointCount = 0;
+  late final Uint8List? _inkData = _readInkData();
+  int get inkByteLength => _inkData?.length ?? 0;
+
+  Uint8List? _readInkData() {
+    if (properties.complex.containsKey(0x073f)) {
+      throw const FormatException(
+        'OfficeArt ink Boolean properties are complex.',
+      );
+    }
+    if ((p[0x0700] ?? 0) != 0) {
+      throw const FormatException('Noncomplex OfficeArt ink must be absent.');
+    }
+    final bytes = properties.complex[0x0700];
+    if (bytes == null) return null;
+    // MS-ODRAW IMsoInkData: GUID, uint32 cbBlob, then exactly cbBlob ISF bytes.
+    // pInkData is an envelope, not a bare ISF stream or an arbitrary freeform.
+    const guid = [
+      0x34,
+      0x1a,
+      0x7c,
+      0x93,
+      0x1d,
+      0x15,
+      0x10,
+      0x46,
+      0x9c,
+      0xa6,
+      0xa8,
+      0xcc,
+      0x9b,
+      0xdb,
+      0x5d,
+      0x83,
+    ];
+    if (bytes.length < 20 ||
+        bytes.length > LegacyWordOfficeArtInk.maxDataLength + 20) {
+      throw const FormatException('Invalid OfficeArt ink envelope extent.');
+    }
+    for (var i = 0; i < guid.length; i++) {
+      if (bytes[i] != guid[i]) {
+        throw const FormatException('Invalid OfficeArt ink envelope identity.');
+      }
+    }
+    final input = _Bytes(bytes), length = input.u32(16);
+    if (length != bytes.length - 20) {
+      throw const FormatException('Invalid OfficeArt ink envelope byte count.');
+    }
+    return input.slice(20, length);
+  }
 
   LegacyWordOfficeArtShape read() {
+    final inkData = _inkData;
+    final ink =
+        inkData != null || p.containsKey(0x073f) || p.containsKey(0x0700)
+        ? LegacyWordOfficeArtInk(
+            data: inkData,
+            annotation: _used(0x073f, 3),
+            hitTestInk: _used(0x073f, 2),
+            renderShape: _used(0x073f, 1),
+            renderInk: _used(0x073f, 0),
+          )
+        : null;
     final fill = p.keys.any((id) => id >= 0x0180 && id <= 0x01bf)
         ? LegacyWordOfficeArtFill(
             enabled: _used(0x01bf, 4),
@@ -147,6 +214,8 @@ class _OfficeArtShapeReader {
       line: line,
       shadow: shadow,
       text: text,
+      ink: ink,
+      discussionAnchor: p[0x0307] == 1,
       unsupportedProperties: unsupported.toList()..sort(),
     );
   }

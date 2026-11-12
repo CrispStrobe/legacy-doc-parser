@@ -170,8 +170,9 @@ void _applyCellShading(
       warnings,
       old: old,
     );
-    // The parser does not yet apply conditional table styles. A raw Nil asks
-    // for that style, so retain it and explicitly report the unresolved layer.
+    // Raw Nil can only be resolved when assembly identifies a table style.
+    // Keep the diagnostic for now because this property may also occur on
+    // rows with no usable style reference; do not turn it into automatic fill.
     if (raw && shading.pattern == 'nil') {
       warnings.add(LegacyWordWarning.unsupportedFormatting);
     }

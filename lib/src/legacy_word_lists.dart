@@ -271,7 +271,13 @@ extension _WordLists on _StructuredWordParser {
                   ? 2
                   : 0],
           paragraphStyle: _paragraphStyle(paragraphProperties, styleIndex ?? 0),
-          characterStyle: _characterStyle(characterProperties),
+          // Without a linked list style, absent marker font properties inherit
+          // the paragraph mark. Injecting the STSH default here would override
+          // its authored font even when LVL.grpprlChpx is completely empty.
+          characterStyle: _characterStyle(
+            characterProperties,
+            useDocumentDefaultFont: styleIndex != null,
+          ),
         ),
         List.unmodifiable(paragraph),
         styleIndex,

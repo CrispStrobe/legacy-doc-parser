@@ -73,9 +73,8 @@ extension _WordTableStyles on _StructuredWordParser {
     for (final entry in styles.entries) {
       if (entry.value.kind != 3) continue;
       final raw = entry.value;
-      if (raw.paragraph.isNotEmpty || raw.character.isNotEmpty) {
-        warnings.add(LegacyWordWarning.unsupportedFormatting);
-      }
+      final text = _readTableTextOperations(raw);
+      _tableTextOperations[entry.key] = text;
       final conditional =
           <LegacyWordTableCondition, LegacyWordTableCellFormat>{};
       final plain = <_Sprm>[];
@@ -125,6 +124,17 @@ extension _WordTableStyles on _StructuredWordParser {
         columnBandSize: columnBand,
         cell: _readTableCellFormat(plain),
         conditions: Map.unmodifiable(conditional),
+        text: _tableTextFormat(text.paragraph, text.character),
+        textConditions: Map.unmodifiable({
+          for (final condition in {
+            ...text.paragraphConditions.keys,
+            ...text.characterConditions.keys,
+          })
+            condition: _tableTextFormat(
+              text.paragraphConditions[condition] ?? const [],
+              text.characterConditions[condition] ?? const [],
+            ),
+        }),
       );
     }
     for (final id in _tableStyles.keys) {
@@ -233,48 +243,11 @@ extension _WordTableStyles on _StructuredWordParser {
     final id = row.tableStyleId;
     if (id == null) return const LegacyWordTableCellFormat();
     final chain = _tableStyleChain(id);
-    final options = row.styleOptions;
-    var rowBand = 1, colBand = 1;
     var value = const LegacyWordTableCellFormat();
     for (final style in chain) {
       value = _mergeTableCellFormat(value, style.cell);
-      rowBand = style.rowBandSize ?? rowBand;
-      colBand = style.columnBandSize ?? colBand;
     }
-    final firstRow = (options & 0x20) != 0 && (rowIndex == 0 || row.isHeader);
-    final lastRow =
-        (options & 0x40) != 0 && rowIndex == rows.length - 1 && !firstRow;
-    final firstCol = (options & 0x80) != 0 && column == 0;
-    final lastCol =
-        (options & 0x100) != 0 && column == row.cells.length - 1 && !firstCol;
-    final excludedRows = (options & 0x20) == 0
-        ? 0
-        : rows
-              .take(rowIndex)
-              .indexed
-              .where((p) => p.$1 == 0 || p.$2.isHeader)
-              .length;
-    final conditions = <LegacyWordTableCondition>[
-      if (!firstRow && !lastRow && (options & 0x200) == 0)
-        ((rowIndex - excludedRows) ~/ rowBand).isEven
-            ? LegacyWordTableCondition.band1Horz
-            : LegacyWordTableCondition.band2Horz,
-      if (!firstCol && !lastCol && (options & 0x400) == 0)
-        ((column - ((options & 0x80) != 0 ? 1 : 0)) ~/ colBand).isEven
-            ? LegacyWordTableCondition.band1Vert
-            : LegacyWordTableCondition.band2Vert,
-      if (firstCol) LegacyWordTableCondition.firstCol,
-      if (lastCol) LegacyWordTableCondition.lastCol,
-      if (firstRow) LegacyWordTableCondition.firstRow,
-      if (lastRow) LegacyWordTableCondition.lastRow,
-      if (rowIndex == 0 && firstRow && firstCol)
-        LegacyWordTableCondition.nwCell,
-      if (rowIndex == 0 && firstRow && lastCol) LegacyWordTableCondition.neCell,
-      if (rowIndex == rows.length - 1 && lastRow && firstCol)
-        LegacyWordTableCondition.swCell,
-      if (rowIndex == rows.length - 1 && lastRow && lastCol)
-        LegacyWordTableCondition.seCell,
-    ];
+    final conditions = _tableStyleConditions(row, rowIndex, rows, column);
     final baseBorders = value.borders;
     value = LegacyWordTableCellFormat(
       shading: value.shading,
@@ -311,6 +284,54 @@ extension _WordTableStyles on _StructuredWordParser {
       }
     }
     return value;
+  }
+
+  List<LegacyWordTableCondition> _tableStyleConditions(
+    LegacyWordTableRow row,
+    int rowIndex,
+    List<LegacyWordTableRow> rows,
+    int column,
+  ) {
+    final options = row.styleOptions;
+    var rowBand = 1, colBand = 1;
+    for (final style in _tableStyleChain(row.tableStyleId!)) {
+      rowBand = style.rowBandSize ?? rowBand;
+      colBand = style.columnBandSize ?? colBand;
+    }
+    final firstRow = (options & 0x20) != 0 && (rowIndex == 0 || row.isHeader);
+    final lastRow =
+        (options & 0x40) != 0 && rowIndex == rows.length - 1 && !firstRow;
+    final firstCol = (options & 0x80) != 0 && column == 0;
+    final lastCol =
+        (options & 0x100) != 0 && column == row.cells.length - 1 && !firstCol;
+    final excludedRows = (options & 0x20) == 0
+        ? 0
+        : rows
+              .take(rowIndex)
+              .indexed
+              .where((p) => p.$1 == 0 || p.$2.isHeader)
+              .length;
+    return <LegacyWordTableCondition>[
+      if (!firstRow && !lastRow && (options & 0x200) == 0)
+        ((rowIndex - excludedRows) ~/ rowBand).isEven
+            ? LegacyWordTableCondition.band1Horz
+            : LegacyWordTableCondition.band2Horz,
+      if (!firstCol && !lastCol && (options & 0x400) == 0)
+        ((column - ((options & 0x80) != 0 ? 1 : 0)) ~/ colBand).isEven
+            ? LegacyWordTableCondition.band1Vert
+            : LegacyWordTableCondition.band2Vert,
+      if (firstCol) LegacyWordTableCondition.firstCol,
+      if (lastCol) LegacyWordTableCondition.lastCol,
+      if (firstRow) LegacyWordTableCondition.firstRow,
+      if (lastRow) LegacyWordTableCondition.lastRow,
+      if (rowIndex == 0 && firstRow && firstCol)
+        LegacyWordTableCondition.nwCell,
+      if (rowIndex == 0 && firstRow && lastCol) LegacyWordTableCondition.neCell,
+      if (rowIndex == rows.length - 1 && lastRow && firstCol)
+        LegacyWordTableCondition.swCell,
+      if (rowIndex == rows.length - 1 && lastRow && lastCol)
+        LegacyWordTableCondition.seCell,
+    ];
   }
 }
 

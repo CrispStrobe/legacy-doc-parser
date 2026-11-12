@@ -22,6 +22,12 @@ extension _WordMedia on _StructuredWordWriter {
     }
     for (final picture in media.pictures) {
       final owner = _storyAt(picture.cp);
+      _preserveInk(picture.shape, {
+        'pictureId': picture.id,
+        'cp': picture.cp,
+        'story': owner,
+        'officeArtArtifactId': picture.officeArtArtifactId,
+      });
       final asset = _mediaAssets[picture.imageId];
       if (owner == null ||
           !_displayPosition(picture.cp) ||
@@ -68,6 +74,12 @@ extension _WordMedia on _StructuredWordWriter {
         throw const FormatException('Duplicate Word drawing identity.');
       }
       final owner = _storyAt(drawing.anchorCp);
+      _preserveInk(drawing.shape, {
+        'shapeId': drawing.shapeId,
+        'cp': drawing.anchorCp,
+        'story': owner,
+        'officeArtArtifactId': drawing.officeArtArtifactId,
+      });
       final asset = _mediaAssets[drawing.imageId];
       if (textboxShapes.contains((drawing.headerStory, drawing.shapeId)) ||
           textboxStories.contains((
@@ -220,6 +232,43 @@ extension _WordMedia on _StructuredWordWriter {
         case LegacyWordMediaIssue.oleFieldMetadataIncomplete:
           limitations.add(LegacyWordConversionLimitation.embeddedObjects);
       }
+    }
+  }
+
+  void _preserveInk(
+    LegacyWordOfficeArtShape? shape,
+    Map<String, Object?> occurrence,
+  ) {
+    final ink = shape?.ink;
+    if (ink == null) return;
+    limitations.add(LegacyWordConversionLimitation.embeddedObjects);
+    if (ink.annotation == true) {
+      limitations.add(LegacyWordConversionLimitation.notesComments);
+    }
+    final bytes = ink.data;
+    final metadata = <String, Object?>{
+      ...occurrence,
+      'payloadPropertyId': 0x0700,
+      'booleanPropertyId': 0x073f,
+      'annotation': ink.annotation,
+      'hitTestInk': ink.hitTestInk,
+      'renderShape': ink.renderShape,
+      'renderInk': ink.renderInk,
+      'discussionAnchor': shape!.discussionAnchor,
+      'hasPayload': bytes != null,
+      'format': bytes == null ? null : 'ISF',
+      'headerStatus': ink.headerStatus?.name,
+      'strokeSemanticsDecoded': false,
+      'nativeInkEmitted': false,
+      'reason': bytes == null
+          ? 'ink properties retained without a stored ink payload'
+          : 'inert ISF payload retained; pen-stroke semantics are not reconstructed',
+    };
+    if (bytes == null) {
+      _evidenceRecords.add({'kind': 'officeArtInk', ...metadata});
+    } else {
+      _preserveEvidence('officeArtInk', bytes, metadata);
+      _count('inkPayloads');
     }
   }
 

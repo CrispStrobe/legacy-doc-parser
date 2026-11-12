@@ -35,6 +35,19 @@ XmlElement _cellXml(List<int> bytes) {
 }
 
 void main() {
+  test('native noWrap uses OnOffOnly values for true and explicit false', () {
+    for (final nowrap in [false, true]) {
+      final bytes = tableFixture(
+        _row(tableFixtureDefinition([1800], flags: [nowrap ? 1 << 13 : 0])),
+      );
+      final cell = _cellXml(convertLegacyWordToStructuredDocx(bytes).bytes);
+      expect(
+        cell.getElement('w:noWrap')!.getAttribute('w:val'),
+        nowrap ? 'on' : 'off',
+      );
+    }
+  });
+
   test('source default margins are explicit and independent of half-gap', () {
     final bytes = tableFixture(
       _row([
@@ -59,6 +72,35 @@ void main() {
     expect(margins.getElement('w:left')!.getAttribute('w:w'), '108');
     expect(margins.getElement('w:right')!.getAttribute('w:w'), '108');
     expect(margins.getElement('w:top')!.getAttribute('w:w'), '0');
+  });
+
+  test('inserting a cell shifts existing shading and margin overrides', () {
+    final bytes = tableFixture([
+      const TableFixtureParagraph('New\x07', depth: 1, cell: true),
+      const TableFixtureParagraph('Original\x07', depth: 1, cell: true),
+      TableFixtureParagraph(
+        '\x07',
+        depth: 1,
+        row: true,
+        widths: const [1800],
+        extra: [
+          ..._margin(0xd632, 0, 1, 8, 240),
+          ...wordSprm(0xd612, [10, ...wordU32(0xff000000), 255, 0, 0, 0, 0, 0]),
+          ...wordSprm(0x7621, [0, 1, ...wordU16(900)]),
+        ],
+      ),
+    ]);
+    final cells =
+        (parseLegacyWordDocument(bytes).blocks.single as LegacyWordTable)
+            .rows
+            .single
+            .cells;
+    expect(cells.map((c) => c.widthTwips), [900, 1800]);
+    expect(cells.map((c) => c.formatting.margins[LegacyWordBorderSide.right]), [
+      108,
+      240,
+    ]);
+    expect(cells.map((c) => c.shading?.backgroundHex), [null, 'FF0000']);
   });
 
   test('per-side row defaults and zero/nil cell overrides remain distinct', () {

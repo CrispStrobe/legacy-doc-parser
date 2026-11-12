@@ -412,7 +412,13 @@ extension _WordRevisions on _StructuredWordParser {
             'Invalid Word character-style reference.',
           );
         }
-        return _resolveStyle(index).character;
+        // Character styles are differences applied over the paragraph/table
+        // context; evaluating their 0x80/0x81 toggles against an empty base
+        // would discard a conditional table character style.
+        return _resolveStyleOverTable(
+          index,
+          _TableTextContext(_ResolvedStyle(const {}, characterBase)),
+        ).character;
       },
     );
     return character;

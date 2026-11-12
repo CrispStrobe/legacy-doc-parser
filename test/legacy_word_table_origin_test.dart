@@ -41,7 +41,7 @@ void main() {
       final xml = _document(convertLegacyWordToStructuredDocx(bytes).bytes);
       expect(
         xml.findAllElements('w:tblInd').single.getAttribute('w:w'),
-        '$origin',
+        '${origin + 108}',
       );
       expect(
         xml.findAllElements('w:gridCol').map((e) => e.getAttribute('w:w')),
@@ -49,6 +49,27 @@ void main() {
       );
     }
   });
+
+  test(
+    'native indentation uses the explicit first-cell margin, not half-gap',
+    () {
+      for (final margin in [0, 108, 240]) {
+        final bytes = tableFixture(
+          _row(
+            480,
+            extra: [
+              ...wordSprm(0xd632, [6, 0, 1, 2, 3, ...wordU16(margin)]),
+            ],
+          ),
+        );
+        final xml = _document(convertLegacyWordToStructuredDocx(bytes).bytes);
+        expect(
+          xml.findAllElements('w:tblInd').single.getAttribute('w:w'),
+          '${480 + margin}',
+        );
+      }
+    },
+  );
 
   test('row origins share an absolute grid with missing edge cells', () {
     final bytes = tableFixture([..._row(-108), ..._row(492)]);

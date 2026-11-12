@@ -283,6 +283,9 @@ class _WordMediaReader {
       throw const FormatException('Conflicting OfficeArt textbox identifiers.');
     }
     final reader = _OfficeArtShapeReader(props, type, flags);
+    // Validate and budget the unwrapped ink before its immutable model copy.
+    // The original OfficeArt artifact is separately included in this budget.
+    _retain(reader.inkByteLength);
     final model = reader.read();
     _geometryPoints += reader.pointCount;
     _geometryCommands += model.geometry?.path.length ?? 0;

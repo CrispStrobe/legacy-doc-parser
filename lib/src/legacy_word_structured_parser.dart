@@ -20,6 +20,7 @@ part 'legacy_word_fields.dart';
 part 'legacy_word_lists.dart';
 part 'legacy_word_tables.dart';
 part 'legacy_word_table_styles.dart';
+part 'legacy_word_table_text.dart';
 part 'legacy_word_media_parser.dart';
 part 'legacy_word_officeart_parser.dart';
 
@@ -73,6 +74,7 @@ class _StructuredWordParser {
   final _numberingById = <int, LegacyWordNumberingDefinition>{};
   final _listLevels = <(int, int), _ListLevelData>{};
   final _tableStyles = <int, LegacyWordTableStyle>{};
+  final _tableTextOperations = <int, _TableTextOperations>{};
   late final Uint16List body;
   late final List<LegacyWordSection> sections;
   late final Set<int> sectionEnds;
@@ -165,14 +167,20 @@ class _StructuredWordParser {
     _prepareFieldRevisions(priorFields);
     _invisibleMediaRanges = _fieldHiddenMediaRanges(priorFields);
     _fieldResults.clear();
-    final paragraphs = <_Paragraph>[];
+    final segments = <(int, int, int, int, _PreparedParagraph)>[];
     var start = first;
     for (var cp = first; cp < limit; cp++) {
       final unit = body[cp];
       if (unit == 13 ||
           unit == 7 ||
           (unit == 12 && sectionEnds.contains(cp + 1))) {
-        paragraphs.add(_paragraph(start, cp, cp + 1, unit));
+        segments.add((
+          start,
+          cp,
+          cp + 1,
+          unit,
+          _prepareParagraph(start, cp + 1),
+        ));
         start = cp + 1;
         if (++paragraphCount > 50000) {
           throw const FormatException(
@@ -187,8 +195,38 @@ class _StructuredWordParser {
           'Word paragraphs exceed the preview complexity limit.',
         );
       }
-      paragraphs.add(_paragraph(start, limit, limit, 0));
+      segments.add((start, limit, limit, 0, _prepareParagraph(start, limit)));
     }
+    // Discover row/cell conditions before reading any character runs. A
+    // structural prepass has no field, media, revision, or reference effects.
+    final contexts = _tableTextOperations.values.any((v) => v.isNotEmpty)
+        ? _tableTextContexts(
+            _assembleTables([
+              for (final segment in segments)
+                _Paragraph(
+                  LegacyWordParagraph(
+                    startCp: segment.$1,
+                    endCp: segment.$3,
+                    runs: const [],
+                    style: const LegacyWordParagraphStyle(),
+                  ),
+                  segment.$5.properties,
+                  segment.$4,
+                ),
+            ]),
+          )
+        : const <int, _TableTextContext>{};
+    final paragraphs = [
+      for (final segment in segments)
+        _paragraph(
+          segment.$1,
+          segment.$2,
+          segment.$3,
+          segment.$4,
+          segment.$5,
+          contexts[segment.$1],
+        ),
+    ];
     if (_fieldResults.isNotEmpty) {
       throw const FormatException('Unclosed Word field.');
     }
@@ -346,25 +384,35 @@ class _StructuredWordParser {
     },
   );
 
-  _Paragraph _paragraph(int start, int contentEnd, int end, int terminator) {
+  _Paragraph _paragraph(
+    int start,
+    int contentEnd,
+    int end,
+    int terminator,
+    _PreparedParagraph prepared,
+    _TableTextContext? tableContext,
+  ) {
     final terminalCp = end > start ? end - 1 : start;
-    final terminalPiece = source.pieceAt(terminalCp);
-    final papx = paragraphFormatting.at(terminalPiece.fc(terminalCp));
-    final prm = _pieceProperties(terminalPiece);
-    final initial = _resolveStyle(papx.styleIndex);
-    final properties = <String, Object?>{
-      ...initial.paragraph,
-      'styleIndex': papx.styleIndex,
-    };
-    _applyParagraph(
-      [...papx.operations, ...prm],
-      properties,
-      budget,
-      warnings,
-      resolveParagraphStyle: (index) => _resolveStyle(index).paragraph,
-    );
-    final styleIndex = properties['styleIndex'] as int? ?? papx.styleIndex;
-    final resolved = _resolveStyle(styleIndex);
+    _ResolvedStyle resolve(int index) => tableContext == null
+        ? _resolveStyle(index)
+        : _resolveStyleOverTable(index, tableContext);
+    final properties = tableContext == null
+        ? prepared.properties
+        : <String, Object?>{
+            ...resolve(prepared.styleIndex).paragraph,
+            'styleIndex': prepared.styleIndex,
+          };
+    if (tableContext != null) {
+      _applyParagraph(
+        prepared.operations,
+        properties,
+        budget,
+        warnings,
+        resolveParagraphStyle: (index) => resolve(index).paragraph,
+      );
+    }
+    final styleIndex = properties['styleIndex'] as int? ?? prepared.styleIndex;
+    final resolved = resolve(styleIndex);
     final characterBase = _applyListFormatting(properties, resolved.character);
     final style = _paragraphStyle(properties, styleIndex);
     final formattingRevision = _paragraphRevision(properties);
@@ -673,8 +721,13 @@ class _StructuredWordParser {
     );
   }
 
-  LegacyWordCharacterStyle _characterStyle(_Props properties) {
-    final fontIndex = properties['fontIndex'] as int? ?? defaultFont;
+  LegacyWordCharacterStyle _characterStyle(
+    _Props properties, {
+    bool useDocumentDefaultFont = true,
+  }) {
+    final fontIndex =
+        properties['fontIndex'] as int? ??
+        (useDocumentDefaultFont ? defaultFont : null);
     String? font;
     if (fontIndex != null) {
       if (fontIndex >= 0 && fontIndex < fonts.length) {

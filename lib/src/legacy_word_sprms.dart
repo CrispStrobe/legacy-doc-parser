@@ -555,6 +555,20 @@ void _applyParagraph(
             ...formats.skip(first),
           ],
         );
+        // Indexed overrides belong to the original cells, not their old
+        // numeric positions. Newly inserted cells inherit row/style defaults.
+        void shiftCells<T>(String key) {
+          final values = output[key] as Map<int, T>?;
+          if (values == null) return;
+          output[key] = Map<int, T>.unmodifiable({
+            for (final entry in values.entries)
+              if (entry.key < old.flags.length)
+                entry.key < first ? entry.key : entry.key + count: entry.value,
+          });
+        }
+        shiftCells<LegacyWordShading>('cellShading');
+        shiftCells<LegacyWordShading>('cellShadingRaw');
+        shiftCells<Map<LegacyWordBorderSide, int?>>('cellMargins');
       case 0xd620:
       case 0xd62f:
         final old = operation.code == 0xd620;

@@ -158,8 +158,7 @@ class _StructuredWordWriter {
     _package.relate('', _officeDocumentRelationship, 'word/document.xml');
     _writeAuxiliaryStories();
     _writeNumbering();
-    _writeEvidence();
-    if (_styles.isNotEmpty) {
+    if (_styles.isNotEmpty || document.tableStyles.isNotEmpty) {
       final styles = _styleDefinitions();
       if (_xml.byteEstimate + styles.byteEstimate > kLegacyWordDocxXmlLimit) {
         _tooComplex();
@@ -171,6 +170,9 @@ class _StructuredWordWriter {
         'styles.xml',
       );
     }
+    // Style serialization can add preservation counts and fallback evidence.
+    // Serialize that evidence only once every native style has been emitted.
+    _writeEvidence();
     _summarizeLimitations();
     return _package.encode();
   }
@@ -252,6 +254,16 @@ class _StructuredWordWriter {
               .reduce((a, b) => a < b ? a : b);
     _xml.add('<w:tbl><w:tblPr>');
     final firstRow = table.rows.firstOrNull;
+    final firstMargins = firstRow?.cells.firstOrNull?.formatting.margins;
+    final leadingMargin =
+        firstMargins?.containsKey(LegacyWordBorderSide.left) == true
+        ? firstMargins![LegacyWordBorderSide.left] ?? 0
+        : 108;
+    // Legacy Word/OOXML top-level indentation aligns the first cell's text,
+    // whereas TDefTable retains the outer boundary. Native DOC->DOCX oracles
+    // confirm this conversion for zero, signed, per-cell and default margins.
+    // Nested tables already use their boundary origin and need no adjustment.
+    final nativeIndent = origin + (_tableDepth == 1 ? leadingMargin : 0);
     if (firstRow?.tableStyleId case final id?) {
       if (!_tableStyleDefinitions.containsKey(id)) {
         throw const FormatException('Unknown Word table style.');
@@ -260,7 +272,7 @@ class _StructuredWordWriter {
     }
     _xml.add(
       '<w:tblW w:w="0" w:type="auto"/>'
-      '<w:tblInd w:w="$origin" w:type="dxa"/>',
+      '<w:tblInd w:w="$nativeIndent" w:type="dxa"/>',
     );
     _tableLook(firstRow?.styleOptions ?? 0x600, _xml);
     _xml.add('</w:tblPr>');
