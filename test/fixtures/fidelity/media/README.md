@@ -7,7 +7,7 @@ it imports neither the parser/converter nor their binary-test builders.
 | Input | Records | Native asset | Features |
 | --- | ---: | ---: | --- |
 | `emf-vectors.docx` | 21 including header/EOF | `emf-vectors.emf`, 540 bytes | Rectangle, ellipse, cubic Beziers, affine triangle, signed anisotropic window mapping, solid pen/brush, saved contexts |
-| `wmf-vectors.docx` | 18 including EOF | `wmf-vectors.wmf`, 240 bytes | Rectangle, ellipse, polygon, line, signed anisotropic window mapping, solid objects, placeable-header checksum |
+| `wmf-vectors.docx` | 17 including EOF | `wmf-vectors.wmf`, 230 bytes | Rectangle, ellipse, polygon, line, explicit initial mapping, signed window origin, solid objects, placeable-header checksum |
 
 Both images have a 600 × 360 coordinate canvas and an independently specified
 6 × 3.6 inch inline extent. They contain no text/font commands, scripts,
@@ -27,5 +27,5 @@ native DOC bridge, native DOCX reference and this package's output.
 
 An installed LibreOffice acceptance run imported/exported both controls.
 The binary DOC retained the exact EMF and removed the WMF's 22-byte placeable
-header. The parser recovered both resulting payloads and generated a complete
+header (leaving 208 bytes). The parser recovered both resulting payloads and generated a complete
 bounded SVG for each. That observed bridge change is not an extraction loss.

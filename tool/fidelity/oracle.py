@@ -26,6 +26,8 @@ import re
 import zipfile
 import xml.etree.ElementTree as ET
 
+from structure import StructureOracle
+
 ROOT = Path(__file__).resolve().parents[2]
 W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
@@ -161,6 +163,14 @@ def _integer(value, default=None):
     return int(value)
 
 
+def _paragraph_identifier(value):
+    if value is None:
+        return None
+    if not re.fullmatch(r'[0-9A-Fa-f]{8}', value):
+        raise ValueError('Invalid comment paragraph id')
+    return value.upper()
+
+
 def _json_fingerprint(value):
     """Bound canonical measurements before sorting or returning large reports."""
     digest = hashlib.sha256()
@@ -187,16 +197,25 @@ class _Context:
         self.styles, self.abstracts, self.nums = {}, {}, {}
         self.style_cache, self.level_cache = {}, {}
         self.level_active, self.comment_extras = set(), {}
+        self.comment_ids, self.default_styles = {}, {}
+        self.document_defaults = None
         for rel in self.relationships(main):
             if rel['external']:
                 continue
             if rel['type'] == 'commentsExtended':
                 tree, _ = self.tree(rel['target'])
                 for node in tree.findall('w15:commentEx', NS):
-                    identifier = node.get('{' + NS['w15'] + '}paraId')
+                    identifier = _paragraph_identifier(node.get('{' + NS['w15'] + '}paraId'))
                     if not identifier or identifier in self.comment_extras:
                         raise ValueError('Missing or duplicate extended-comment paragraph id')
                     self.comment_extras[identifier] = node
+            if rel['type'] == 'comments':
+                tree, _ = self.tree(rel['target'])
+                for node in tree.findall('w:comment', NS):
+                    identifier = _integer(node.get('{' + W + '}id'))
+                    if identifier is None or identifier in self.comment_ids:
+                        raise ValueError('Missing or duplicate comment identity')
+                    self.comment_ids[identifier] = len(self.comment_ids)
             if rel['type'] not in ('styles', 'numbering'):
                 continue
             tree, _ = self.tree(rel['target'])
@@ -208,6 +227,13 @@ class _Context:
                     if identifier is None or identifier in target or len(target) >= 4096:
                         raise ValueError('Missing, duplicate or excessive style/numbering identity')
                     target[identifier] = node
+                    if tag == 'style' and _on_off(node.get('{' + W + '}default'), False) is True:
+                        kind = node.get('{' + W + '}type')
+                        if kind not in ('paragraph', 'character', 'table', 'numbering') or kind in self.default_styles:
+                            raise ValueError('Invalid or duplicate default style type')
+                        self.default_styles[kind] = identifier
+            if rel['type'] == 'styles':
+                self.document_defaults = tree.find('w:docDefaults', NS)
 
     def tree(self, owner):
         if owner not in self.trees:
@@ -258,6 +284,10 @@ class _Context:
                  if not _local(key).startswith('rsid') and
                  key not in ('{' + NS['w14'] + '}paraId', '{' + NS['w14'] + '}textId') and
                  not (name in REVISION_TAGS and key == '{' + W + '}id')}
+        # Target identities are measured separately against the referenced
+        # story content. A relationship-id rename is not a layout change.
+        if node.tag in ('{' + W + '}headerReference', '{' + W + '}footerReference'):
+            attrs.pop('r:id', None)
         if node.tag in ('{' + W + '}pStyle', '{' + W + '}rStyle', '{' + W + '}tblStyle'):
             return {'tag': _qname(node.tag), 'resolvedStyle': self.style(_child_value_parent(node), active)}
         if node.tag == '{' + W + '}numId':
@@ -549,11 +579,69 @@ def _paragraph_profile(node, context):
         text = _inline_text(run)
         properties = context.property(run.find('w:rPr', NS), current=True)
         if runs and runs[-1]['properties'] == properties:
-            runs[-1]['text'] += text
+            runs[-1]['fragments'].append(text)
         else:
-            runs.append({'text': text, 'properties': properties})
+            runs.append({'fragments': [text], 'properties': properties})
     return {'text': _inline_text(node), 'properties': context.property(node.find('w:pPr', NS), current=True),
-            'runs': runs}
+            'runs': [{'text': ''.join(run['fragments']), 'properties': run['properties']} for run in runs]}
+
+
+def _paragraph_snapshot(paragraphs, context, parents):
+    flows = {}
+    return [{'paragraph': index, 'flow': _flow(node, parents, flows),
+             **_paragraph_profile(node, context)} for node, index in paragraphs.items()]
+
+
+def _comment_anchor_snapshot(tree, context, parents, paragraphs):
+    """Keep range joins and locations, independently of comment text/counts.
+
+    ISO/IEC29500-1 17.13.4.5 links commentReference by id to both the comment
+    and optional range markers. A point reference without range markers is
+    valid. Incomplete/reversed/duplicate ranges remain explicit findings.
+    """
+    records, offsets, flows, unknown, groups = [], {}, {}, {}, {}
+    preceding_paragraph = None
+    kinds = {'commentRangeStart', 'commentRangeEnd', 'commentReference'}
+    for node in tree.iter():
+        if node in paragraphs:
+            preceding_paragraph = paragraphs[node]
+        kind = _local(node.tag)
+        if node.tag != '{' + W + '}' + kind or kind not in kinds:
+            continue
+        identifier = _integer(node.get('{' + W + '}id'))
+        paragraph = _nearest(node, parents, '{' + W + '}p')
+        if paragraph is not None and paragraph not in offsets:
+            offsets[paragraph] = _inline_offsets(paragraph)
+        flow = _flow(node, parents, flows)
+        comment = context.comment_ids.get(identifier)
+        record = {'kind': kind, 'comment': comment,
+                  'unresolvedIdentity': (unknown.setdefault(identifier, len(unknown))
+                                         if comment is None else None),
+                  'flow': flow, 'paragraph': paragraphs.get(paragraph),
+                  'offsetInParagraph': offsets[paragraph].get(node) if paragraph is not None else None,
+                  'precedingParagraph': preceding_paragraph if paragraph is None else None,
+                  'ignoredInCommentStory': flow.startswith('comment:'),
+                  'issues': ['unresolved-comment'] if comment is None else []}
+        if identifier is None:
+            record['issues'].append('missing-comment-id')
+        groups.setdefault((flow, identifier), []).append(len(records))
+        records.append(record)
+    for indexes in groups.values():
+        by_kind = {kind: [i for i in indexes if records[i]['kind'] == kind] for kind in kinds}
+        starts, ends, refs = (by_kind[name] for name in
+                              ('commentRangeStart', 'commentRangeEnd', 'commentReference'))
+        issues = []
+        if bool(starts) != bool(ends):
+            issues.append('incomplete-comment-range')
+        if (starts or ends) and not refs:
+            issues.append('missing-comment-reference')
+        if starts and ends and starts[0] > ends[0]:
+            issues.append('reversed-comment-range')
+        if any(len(values) > 1 for values in by_kind.values()):
+            issues.append('duplicate-comment-anchor')
+        for index in indexes:
+            records[index]['issues'].extend(issues)
+    return records
 
 
 def _table_snapshot(tree, context, parents):
@@ -737,7 +825,7 @@ def _comment_snapshot(tree, context):
     paragraph_ids = {}
     for index, comment in enumerate(comments):
         paragraphs = list(comment.iter('{' + W + '}p'))
-        paragraph = paragraphs[-1].get('{' + NS['w14'] + '}paraId') if paragraphs else None
+        paragraph = _paragraph_identifier(paragraphs[-1].get('{' + NS['w14'] + '}paraId')) if paragraphs else None
         if paragraph is not None:
             if paragraph in paragraph_ids:
                 raise ValueError('Duplicate final comment paragraph id')
@@ -745,9 +833,9 @@ def _comment_snapshot(tree, context):
     result = []
     for index, comment in enumerate(comments):
         paragraphs = list(comment.iter('{' + W + '}p'))
-        paragraph = paragraphs[-1].get('{' + NS['w14'] + '}paraId') if paragraphs else None
+        paragraph = _paragraph_identifier(paragraphs[-1].get('{' + NS['w14'] + '}paraId')) if paragraphs else None
         extra = context.comment_extras.get(paragraph)
-        parent = extra.get('{' + NS['w15'] + '}paraIdParent') if extra is not None else None
+        parent = _paragraph_identifier(extra.get('{' + NS['w15'] + '}paraIdParent')) if extra is not None else None
         result.append({'comment': index, 'text': text_content(comment, deleted=True),
                        'author': comment.get('{' + W + '}author'),
                        'initials': comment.get('{' + W + '}initials'),
@@ -761,11 +849,57 @@ def _comment_snapshot(tree, context):
 def _story_semantics(tree, context):
     parents = {child: parent for parent in tree.iter() for child in parent}
     paragraphs = {node: index for index, node in enumerate(tree.iter('{' + W + '}p'))}
-    return {'revisions': _revision_snapshot(tree, context, parents, paragraphs),
+    return {'paragraphs': _paragraph_snapshot(paragraphs, context, parents),
+            'revisions': _revision_snapshot(tree, context, parents, paragraphs),
             'tables': _table_snapshot(tree, context, parents),
             'numbering': _numbering_snapshot(tree, context, parents, paragraphs),
             'textboxes': _textbox_snapshot(tree, context, parents),
-            'comments': _comment_snapshot(tree, context)}
+            'comments': _comment_snapshot(tree, context),
+            'commentAnchors': _comment_anchor_snapshot(tree, context, parents, paragraphs)}
+
+
+def _section_story_snapshot(tree, context, parents, story_facts):
+    """Keep exact stored section/header/footer joins without raw part IDs.
+
+    References not present in a section stay absent; this records the inputs
+    to Word's inheritance and first/even-page rules, not a pagination guess.
+    Previous section properties remain scoped separately from current ones.
+    """
+    all_sections = list(tree.iter('{' + W + '}sectPr'))
+    current = {node: index for index, node in enumerate(
+        node for node in all_sections
+        if parents.get(node) is None or parents[node].tag != '{' + W + '}sectPrChange')}
+    paragraphs = {node: index for index, node in enumerate(tree.iter('{' + W + '}p'))}
+    rels = {rel['id']: rel for rel in context.relationships(context.main)}
+    identities = {owner: _json_fingerprint(facts) for owner, facts in story_facts.items()}
+    records = []
+    for section in all_sections:
+        previous = section not in current
+        owner = _nearest(section, parents, '{' + W + '}sectPr') if previous else section
+        references, slots = [], set()
+        for child in section:
+            kind = {'{' + W + '}headerReference': 'header',
+                    '{' + W + '}footerReference': 'footer'}.get(child.tag)
+            if kind is None:
+                continue
+            variant = child.get('{' + W + '}type')
+            if variant not in ('default', 'first', 'even') or (kind, variant) in slots:
+                raise ValueError('Invalid or duplicate section header/footer slot')
+            slots.add((kind, variant))
+            relation = rels.get(child.get('{' + R + '}id'))
+            if (relation is None or relation['external'] or relation['type'] != kind or
+                    relation['target'] not in story_facts):
+                raise ValueError('Unresolved or invalid section header/footer reference')
+            target, _ = context.tree(relation['target'])
+            if target.tag != '{' + W + '}' + ('hdr' if kind == 'header' else 'ftr'):
+                raise ValueError('Section header/footer has an invalid story root')
+            references.append({'kind': kind, 'type': variant,
+                               'storySha256': identities[relation['target']],
+                               'text': _text_marker(text_content(target, deleted=True))})
+        records.append({'section': current.get(owner), 'scope': 'previous' if previous else 'current',
+                        'paragraph': paragraphs.get(_nearest(section, parents, '{' + W + '}p')),
+                        'references': sorted(references, key=lambda item: (item['kind'], item['type']))})
+    return records
 
 
 def snapshot(path):
@@ -777,22 +911,28 @@ def snapshot(path):
     main = roots[0]['target']
     context = _Context(parts, main)
     queue, seen, stories, links = deque([(main, 'main')]), set(), [], []
+    story_trees, story_facts = [], {}
     story_types = {'header', 'footer', 'footnotes', 'endnotes', 'comments'}
     counts = Counter()
     media, alternatives, compatibility = [], [], []
-    semantic = {name: [] for name in ('revisions', 'tables', 'numbering', 'textboxes', 'comments')}
+    semantic = {name: [] for name in ('paragraphs', 'revisions', 'tables', 'numbering', 'textboxes',
+                                     'comments', 'commentAnchors')}
     while queue:
         owner, kind = queue.popleft()
         if owner in seen:
             continue
         seen.add(owner)
         tree, choices = context.tree(owner)
+        story_trees.append((owner, kind, tree))
         stories.append({'kind': kind, 'text': text_content(tree),
                         'textWithDeletions': text_content(tree, deleted=True)})
         story_marker = _text_marker(stories[-1]['text'])
         if choices:
             alternatives.append({'story': kind, 'text': story_marker, 'availability': choices})
-        for feature, entries in _story_semantics(tree, context).items():
+        features = _story_semantics(tree, context)
+        story_facts[owner] = {**stories[-1], 'features': features, 'alternatives': choices,
+                              'images': [], 'externalLinks': []}
+        for feature, entries in features.items():
             if entries:
                 semantic[feature].append({'story': kind, 'text': story_marker, 'items': entries})
         for tag in ('tbl', 'tr', 'tc', 'drawing', 'pict', 'txbxContent', 'footnote',
@@ -810,10 +950,12 @@ def snapshot(path):
         for rel in context.relationships(owner):
             if rel['external']:
                 links.append({'kind': rel['type'], 'target': rel['target']})
+                story_facts[owner]['externalLinks'].append(links[-1])
             elif rel['type'] in story_types:
                 queue.append((rel['target'], rel['type']))
             elif rel['type'] == 'image' and rel['id'] in used_ids:
                 media.append(hashlib.sha256(parts[rel['target']]).hexdigest())
+                story_facts[owner]['images'].append(media[-1])
             elif rel['type'] == 'commentsExtended':
                 ext, _ = context.tree(rel['target'])
                 counts['commentThreads'] += sum(1 for e in ext if e.get('{'+NS['w15']+'}paraIdParent'))
@@ -825,22 +967,33 @@ def snapshot(path):
                         {'name': _local(node.tag),
                          'value': (_on_off(node.get('{' + W + '}val')) if _local(node.tag) != 'compatSetting'
                                    else local_attrs(node))} for node in compat], key=lambda item: json.dumps(item, sort_keys=True)))
+        story_facts[owner]['images'].sort()
+        story_facts[owner]['externalLinks'].sort(key=lambda item: (item['kind'], item['target']))
     # Validate *all* relationships, including evidence and relocated stories.
     for name in parts:
         if name.endswith('.rels'):
             owner = '' if name == '_rels/.rels' else posixpath.join(posixpath.dirname(posixpath.dirname(name)), posixpath.basename(name)[:-5])
             relationships(parts, owner)
     tree, _ = context.tree(main)
+    parents = {child: parent for parent in tree.iter() for child in parent}
     sections = []
     for section in tree.iter(f'{{{W}}}sectPr'):
+        if parents.get(section) is not None and parents[section].tag == f'{{{W}}}sectPrChange':
+            continue
         sections.append({child.tag.rsplit('}', 1)[-1]: local_attrs(child)
                          for child in section if child.tag.rsplit('}', 1)[-1] not in ('headerReference', 'footerReference')})
-    result = {'oracleSchemaVersion': 2,
+    result = {'oracleSchemaVersion': 3,
             'stories': sorted(stories, key=lambda item: (item['kind'], item['text'])),
             'counts': dict(sorted(counts.items())), 'sections': sections,
             'imageDigests': sorted(media), 'externalLinks': sorted(links, key=str),
             'alternatives': sorted(alternatives, key=_json_fingerprint),
             'compatibility': compatibility,
+            'sectionStories': _section_story_snapshot(tree, context, parents, story_facts),
+            'styleDefaults': {'document': context.property(context.document_defaults),
+                              'types': {kind: context.style(identifier)
+                                        for kind, identifier in sorted(context.default_styles.items())}},
+            'structure': StructureOracle(parts, main, relationships,
+                                         read_xml=lambda owner: context.tree(owner)[0]).snapshot(story_trees),
             **{feature: sorted(entries, key=_json_fingerprint)
                for feature, entries in semantic.items()}}
     _json_fingerprint(result)
@@ -851,7 +1004,9 @@ def compare_semantics(reference, actual):
     """Report losses and changes, including a loss to zero. No tolerant pass."""
     differences = []
     for key in ('oracleSchemaVersion', 'stories', 'sections', 'imageDigests', 'externalLinks',
-                'revisions', 'tables', 'numbering', 'textboxes', 'comments', 'alternatives', 'compatibility'):
+                'paragraphs', 'revisions', 'tables', 'numbering', 'textboxes', 'comments', 'commentAnchors',
+                'alternatives', 'compatibility', 'sectionStories', 'styleDefaults',
+                'structure'):
         if reference.get(key) != actual.get(key):
             differences.append({'property': key, 'reference': reference.get(key), 'actual': actual.get(key)})
     for key in sorted(set(reference['counts']) | set(actual['counts'])):

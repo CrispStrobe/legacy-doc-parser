@@ -31,7 +31,7 @@ void main() {
 
   test('portable media smoke also runs unchanged on the VM', () {
     final result = verifyMediaWebAcceptance();
-    expect(result['checks'], 39);
-    expect(result['recordCounts'], {'emf': 21, 'wmf': 18});
+    expect(result['checks'], 40);
+    expect(result['recordCounts'], {'emf': 21, 'wmf': 17});
   });
 }

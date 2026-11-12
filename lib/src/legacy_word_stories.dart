@@ -522,7 +522,10 @@ extension _WordStories on _StructuredWordParser {
           throw const FormatException('Invalid Word textbox next-shape chain.');
         }
       }
-      if (countMismatch) warnings.add(LegacyWordWarning.unsupportedFormatting);
+      if (countMismatch) {
+        warnings.add(LegacyWordWarning.recoveredTextboxChainLength);
+        warnings.add(LegacyWordWarning.unsupportedFormatting);
+      }
       textboxReferences[index] = LegacyWordTextboxReference(
         id: reference.id,
         storyId: reference.storyId,

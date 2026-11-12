@@ -27,3 +27,8 @@ measure native rendering, DOCX conversion and a second binary import. Inputs
 are hash-pinned in `tool/fidelity/corpus.json` and never overwritten. Results
 are written to a new output directory; these fixtures are not a universal
 layout-fidelity certification or a macro-execution test.
+
+`linked-textboxes-compact.doc` retains the independently authored eight-marker
+textbox input from the parallel preservation branch (`71025ea`). Its distinct
+bytes and regression remain available alongside the 24-word reflow probe. The
+old identical filename was renamed during integration so neither input is lost.

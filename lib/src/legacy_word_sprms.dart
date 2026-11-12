@@ -709,8 +709,15 @@ Map<String, Object?> _sectionProperties(
         }
         output['columns'] = columns;
       case 0x703a:
-        break; // revision save ID
+        output['sectionSaveId'] = value.u32(0);
+      case 0x3239:
+        output['_oldSection'] = _boolean(value)
+            ? _revisionSnapshot(output)
+            : null;
+      case 0xd243:
+        _applyPropertyRevision(value, output, 'section');
       default:
+        output['_unsupportedSection'] = true;
         warnings.add(LegacyWordWarning.unsupportedFormatting);
     }
   }

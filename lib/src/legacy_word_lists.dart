@@ -63,6 +63,14 @@ extension _WordLists on _StructuredWordParser {
     }
     overrides.require(4, overrideCount * 16);
     var position = 4 + overrideCount * 16;
+    final firstInstances = <int, int>{};
+    final overriddenSources = <int>{};
+    for (var instance = 0; instance < overrideCount; instance++) {
+      final at = 4 + instance * 16;
+      final sourceId = overrides.i32(at);
+      firstInstances.putIfAbsent(sourceId, () => instance + 1);
+      if (overrides.u8(at + 12) != 0) overriddenSources.add(sourceId);
+    }
     for (var instance = 0; instance < overrideCount; instance++) {
       final at = 4 + instance * 16;
       final sourceId = overrides.i32(at);
@@ -133,6 +141,11 @@ extension _WordLists on _StructuredWordParser {
         id: id,
         sourceListId: sourceId,
         startOverrides: Map.unmodifiable(startOverrides),
+        continuationOf:
+            !overriddenSources.contains(sourceId) &&
+                firstInstances[sourceId] != id
+            ? firstInstances[sourceId]
+            : null,
         levels: List.unmodifiable(levels.map((value) => value.model)),
       );
       numbering.add(definition);

@@ -75,13 +75,12 @@ void main() {
         isNot(contains(LegacyWordWarning.numberingNotReconstructed)),
       );
       final files = _xml(document), ids = _ids(files['word/document.xml']!);
-      final starts = _starts(files['word/numbering.xml']!);
-      expect(ids[0], ids[1]);
-      expect(ids[2], ids[3]);
-      expect(ids[2], isNot(ids[0]));
-      expect(ids[4], isNot(ids[0]));
-      expect(starts[ids[2]]![0], 3);
-      expect(starts[ids[4]]![0], 5);
+      // Identical unmodified instances can share one editable native sequence.
+      expect(ids.toSet(), hasLength(1));
+      expect(
+        files['word/numbering.xml']!.findAllElements('w:num'),
+        hasLength(1),
+      );
       expect(
         files['word/document.xml']!
             .findAllElements('w:t')
@@ -285,7 +284,7 @@ void main() {
       final files = _xml(document);
       expect(
         files['word/numbering.xml']!.findAllElements('w:vanish'),
-        hasLength(2),
+        hasLength(1),
       );
       expect(
         files['word/document.xml']!.findAllElements('w:t').single.innerText,

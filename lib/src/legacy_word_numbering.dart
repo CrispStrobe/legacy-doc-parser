@@ -61,6 +61,25 @@ class LegacyWordNumberingResolver {
           .putIfAbsent(_source(definition), () => [])
           .add(definition);
     }
+    for (final definition in values) {
+      final targetId = definition.continuationOf;
+      if (targetId == null) continue;
+      final target = definitions[targetId];
+      if (target == null ||
+          target.id == definition.id ||
+          target.continuationOf != null ||
+          target.sourceListId == null ||
+          target.sourceListId != definition.sourceListId ||
+          definition.startOverrides.isNotEmpty ||
+          target.startOverrides.isNotEmpty ||
+          target.levels.length != definition.levels.length ||
+          !List.generate(
+            target.levels.length,
+            (i) => identical(target.levels[i], definition.levels[i]),
+          ).every((v) => v)) {
+        throw const FormatException('Invalid Word numbering continuation.');
+      }
+    }
     // MS-DOC's published fStartAt iteration is ambiguous for interleaved
     // restart/resume cases. Preserve explicit starts and the separately
     // verified native sequences, but retain a limitation rather than claim

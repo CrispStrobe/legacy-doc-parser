@@ -99,6 +99,7 @@ bool _applySectionLayout(
         output['pageNumberFormat'] = formats[index];
       } else {
         output.remove('pageNumberFormat');
+        output['_unsupportedSection'] = true;
         warnings.add(LegacyWordWarning.unsupportedFormatting);
       }
     case 0x5032:

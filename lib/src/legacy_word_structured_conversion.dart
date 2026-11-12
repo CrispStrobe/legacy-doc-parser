@@ -45,6 +45,8 @@ class _StructuredWordWriter {
   final _storyParts = <String, String>{};
   final _numberingIds = <int>{};
   final _paragraphNumbering = <LegacyWordParagraph, int>{};
+  // Base list references for historical paragraph properties.
+  final _numberingReferences = <int, int>{};
   final _numberingInstances = <int, _WordNumberingInstance>{};
   var _tableDepth = 0;
   final _fields = <int, LegacyWordField>{};
@@ -355,13 +357,30 @@ class _StructuredWordWriter {
   void _section(LegacyWordSection section) {
     final breakBefore =
         _sectionBreaks[section] ?? LegacyWordSectionBreak.newPage;
-    _xml.add('<w:sectPr>');
-    final sectionIndex = _sectionIndices[section] ?? 0;
-    final references = _headerFooters[sectionIndex] ?? const [];
-    for (final reference in references) {
-      _xml.add(
-        '<w:${reference.$1 ? 'header' : 'footer'}Reference w:type="${reference.$2}" r:id="${reference.$3}"/>',
-      );
+    _xml.add('<w:sectPr');
+    _revisionSaveAttribute('rsidR', section.revisionSaveId);
+    _xml.add('>');
+    _sectionProperties(section, breakBefore, includeReferences: true);
+    _sectionFormattingRevision(section, breakBefore);
+    _xml.add('</w:sectPr>');
+    _count('sections');
+  }
+
+  void _sectionProperties(
+    LegacyWordSection section,
+    LegacyWordSectionBreak breakBefore, {
+    bool includeReferences = false,
+  }) {
+    // CT_SectPrBase (inside sectPrChange) cannot contain header/footer
+    // references or a nested change record.
+    if (includeReferences) {
+      final sectionIndex = _sectionIndices[section] ?? 0;
+      final references = _headerFooters[sectionIndex] ?? const [];
+      for (final reference in references) {
+        _xml.add(
+          '<w:${reference.$1 ? 'header' : 'footer'}Reference w:type="${reference.$2}" r:id="${reference.$3}"/>',
+        );
+      }
     }
     _xml.add(
       '<w:type w:val="${switch (breakBefore) {
@@ -372,7 +391,9 @@ class _StructuredWordWriter {
         LegacyWordSectionBreak.oddPage => 'oddPage',
       }}"/>',
     );
-    if (section.pageWidthTwips != null || section.pageHeightTwips != null) {
+    if (section.pageWidthTwips != null ||
+        section.pageHeightTwips != null ||
+        section.landscape) {
       _xml.add('<w:pgSz');
       _optional('w', section.pageWidthTwips);
       _optional('h', section.pageHeightTwips);
@@ -408,8 +429,6 @@ class _StructuredWordWriter {
     _bool('bidi', section.layout.rightToLeft);
     _bool('rtlGutter', section.layout.rightToLeftGutter);
     _sectionGrid(section.layout);
-    _xml.add('</w:sectPr>');
-    _count('sections');
   }
 
   void _optional(String name, int? value) {

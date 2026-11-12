@@ -61,16 +61,20 @@ Map<String, Object> verifyMediaWebAcceptance() {
     );
     for (final compressed in [false, true]) {
       for (final twoUids in [false, true]) {
+        final payload = format == LegacyWordImageFormat.wmf && twoUids
+            ? Uint8List.sublistView(raw, 22)
+            : raw;
         final source = inlinePictureWordFixture(
           picture: inlinePictureData(
             blip: metafileBlip(
-              raw,
+              payload,
               emf: format == LegacyWordImageFormat.emf,
               compressed: compressed,
               twoUids: twoUids,
               mutateHeader: (header) {
-                header.setInt32(12, 600, Endian.little);
-                header.setInt32(16, 360, Endian.little);
+                // Real producers use physical extents here, not GDI pixels.
+                header.setInt32(12, 15876, Endian.little);
+                header.setInt32(16, 9526, Endian.little);
                 header.setInt32(20, 5486400, Endian.little);
                 header.setInt32(24, 3291840, Endian.little);
               },
@@ -81,7 +85,11 @@ Map<String, Object> verifyMediaWebAcceptance() {
         final document = parseLegacyWordDocument(source);
         final asset = document.media.assets.single;
         check(
-          _equal(asset.bytes, raw) && asset.metafile!.hasCompletePreview,
+          _equal(asset.bytes, payload) &&
+              asset.metafile!.hasCompletePreview &&
+              asset.metafile!.bounds.width == 600 &&
+              asset.metafile!.bounds.height == 360 &&
+              asset.metafile!.officeArtBounds!.width == 15876,
           '${format.name} bounded decoding and replay',
         );
         final package = ZipDecoder().decodeBytes(
@@ -89,7 +97,7 @@ Map<String, Object> verifyMediaWebAcceptance() {
         );
         final image = package.findFile('word/media/image1.${format.name}');
         check(
-          image != null && _equal(image.content, raw),
+          image != null && _equal(image.content, payload),
           '${format.name} exact native DOCX image payload',
         );
         check(_equal(source, original), 'source compound document mutated');
@@ -135,6 +143,13 @@ Map<String, Object> verifyMediaWebAcceptance() {
   check(
     !escaped.nativeEmbeddingAllowed && escaped.previewSvg == null,
     'escape record was activated',
+  );
+  final ambiguous = parseLegacyWordDocument(
+    doc(metafileBlip(wmfFixture(), emf: false)),
+  ).media.assets.single.metafile!;
+  check(
+    ambiguous.nativeEmbeddingAllowed && ambiguous.previewSvg == null,
+    'unknown WMF coordinate context was invented',
   );
 
   final vertices = shapeArray(0xfff0, [

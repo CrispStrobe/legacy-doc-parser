@@ -107,6 +107,11 @@ Uint8List _wmr(int type, List<int> words) => Uint8List.fromList([
 /// window mapping. Multiword COLORREF values are written explicitly low-first.
 Uint8List authoredWmfVectors() {
   final records = <Uint8List>[
+    // MS-WMF 3.1.1: establish mapping/window before painting; leave the
+    // viewport to the player so the metafile remains independently sizable.
+    _wmr(0x0103, [8]),
+    _wmr(0x020b, [0, 0]),
+    _wmr(0x020c, [360, 600]),
     _wmr(0x02fa, [0, 3, 0, 0x2211, 0x0055]),
     _wmr(0x02fc, [0, 0xcc99, 0x00dd, 0]),
     _wmr(0x012d, [0]),
@@ -117,12 +122,8 @@ Uint8List authoredWmfVectors() {
     _wmr(0x0214, [190, 320]),
     _wmr(0x0213, [250, 570]),
     _wmr(0x001e, []),
-    _wmr(0x0103, [8]),
     _wmr(0x020b, [-40, -50]),
-    _wmr(0x020c, [100, 150]),
-    _wmr(0x020d, [350, 370]),
-    _wmr(0x020e, [-80, 180]),
-    _wmr(0x041b, [50, 90, -40, -50]),
+    _wmr(0x041b, [290, 510, 230, 320]),
     _wmr(0x0127, [-1]),
     _wmr(0, []),
   ];

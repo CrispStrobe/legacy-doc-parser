@@ -21,7 +21,10 @@ extension _WordNumberingWriter on _StructuredWordWriter {
         if (resolved.approximate) {
           limitations.add(LegacyWordConversionLimitation.fieldsLists);
         }
-        final definition = resolved.definition;
+        final sourceDefinition = resolved.definition;
+        final definition = sourceDefinition.continuationOf == null
+            ? sourceDefinition
+            : resolver.definitions[sourceDefinition.continuationOf]!;
         var instance = active[definition.id];
         if (instance == null || !instance.matches(resolved)) {
           final id = !_numberingInstances.containsKey(definition.id)
@@ -54,6 +57,7 @@ extension _WordNumberingWriter on _StructuredWordWriter {
       scope(story.blocks);
     }
     for (final definition in document.numbering) {
+      if (definition.continuationOf != null) continue;
       _numberingInstances.putIfAbsent(
         definition.id,
         () => _WordNumberingInstance(
@@ -69,6 +73,7 @@ extension _WordNumberingWriter on _StructuredWordWriter {
     if (document.numbering.isEmpty) return;
     final xml = _wordPart('numbering');
     for (final definition in document.numbering) {
+      if (definition.continuationOf != null) continue;
       xml.add(
         '<w:abstractNum w:abstractNumId="${definition.id}"><w:multiLevelType w:val="multilevel"/>',
       );

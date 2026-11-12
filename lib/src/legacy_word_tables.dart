@@ -80,7 +80,8 @@ extension _WordTables on _StructuredWordParser {
                   true,
               heightTwips: height == 0 ? null : height.abs(),
               exactHeight: height < 0,
-              indentTwips: properties['rowLeft'] as int?,
+              indentTwips:
+                  properties['rowLeft'] as int? ?? definition.edges.first,
               // Only leading, contiguous rows are repeating headers.
               isHeader:
                   properties['rowHeader'] == true &&

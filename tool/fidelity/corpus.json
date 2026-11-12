@@ -199,7 +199,7 @@
     {
       "id": "wmf-vectors",
       "path": "test/fixtures/fidelity/media/wmf-vectors.docx",
-      "sha256": "c2c04f2edbb946ef09136b277ee26da116c5df45a485f28c1132d4664ceec678",
+      "sha256": "fcf94d85aa01ce7f30b0c7551535e264a329af2f8e7ab57adc6c098040c0112f",
       "source": "authored-package-fixture",
       "features": [
         "metafile-rendering",
@@ -207,6 +207,17 @@
         "pagination"
       ],
       "origin": "Independent GDI records and OOXML authored by tool/fidelity/metafile_cases.dart; native DOC bridge measured separately"
+    },
+    {
+      "id": "linked-textboxes-compact",
+      "path": "test/fixtures/word_native/linked-textboxes-compact.doc",
+      "sha256": "04c12a92a08341111d0bcc29075503e3e9e0642e4b52af3deb256df902f37119",
+      "source": "authored-package-fixture",
+      "features": [
+        "linked-textbox-reflow",
+        "pagination"
+      ],
+      "origin": "Independent compact eight-marker binary probe preserved from parallel checkpoint71025ea; original filename disambiguated during integration"
     }
   ],
   "reference_expectations": [

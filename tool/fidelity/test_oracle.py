@@ -181,8 +181,7 @@ class StructuralOracleTest(unittest.TestCase):
         items = original['textboxes'][0]['items']
         self.assertEqual([1, 2, None], [item['next'] for item in items])
         self.assertEqual(914400, items[0]['layout']['shapeStyle']['width'])
-        for changed in [body.replace('mso-next-textbox:#boxB', 'mso-next-textbox:#boxC'),
-                        body.replace('width:72pt', 'width:73pt'),
+        for changed in [body.replace('width:72pt', 'width:73pt'),
                         body.replace('v-text-anchor:middle', 'v-text-anchor:top'),
                         body.replace('inset="1pt,2pt,3pt,4pt"', 'inset="0pt,2pt,3pt,4pt"')]:
             actual = self.package(changed)
@@ -191,10 +190,14 @@ class StructuralOracleTest(unittest.TestCase):
             self.assertIn('textboxes', self.changes(original, actual))
         renamed = body.replace('boxA', 'frame92').replace('boxB', 'frame84').replace('boxC', 'frame76')
         self.assertEqual([], compare_semantics(original, self.package(renamed)))
-        cycle = self.package(body.replace('mso-next-textbox:#boxC', 'mso-next-textbox:#boxA'))
-        self.assertTrue(any('cyclic-textbox-chain' in item['issues'] for item in cycle['textboxes'][0]['items']))
-        dangling = self.package(body.replace('mso-next-textbox:#boxB', 'mso-next-textbox:#missing'))
-        self.assertIn('dangling-next-textbox', dangling['textboxes'][0]['items'][0]['issues'])
+        # The combined independent structure validator rejects malformed
+        # graphs instead of allowing a measured result with an issue only.
+        with self.assertRaisesRegex(ValueError, 'Multiple predecessors'):
+            self.package(body.replace('mso-next-textbox:#boxB', 'mso-next-textbox:#boxC'))
+        with self.assertRaisesRegex(ValueError, 'Cyclic textbox'):
+            self.package(body.replace('mso-next-textbox:#boxC', 'mso-next-textbox:#boxA'))
+        with self.assertRaisesRegex(ValueError, 'Unresolved linked textbox'):
+            self.package(body.replace('mso-next-textbox:#boxB', 'mso-next-textbox:#missing'))
 
     def drawingml_textbox(self, identifier='77', sequence=None):
         box = '<wps:txbx id="' + identifier + '"><w:txbxContent>' + self.paragraph('Only once') + '</w:txbxContent></wps:txbx>' if sequence is None else '<wps:linkedTxbx id="' + identifier + '" seq="' + str(sequence) + '"/>'
@@ -265,6 +268,130 @@ class StructuralOracleTest(unittest.TestCase):
             self.package(body, styles=styles)
         with self.assertRaisesRegex(ValueError, 'structural limits'):
             self.package('<w:customXml>' * 130 + self.paragraph('Deep') + '</w:customXml>' * 130)
+
+    def test_current_body_formatting_changes_survive_equal_text_and_counts(self):
+        body = ('<w:p><w:pPr><w:jc w:val="right"/><w:spacing w:before="120"/></w:pPr>'
+                '<w:r><w:rPr><w:b/><w:color w:val="AABBCC"/></w:rPr><w:t>Same word</w:t></w:r></w:p>')
+        original = self.package(body)
+        for changed in [body.replace('<w:b/>', '<w:i/>'),
+                        body.replace('AABBCC', 'AABBCD'),
+                        body.replace('w:before="120"', 'w:before="240"'),
+                        body.replace('w:val="right"', 'w:val="left"')]:
+            actual = self.package(changed)
+            self.assertEqual(original['stories'], actual['stories'])
+            self.assertEqual(original['counts'], actual['counts'])
+            self.assertIn('paragraphs', self.changes(original, actual))
+        # Splitting a run without changing its resolved stored properties is
+        # not a formatting mutation. Coalescing also stays linear in run count.
+        split = body.replace('<w:t>Same word</w:t>', '<w:t xml:space="preserve">Same </w:t></w:r>'
+                             '<w:r><w:rPr><w:b/><w:color w:val="AABBCC"/></w:rPr><w:t>word</w:t>')
+        self.assertEqual([], compare_semantics(original, self.package(split)))
+
+    def test_document_and_implicit_style_defaults_are_measured(self):
+        definitions = ('<w:docDefaults><w:rPrDefault><w:rPr><w:color w:val="112233"/>'
+                       '</w:rPr></w:rPrDefault></w:docDefaults>'
+                       '<w:style w:type="paragraph" w:default="1" w:styleId="Normal">'
+                       '<w:pPr><w:spacing w:after="120"/></w:pPr><w:rPr><w:b/></w:rPr></w:style>')
+        original = self.package(self.paragraph('Default formatting'), styles=definitions)
+        for changed in [definitions.replace('112233', '112234'),
+                        definitions.replace('<w:b/>', '<w:i/>'),
+                        definitions.replace('w:after="120"', 'w:after="240"')]:
+            self.assertIn('styleDefaults', self.changes(
+                original, self.package(self.paragraph('Default formatting'), styles=changed)))
+        self.assertEqual([], compare_semantics(original, self.package(
+            self.paragraph('Default formatting'), styles=definitions.replace('styleId="Normal"', 'styleId="Renamed"'))))
+
+    def comment_anchor_fixture(self):
+        comments = '<w:comments xmlns:w="' + W + '">' + ''.join(
+            '<w:comment w:id="' + str(index) + '" w:author="Alice"><w:p><w:r><w:t>' + text +
+            '</w:t></w:r></w:p></w:comment>' for index, text in [(10, 'Review Alpha'), (20, 'Review Beta')]) + '</w:comments>'
+        rels = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="commentPart" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="notes/review.xml"/></Relationships>'
+        return {'word/notes/review.xml': comments, 'word/_rels/document.xml.rels': rels}
+
+    def test_comment_anchor_movement_and_content_joins_are_measured(self):
+        a, b = '<w:r><w:t>Alpha</w:t></w:r>', '<w:r><w:t xml:space="preserve"> Beta</w:t></w:r>'
+        start = '<w:commentRangeStart w:id="10"/>'
+        end = '<w:commentRangeEnd w:id="10"/><w:r><w:commentReference w:id="10"/></w:r>'
+        body = '<w:p>' + start + a + end + b + '</w:p>'
+        parts = self.comment_anchor_fixture()
+        original = self.package(body, extra=parts)
+        self.assertEqual([0, 5, 5], [item['offsetInParagraph'] for item in original['commentAnchors'][0]['items']])
+        moved = self.package('<w:p>' + a + start + b + end + '</w:p>', extra=parts)
+        retargeted = self.package(body.replace('w:id="10"', 'w:id="20"'), extra=parts)
+        for actual in (moved, retargeted):
+            self.assertEqual(original['stories'], actual['stories'])
+            self.assertEqual(original['counts'], actual['counts'])
+            self.assertIn('commentAnchors', self.changes(original, actual))
+        renamed = {name: value.replace('w:id="10"', 'w:id="90"').replace('w:id="20"', 'w:id="91"')
+                   for name, value in parts.items()}
+        self.assertEqual([], compare_semantics(original, self.package(body.replace('w:id="10"', 'w:id="90"'), extra=renamed)))
+
+    def test_point_comments_and_incomplete_or_unknown_anchor_findings(self):
+        body = '<w:p><w:r><w:t>Point</w:t><w:commentReference w:id="10"/></w:r></w:p>'
+        parts = self.comment_anchor_fixture()
+        point = self.package(body, extra=parts)['commentAnchors'][0]['items']
+        self.assertEqual([], point[0]['issues'])
+        self.assertEqual(5, point[0]['offsetInParagraph'])
+        incomplete = body.replace('<w:r>', '<w:commentRangeStart w:id="10"/><w:r>', 1)
+        measured = self.package(incomplete, extra=parts)['commentAnchors'][0]['items']
+        self.assertTrue(all('incomplete-comment-range' in item['issues'] for item in measured))
+        unknown = self.package(body.replace('w:id="10"', 'w:id="999"'), extra=parts)['commentAnchors'][0]['items']
+        self.assertIn('unresolved-comment', unknown[0]['issues'])
+
+    def section_story_fixture(self, *, same_text=False):
+        parts, rels = {}, []
+        for kind, root in [('header', 'hdr'), ('footer', 'ftr')]:
+            for letter, mark in [('A', 'b'), ('B', 'i')]:
+                text = kind if same_text else kind + letter
+                parts['word/' + kind + letter + '.xml'] = (
+                    '<w:' + root + ' xmlns:w="' + W + '"><w:p><w:r><w:rPr><w:' + mark +
+                    '/></w:rPr><w:t>' + text + '</w:t></w:r></w:p></w:' + root + '>')
+                rels.append('<Relationship Id="' + kind + letter + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/' + kind + '" Target="' + kind + letter + '.xml"/>')
+        parts['word/_rels/document.xml.rels'] = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + ''.join(rels) + '</Relationships>'
+        section = lambda letter: '<w:sectPr><w:headerReference w:type="default" r:id="header' + letter + '"/><w:footerReference w:type="default" r:id="footer' + letter + '"/></w:sectPr>'
+        body = '<w:p><w:pPr>' + section('A') + '</w:pPr><w:r><w:t>First</w:t></w:r></w:p>' + self.paragraph('Second') + section('B')
+        return body, parts
+
+    def test_section_header_footer_bindings_are_not_a_sorted_story_bag(self):
+        for same_text in (False, True):
+            body, parts = self.section_story_fixture(same_text=same_text)
+            original = self.package(body, extra=parts)
+            for kind in ('header', 'footer'):
+                changed = body.replace(kind + 'A', 'placeholder').replace(kind + 'B', kind + 'A').replace('placeholder', kind + 'B')
+                actual = self.package(changed, extra=parts)
+                self.assertEqual(original['stories'], actual['stories'])
+                self.assertEqual(original['counts'], actual['counts'])
+                self.assertIn('sectionStories', self.changes(original, actual))
+        body, parts = self.section_story_fixture()
+        with self.assertRaisesRegex(ValueError, 'section header/footer reference'):
+            self.package(body.replace('r:id="headerA"', 'r:id="missing"'), extra=parts)
+
+    def test_section_story_part_and_relationship_renames_are_canonical(self):
+        body, parts = self.section_story_fixture()
+        original = self.package(body, extra=parts)
+        renamed, renamed_body = {}, body
+        rels = parts['word/_rels/document.xml.rels']
+        for index, (name, xml) in enumerate((item for item in parts.items() if not item[0].endswith('.rels'))):
+            basename = name.removeprefix('word/').removesuffix('.xml')
+            target = 'relocated/story' + str(index) + '.xml'
+            renamed[target] = xml
+            rels = rels.replace('Id="' + basename + '"', 'Id="rel' + str(index) + '"').replace('Target="' + basename + '.xml"', 'Target="/' + target + '"')
+            renamed_body = renamed_body.replace('r:id="' + basename + '"', 'r:id="rel' + str(index) + '"')
+        renamed['word/_rels/document.xml.rels'] = rels
+        self.assertEqual([], compare_semantics(original, self.package(renamed_body, extra=renamed)))
+
+    def test_auxiliary_comment_mc_is_projected_once_for_both_oracles(self):
+        declarations = ' '.join('xmlns:' + prefix + '="' + uri + '"' for prefix, uri in NS.items())
+        note = lambda text: '<w:comment w:id="10" w:author="Alice">' + self.paragraph(text) + '</w:comment>'
+        parts = self.comment_anchor_fixture()
+        parts['word/notes/review.xml'] = ('<w:comments ' + declarations + '><mc:AlternateContent>'
+            '<mc:Choice Requires="wps">' + note('Selected comment') + '</mc:Choice><mc:Fallback>' +
+            note('Unselected comment') + '</mc:Fallback></mc:AlternateContent></w:comments>')
+        result = self.package('<w:p><w:r><w:t>Body</w:t><w:commentReference w:id="10"/></w:r></w:p>', extra=parts)
+        self.assertEqual(1, result['counts']['comment'])
+        self.assertEqual(1, len(result['structure']['comments']))
+        self.assertEqual('Selected comment\n', result['structure']['comments'][0]['text'])
+        self.assertFalse(any('Unselected' in story['text'] for story in result['stories']))
 
 
 if __name__ == '__main__':

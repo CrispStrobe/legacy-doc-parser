@@ -15,6 +15,9 @@ The original OfficeArt record remains an exact opaque artifact; decompressed
 file bytes are a separate representation with an explicit encoded source
 extent. `LegacyWordImageAsset.metafile` exposes record counts, bounds, intended
 EMU size, native-embedding eligibility, and the separate preview capability.
+`bounds` describes the device-coordinate playback canvas; `officeArtBounds`
+retains the original OfficeArt rectangle separately. The latter is not assumed
+to use pixels: native producers also store preferred physical-unit extents.
 
 EMF validation checks the signature, header/description extents, file size,
 record count, aligned record boundaries, handle capacity, and the final EOF
@@ -50,8 +53,12 @@ raster operations and unsupported mapping modes make the **entire SVG
 unavailable**. The parser reports their record types; it never displays a
 misleading partially drawn image. The independently validated original
 metafile may still be eligible for native Office embedding. A standalone
-WMF needs caller-supplied or placeable-header bounds for a portable preview;
-OfficeArt BLIPs already supply their own bounds.
+WMF needs caller-supplied device bounds, placeable-header bounds, or explicit
+initial anisotropic window setup for a portable preview. A nonplaceable WMF
+whose initial playback context is ambiguous remains eligible for native
+embedding but receives no fabricated SVG canvas. EMF uses its self-contained
+header coordinate system. OfficeArt clipping/presentation metadata remains
+separate and is not substituted for intrinsic metafile coordinates.
 
 SVG contains fixed generated tags, numeric coordinates and resolved RGB
 colors. It never copies source markup, URLs, scripts, font files or external
@@ -168,15 +175,22 @@ controls were accepted by installed LibreOffice, exported as binary DOC,
 parsed by this package and converted back to DOCX with native vector image
 parts. The EMF retained its 540 bytes through the native bridge. LibreOffice
 removed the WMF's 22-byte placeable header; this package retained the resulting
-218-byte native DOC payload. Both recovered images produced complete portable
+208-byte native DOC payload. Both recovered images produced complete portable
 SVG previews. Native source changes and converter changes remain separate.
+The native metafiles and generated SVGs were also embedded into otherwise
+identical control packages and rendered in RGB by the installed application.
+The expected shape geometry and colors were checked side by side. Their
+rasters are not identical; this remains a bounded geometric preview rather
+than pixel-exact GDI emulation. Native DOCX payloads remain byte-identical to
+the extracted metafiles.
 
 `tool/media_web_acceptance.dart` runs unchanged on the VM and after
 `dart compile js -O1 -o build/media-web-acceptance.js
 tool/media_web_acceptance.dart`. Running the result under Node (with
-`globalThis.self=globalThis`) passes 39 assertions covering both authored
+`globalThis.self=globalThis`) passes 40 assertions covering both authored
 formats, exact native image output, strict compressed-input/output failures,
-inert escapes, packed geometry, signed values and explicit positioning. This
+inert escapes, physical-versus-device bounds, missing WMF context, packed
+geometry, signed values and explicit positioning. This
 checks the actual raw inflater and parser on JavaScript, not a separate web
 implementation.
 
@@ -192,6 +206,9 @@ implementation.
 - [MS-EMF transform matrix](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/e84107e9-bc2b-4a14-9234-5d173adc1b59)
 - [MS-EMF PolyBezier](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/4e53793a-95af-49d4-ae1f-4c407eda9440)
 - [MS-WMF drawing records](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wmf/cb1d4bfe-bfeb-4348-9e51-ba7f06096808)
+- [MS-EMF header coordinate and physical units](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/e4a35c41-e8e3-43f9-bc07-a18e99bb866d)
+- [MS-WMF device-independent window setup](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wmf/b67679cd-b777-492a-b3bd-903dde5de6fa)
+- [MS-WMF player/viewport responsibilities](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wmf/2678f2fe-df2e-489d-83db-713a9f6397de)
 - [MS-ODRAW shapePath precedence](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/34decfc7-1f3e-4c74-8078-79bb0cb75fdd)
 - [MS-ODRAW path commands](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/54c00b9c-2225-4ed4-93e4-691e4aafeec8)
 - [MS-ODRAW complex arrays](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/f68b7770-f7fb-4b1a-bafa-d46054ee0435)

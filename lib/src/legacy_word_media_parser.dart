@@ -288,6 +288,12 @@ class _WordMediaReader {
     if (shapeId == null) {
       throw const FormatException('OfficeArt shape has no identifier.');
     }
+    final propertyTextbox = props.values[0x0080];
+    if (textbox != null &&
+        propertyTextbox != null &&
+        textbox != propertyTextbox) {
+      throw const FormatException('Conflicting OfficeArt textbox identifiers.');
+    }
     final reader = _OfficeArtShapeReader(props, type, flags);
     final model = reader.read();
     _geometryPoints += reader.pointCount;

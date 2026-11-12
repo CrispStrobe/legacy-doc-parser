@@ -23,6 +23,25 @@ and [Direct Paragraph Formatting](https://learn.microsoft.com/en-us/openspecs/of
 Tests: `test/legacy_word_nested_tables_test.dart`. The binary fixture is
 assembled without using the production parser or DOCX writer.
 
+## Row origins and a shared table grid
+
+`LegacyWordTableRow.originTwips` retains the signed first `rgdxaCenter` edge
+from `sprmTDefTable`. The ordered `sprmTDxaLeft` and `sprmTDxaGapHalf` properties
+can subsequently move that origin without changing individual cell widths.
+Negative origins remain negative: the native fixture's 108-twip outdent must
+not silently become zero and shift every cell's text by 5.4 points.
+
+DOCX writes the origin as `w:tblInd` and constructs its grid from the absolute
+edges of all rows. Rows beginning or ending inside that grid retain their
+missing leading or trailing cells through `w:gridBefore`/`w:gridAfter` and
+`w:wBefore`/`w:wAfter`. Differently split and indented rows therefore share a
+grid without inventing content cells. This is property preservation; exact
+placement still needs an independently rendered comparison.
+
+References: [TDefTableOperand](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/de06ec41-a0ac-4046-9096-cdfaa0091ad9)
+and [Table Properties](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/b39a6648-501c-4361-8366-4f042f579469).
+Tests: `test/legacy_word_table_origin_test.dart`.
+
 ### Nonconforming exporter recovery
 
 A LibreOffice bridge fixture (`word-compatibility.doc`) contains a `cb=0`
@@ -104,6 +123,12 @@ restart values separately from each resolved level's default formatting. The
 existing `levels[].startAt` remains compatible with earlier callers. When both
 formatting and start flags are set, the overriding LVL supplies the value; the
 otherwise undefined LFOLVL integer is not interpreted.
+
+The additive `continuationOf` compatibility field identifies identical,
+unmodified instances that can share a native numbering definition. The parser
+sets it only when the complete LSID group has no overrides; malformed public
+references are rejected. Those aliases share one editable `w:num`. Other
+instances keep the bounded counter interpreter and explicit restart metadata.
 
 The shared interpreter processes paragraphs in source CP order, including
 nested cells. Compatible list instances with the same original LSID continue

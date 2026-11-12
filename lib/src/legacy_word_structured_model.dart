@@ -31,6 +31,9 @@ enum LegacyWordWarning {
   recoveredTableStoryBoundary,
   recoveredEmptySection,
 
+  /// A declared-one FTXBXS disagreed with a complete explicit OfficeArt chain.
+  recoveredTextboxChainLength,
+
   /// A cb=0 PAPX had one uninterpreted final byte after complete properties.
   recoveredNonconformingProperties,
 }
@@ -315,6 +318,7 @@ class LegacyWordNumberingDefinition {
     required this.levels,
     this.sourceListId,
     this.startOverrides = const {},
+    this.continuationOf,
   });
 
   /// The absolute, one-based ilfo referenced by paragraph listId.
@@ -322,6 +326,11 @@ class LegacyWordNumberingDefinition {
 
   /// Original lsid shared by list instances that can continue one sequence.
   final int? sourceListId;
+
+  /// Another instance whose number sequence this instance continues. The
+  /// parser sets this only for a shared lsid with no LFO level overrides.
+  /// Both definitions retain their original ids and share the same levels.
+  final int? continuationOf;
   final List<LegacyWordNumberingLevel> levels;
 
   /// Explicit LFOLVL start/restart values, distinct from a level's default.
@@ -418,8 +427,9 @@ class LegacyWordTableRow {
     this.cantSplit = false,
     this.heightTwips,
     this.exactHeight = false,
-    this.indentTwips,
-  });
+    int? indentTwips,
+    int? originTwips,
+  }) : indentTwips = indentTwips ?? originTwips;
   final List<LegacyWordTableCell> cells;
   final bool isHeader;
   final int? endCp;
@@ -427,6 +437,10 @@ class LegacyWordTableRow {
   final int? heightTwips;
   final bool exactHeight;
   final int? indentTwips;
+
+  /// Logical outer edge retained independently of the leading cell margin.
+  /// This is the compatibility name for [indentTwips], defaulting to zero.
+  int get originTwips => indentTwips ?? 0;
 }
 
 /// Active TLP conditional regions; historical autoformat flags are not
@@ -818,6 +832,8 @@ class LegacyWordParagraphStyle {
 class LegacyWordSection {
   const LegacyWordSection({
     this.layout = const LegacyWordSectionLayout(),
+    this.formattingRevision,
+    this.revisionSaveId,
     required this.startCp,
     required this.endCp,
     this.pageWidthTwips,
@@ -836,6 +852,10 @@ class LegacyWordSection {
     this.titlePage = false,
   });
   final LegacyWordSectionLayout layout;
+
+  /// One previous section-property state captured by sprmSWall.
+  final LegacyWordSectionFormattingRevision? formattingRevision;
+  final int? revisionSaveId;
   final int startCp;
   final int endCp;
   final int? pageWidthTwips;
@@ -854,4 +874,20 @@ class LegacyWordSection {
 
   /// sprmSFTitlePage, independently of stored first-page header/footer text.
   final bool titlePage;
+}
+
+class LegacyWordSectionFormattingRevision {
+  const LegacyWordSectionFormattingRevision({
+    this.previousSection,
+    this.revision = const LegacyWordRevisionInfo(),
+    this.marked = true,
+    this.previousPropertiesComplete = true,
+  });
+
+  /// Supported section properties immediately before sprmSWall, with the
+  /// original source range. It has no recursively reconstructed history.
+  final LegacyWordSection? previousSection;
+  final LegacyWordRevisionInfo revision;
+  final bool marked;
+  final bool previousPropertiesComplete;
 }

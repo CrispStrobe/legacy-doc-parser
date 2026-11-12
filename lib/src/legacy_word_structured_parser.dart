@@ -319,9 +319,8 @@ class _StructuredWordParser {
           }.contains(operation.code)) {
         continue;
       }
-      if ((const {0x3668, 0x3239}.contains(operation.code) &&
-              operation.data.u8(0) != 0) ||
-          const {0xd667, 0xd243}.contains(operation.code)) {
+      if ((operation.code == 0x3668 && operation.data.u8(0) != 0) ||
+          operation.code == 0xd667) {
         warnings.add(LegacyWordWarning.revisionMetadataIncomplete);
       }
       if (operation.code != 0x6646 &&

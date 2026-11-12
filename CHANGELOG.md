@@ -1,3 +1,24 @@
+## 0.1.0-dev.2
+
+- Preserve nested tables, source table origins, conditional style regions,
+  cell borders/margins/shading/alignment, and supported row layout properties.
+- Resolve compatible shared list sequences with editable Word numbering,
+  explicit restart/resume metadata, story scopes and bounded label expansion.
+- Add native EMF/WMF retention and bounded SVG playback with strict record,
+  compression and coordinate limits. Preserve supported editable OfficeArt
+  geometry, positioning, rotation, fill/line and simple shadow properties.
+- Carry linked textbox graph identity and supported inner text layout. Recover
+  the observed stale native chain count only after every shape/link validates.
+- Preserve source pagination/section flags, column direction, compatibility
+  settings and supported character/paragraph/section revision histories.
+- Retain supported comment thread/resolved metadata while disclosing ink and
+  broader revision semantics as incomplete.
+- Add a hash-pinned Quds corpus, independently authored binary/OOXML/media
+  controls, native conversion/roundtrip reports, structural mutation oracles,
+  reviewed source-DOC RGB goldens and JavaScript media acceptance.
+- Keep full pagination, arbitrary OfficeArt/GDI and complete revision semantics
+  explicit remaining work; successful preservation never certifies them.
+
 ## 0.1.0-dev.1
 
 - Extract the bounded DOC/DOT parser and structured document model from
