@@ -222,6 +222,7 @@ class LegacyWordTextboxReference {
     this.shapeId,
     this.nextTextboxId,
     this.chainLength = 1,
+    this.declaredChainLength,
     this.anchors = const [],
   });
   final int id;
@@ -231,6 +232,10 @@ class LegacyWordTextboxReference {
   final int? shapeId;
   final int? nextTextboxId;
   final int chainLength;
+
+  /// Original FTXBXS count when available. This can differ from [chainLength]
+  /// only after a reported, fully linked-chain interoperability recovery.
+  final int? declaredChainLength;
 
   /// Actual OfficeArtClientTextbox chain indices, when available. A story is
   /// not duplicated for each shape and the library does not invent reflow.
@@ -309,6 +314,7 @@ class LegacyWordNumberingDefinition {
     required this.id,
     required this.levels,
     this.sourceListId,
+    this.startOverrides = const {},
   });
 
   /// The absolute, one-based ilfo referenced by paragraph listId.
@@ -317,6 +323,10 @@ class LegacyWordNumberingDefinition {
   /// Original lsid shared by list instances that can continue one sequence.
   final int? sourceListId;
   final List<LegacyWordNumberingLevel> levels;
+
+  /// Explicit LFOLVL start/restart values, distinct from a level's default.
+  /// A formatting override with fStartAt uses its own LVL start value.
+  final Map<int, int> startOverrides;
 }
 
 class LegacyWordNumberingLevel {
@@ -382,14 +392,65 @@ class LegacyWordTable extends LegacyWordBlock {
     required super.startCp,
     required super.endCp,
     required this.rows,
+    this.styleId,
+    this.styleName,
+    this.look = const LegacyWordTableLook(),
+    this.rightToLeft = false,
+    this.alignment = LegacyWordAlignment.left,
+    this.indentTwips,
+    this.autoFit = false,
   });
   final List<LegacyWordTableRow> rows;
+  final int? styleId;
+  final String? styleName;
+  final LegacyWordTableLook look;
+  final bool rightToLeft;
+  final LegacyWordAlignment alignment;
+  final int? indentTwips;
+  final bool autoFit;
 }
 
 class LegacyWordTableRow {
-  const LegacyWordTableRow({required this.cells, this.isHeader = false});
+  const LegacyWordTableRow({
+    required this.cells,
+    this.isHeader = false,
+    this.endCp,
+    this.cantSplit = false,
+    this.heightTwips,
+    this.exactHeight = false,
+    this.indentTwips,
+  });
   final List<LegacyWordTableCell> cells;
   final bool isHeader;
+  final int? endCp;
+  final bool cantSplit;
+  final int? heightTwips;
+  final bool exactHeight;
+  final int? indentTwips;
+}
+
+/// Active TLP conditional regions; historical autoformat flags are not
+/// confused with the current style. Logical first/last columns follow RTL.
+class LegacyWordTableLook {
+  const LegacyWordTableLook({this.flags = 0});
+  final int flags;
+  bool get firstRow => flags & 0x20 != 0;
+  bool get lastRow => flags & 0x40 != 0;
+  bool get firstColumn => flags & 0x80 != 0;
+  bool get lastColumn => flags & 0x100 != 0;
+  bool get noRowBands => flags & 0x200 != 0;
+  bool get noColumnBands => flags & 0x400 != 0;
+}
+
+enum LegacyWordCellVerticalAlignment { top, center, bottom }
+
+enum LegacyWordCellBorderSide {
+  top,
+  left,
+  bottom,
+  right,
+  diagonalDown,
+  diagonalUp,
 }
 
 class LegacyWordTableCell {
@@ -402,6 +463,10 @@ class LegacyWordTableCell {
     this.verticalMergeStart = false,
     this.verticalMergeContinue = false,
     this.shading,
+    this.borders = const {},
+    this.verticalAlignment = LegacyWordCellVerticalAlignment.top,
+    this.conditionalFlags = 0,
+    this.marginsTwips = const {},
   }) : _blocks = blocks;
 
   /// Direct paragraphs in this cell. [blocks] retains their order relative to
@@ -415,6 +480,14 @@ class LegacyWordTableCell {
   final bool verticalMergeStart;
   final bool verticalMergeContinue;
   final LegacyWordShading? shading;
+  final Map<LegacyWordCellBorderSide, LegacyWordBorder> borders;
+  final LegacyWordCellVerticalAlignment verticalAlignment;
+
+  /// Matched CNFC regions before direct paragraph/character/cell overrides.
+  final int conditionalFlags;
+
+  /// Logical cell margins; only top/left/bottom/right are valid keys.
+  final Map<LegacyWordCellBorderSide, int> marginsTwips;
 }
 
 enum LegacyWordTabAlignment { left, center, right, decimal, bar, list }

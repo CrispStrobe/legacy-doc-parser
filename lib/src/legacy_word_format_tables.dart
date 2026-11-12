@@ -46,6 +46,7 @@ class _Style {
     this.kind,
     this.paragraph,
     this.character,
+    this.table,
   );
   final String name;
   final int builtinId;
@@ -53,6 +54,7 @@ class _Style {
   final int kind;
   final List<_Sprm> paragraph;
   final List<_Sprm> character;
+  final List<_Sprm> table;
 }
 
 class _ResolvedStyle {
@@ -237,6 +239,9 @@ extension _WordFormattingTables on _StructuredWordParser {
           kind = kindParent & 15,
           parent = kindParent >> 4;
       final upxCount = record.u16(4) & 15;
+      if (kind == 3 && upxCount != 3) {
+        throw const FormatException('Invalid Word table-style property count.');
+      }
       final nameLength = record.u16(baseLength);
       if (nameLength > 1024) {
         throw const FormatException('Word style name exceeds the size limit.');
@@ -252,6 +257,7 @@ extension _WordFormattingTables on _StructuredWordParser {
       var upx = baseLength + 4 + nameLength * 2;
       var paragraph = const <_Sprm>[];
       var character = const <_Sprm>[];
+      var table = const <_Sprm>[];
       for (var u = 0; u < upxCount; u++) {
         final bytes = record.u16(upx);
         upx += 2;
@@ -263,8 +269,17 @@ extension _WordFormattingTables on _StructuredWordParser {
             );
           }
           paragraph = _readProperties(Uint8List.sublistView(data, 2));
-        } else if ((kind == 1 && u == 1) || (kind == 2 && u == 0)) {
-          character = _readProperties(data);
+        } else if ((kind == 1 && u == 1) ||
+            (kind == 2 && u == 0) ||
+            (kind == 3 && u == 2)) {
+          character = kind == 3
+              ? _decodeSprms(data, budget)
+              : _readProperties(data);
+        } else if (kind == 3 && u == 0) {
+          table = _decodeSprms(data, budget);
+        } else if (kind == 3 && u == 1) {
+          // The optional istd belongs to paragraph-style UpxPapx only.
+          paragraph = _decodeSprms(data, budget);
         } else if (bytes != 0) {
           warnings.add(LegacyWordWarning.unsupportedFormatting);
         }
@@ -272,7 +287,7 @@ extension _WordFormattingTables on _StructuredWordParser {
         if (upx.isOdd) upx++;
         record.require(0, upx);
       }
-      if (kind != 1 && kind != 2) {
+      if (kind != 1 && kind != 2 && kind != 3) {
         warnings.add(LegacyWordWarning.unsupportedFormatting);
       }
       styles[index] = _Style(
@@ -282,6 +297,7 @@ extension _WordFormattingTables on _StructuredWordParser {
         kind,
         paragraph,
         character,
+        table,
       );
     }
     // Newer STSH records can carry documented post-STD structures. They are

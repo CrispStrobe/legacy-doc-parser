@@ -78,5 +78,6 @@ Uint8List tableFixture(
     paragraphRuns: paragraphRuns,
     characterRuns: characterRuns,
     styles: styles,
+    reuseFormattingRecords: true,
   ).build();
 }

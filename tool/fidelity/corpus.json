@@ -149,6 +149,64 @@
         "embedded-content"
       ],
       "origin": "independently authored OOXML; native DOC bridge must be measured separately"
+    },
+    {
+      "id": "linked-textboxes",
+      "path": "test/fixtures/fidelity/linked-textboxes.docx",
+      "sha256": "e1032597da63f7dce5a956d7296d5817b17e76c03ee73c77a37b6304da190148",
+      "source": "authored-package-fixture",
+      "features": [
+        "linked-textbox-reflow",
+        "pagination"
+      ],
+      "origin": "Independent OOXML authored by tool/fidelity/authored_cases.py; native DOC bridge must be measured separately"
+    },
+    {
+      "id": "officeart-shapes",
+      "path": "test/fixtures/fidelity/officeart-shapes.docx",
+      "sha256": "f95be8f8d4283f7d2fd4cfc178cbd108300ea99b1be9a14ab1dd56bf1897f53b",
+      "source": "authored-package-fixture",
+      "features": [
+        "officeart-geometry",
+        "officeart-effects",
+        "floating-drawings"
+      ],
+      "origin": "Independent OOXML authored by tool/fidelity/authored_cases.py; native DOC bridge must be measured separately"
+    },
+    {
+      "id": "linked-textboxes-native",
+      "path": "test/fixtures/word_native/linked-textboxes.doc",
+      "sha256": "656aee3ffa9895e854a7b7c3f43a3eed38e5e03afd6f813aa229553029ce6b2c",
+      "source": "authored-package-fixture",
+      "features": [
+        "linked-textbox-reflow",
+        "pagination"
+      ],
+      "origin": "Pinned LibreOfficeDev 26.8alpha binary from independent linked-textboxes.docx; preserves observed stale FTXBXS count for regression"
+    },
+    {
+      "id": "emf-vectors",
+      "path": "test/fixtures/fidelity/media/emf-vectors.docx",
+      "sha256": "68c1368568e8a5664e5aa0bc770d14b8da64b6c436747c647d24a1757f7fbe59",
+      "source": "authored-package-fixture",
+      "features": [
+        "metafile-rendering",
+        "images",
+        "pagination"
+      ],
+      "origin": "Independent GDI records and OOXML authored by tool/fidelity/metafile_cases.dart; native DOC bridge measured separately"
+    },
+    {
+      "id": "wmf-vectors",
+      "path": "test/fixtures/fidelity/media/wmf-vectors.docx",
+      "sha256": "c2c04f2edbb946ef09136b277ee26da116c5df45a485f28c1132d4664ceec678",
+      "source": "authored-package-fixture",
+      "features": [
+        "metafile-rendering",
+        "images",
+        "pagination"
+      ],
+      "origin": "Independent GDI records and OOXML authored by tool/fidelity/metafile_cases.dart; native DOC bridge measured separately"
     }
   ],
   "reference_expectations": [

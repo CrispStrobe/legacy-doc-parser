@@ -3,6 +3,7 @@
 import 'dart:convert';
 
 import 'legacy_word_structured_model.dart';
+import 'legacy_word_numbering.dart';
 
 /// Renders only resolved, visible content. All markup and CSS property names
 /// are fixed here; document text cannot introduce links, assets or HTML.
@@ -70,129 +71,34 @@ class _HtmlWriter {
 
   void _prepareNumbering(List<LegacyWordBlock> blocks) {
     if (numberingDefinitions.isEmpty) return;
-    final definitions = <int, Map<int, LegacyWordNumberingLevel>>{};
-    final sourceInstances = <int, List<int>>{};
-    if (numberingDefinitions.length > 4096) {
-      throw const FormatException('Word numbering preview is too complex.');
-    }
-    for (final definition in numberingDefinitions) {
+    final resolved = LegacyWordNumberingResolver(
+      numberingDefinitions,
+    ).resolve(blocks);
+    for (final entry in resolved.entries) {
       _item();
-      if (definition.id <= 0 ||
-          definitions.containsKey(definition.id) ||
-          definition.levels.isEmpty ||
-          definition.levels.length > 9) {
-        throw const FormatException('Invalid Word preview list definition.');
-      }
-      final levels = <int, LegacyWordNumberingLevel>{};
-      for (final level in definition.levels) {
-        _item();
-        if (level.level < 0 ||
-            level.level > 8 ||
-            levels.containsKey(level.level) ||
-            level.startAt < 0 ||
-            level.startAt > 32767 ||
-            level.text.length > 1024 ||
-            (level.restartAfterLevel != null &&
-                (level.restartAfterLevel! < 0 ||
-                    level.restartAfterLevel! > level.level))) {
-          throw const FormatException('Invalid Word preview numbering level.');
-        }
-        levels[level.level] = level;
-      }
-      definitions[definition.id] = levels;
-      final sourceId = definition.sourceListId;
-      if (sourceId != null) {
-        sourceInstances.putIfAbsent(sourceId, () => []).add(definition.id);
-      }
-    }
-    final ambiguous = <int>{
-      for (final ids in sourceInstances.values)
-        if (ids.length > 1) ...ids,
-    };
-    final ordered = <(int, LegacyWordParagraph)>[];
-    var scanned = 0;
-    void scanItem() {
-      if (++scanned > _maxItems) {
-        throw const FormatException('Word numbering preview is too complex.');
-      }
-    }
-
-    void add(LegacyWordParagraph paragraph) {
-      scanItem();
-      if (paragraph.style.listId != null && paragraph.style.listId != 0) {
-        ordered.add((ordered.length, paragraph));
-      }
-    }
-
-    void scan(List<LegacyWordBlock> values, int depth) {
-      if (depth > 63) {
-        throw const FormatException('Word tables are nested too deeply.');
-      }
-      for (final block in values) {
-        scanItem();
-        switch (block) {
-          case LegacyWordParagraph():
-            add(block);
-          case LegacyWordTable():
-            for (final row in block.rows) {
-              scanItem();
-              for (final cell in row.cells) {
-                scanItem();
-                scan(cell.blocks, depth + 1);
-              }
-            }
-        }
-      }
-    }
-
-    scan(blocks, 0);
-    // A vertically merged HTML cell can move a continuation's text earlier in
-    // markup order. Number source paragraphs in CP order before merging them.
-    ordered.sort((a, b) {
-      final order = a.$2.startCp.compareTo(b.$2.startCp);
-      return order == 0 ? a.$1.compareTo(b.$1) : order;
-    });
-    final counters = <int, List<int?>>{};
-    for (final (_, paragraph) in ordered) {
-      final id = paragraph.style.listId!.abs();
-      final index = paragraph.style.listLevel ?? 0;
-      final levels = definitions[id];
-      final level = levels?[index];
-      if (level == null) {
-        _markers[paragraph] = const _HtmlListMarker(unsupported: true);
+      final value = entry.value;
+      if (value == null) {
+        _markers[entry.key] = const _HtmlListMarker(unsupported: true);
         continue;
       }
-      final values = counters.putIfAbsent(id, () => List<int?>.filled(9, null));
-      values[index] = values[index] == null
-          ? level.startAt
-          : values[index]! + 1;
-      for (final lower in levels!.values) {
-        final restart = lower.restartAfterLevel ?? lower.level;
-        if (lower.level > index && restart > 0 && index < restart) {
-          values[lower.level] = null;
-        }
-      }
-      final text = _listText(level, levels, values);
+      final text = _listText(value);
       _markerUnits += text?.length ?? 0;
       if (_markerUnits > 4 * 1024 * 1024) {
         throw const FormatException(
           'Word numbering labels exceed the preview limit.',
         );
       }
-      _markers[paragraph] = _HtmlListMarker(
+      _markers[entry.key] = _HtmlListMarker(
         text: text,
-        level: level,
+        level: value.level,
         unsupported: text == null,
-        ambiguousContinuation: ambiguous.contains(id),
+        ambiguousContinuation: value.approximate,
       );
     }
   }
 
-  String? _listText(
-    LegacyWordNumberingLevel level,
-    Map<int, LegacyWordNumberingLevel> levels,
-    List<int?> values,
-  ) {
+  String? _listText(LegacyWordResolvedNumbering marker) {
+    final level = marker.level;
     if (level.format == 'none') return '';
     if (level.format == 'bullet') return level.text;
     const formats = {
@@ -215,12 +121,19 @@ class _HtmlWriter {
         continue;
       }
       final index = level.text.codeUnitAt(++i) - 49;
-      final source = levels[index];
-      if (source == null || index > level.level) return null;
-      final number = _listNumber(
-        values[index] ?? source.startAt,
-        level.legal ? 'decimal' : source.format,
-      );
+      final sourceFormat = marker.referenceFormats[index];
+      if (sourceFormat == null || index > level.level) return null;
+      final value = marker.referenceNumbers[index];
+      final number = sourceFormat == 'none' || sourceFormat == 'bullet'
+          ? ''
+          : value == null
+          ? null
+          : _listNumber(
+              value,
+              level.legal && sourceFormat != 'decimalZero'
+                  ? 'decimal'
+                  : sourceFormat,
+            );
       if (number == null) return null;
       if (number.length > 4096 - output.length) {
         throw const FormatException(
@@ -727,6 +640,7 @@ class _HtmlWriter {
               ? source.fold<int>(0, (sum, cell) => sum + cell.widthTwips!)
               : null,
           shading: first.shading,
+          source: first,
         );
         cells.add(cell);
         if (source.every(
@@ -738,19 +652,28 @@ class _HtmlWriter {
       rows.add(cells);
       active = nextActive;
     }
-    _write('<table style="border-collapse:collapse;"><tbody>');
-    for (final row in rows) {
-      _write('<tr>');
+    _write(
+      '<table${table.rightToLeft ? ' dir="rtl"' : ''} style="border-collapse:collapse;'
+      '${table.indentTwips == null ? '' : 'margin-inline-start:${_twips(table.indentTwips!)}pt;'}"><tbody>',
+    );
+    for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      final row = rows[rowIndex];
+      final rowProperties = table.rows[rowIndex];
+      _write(
+        '<tr style="${rowProperties.cantSplit ? 'break-inside:avoid;' : ''}'
+        '${rowProperties.heightTwips == null ? '' : 'height:${_twips(rowProperties.heightTwips!)}pt;'}">',
+      );
       for (final cell in row) {
         final tag = cell.isHeader ? 'th' : 'td';
         final width = cell.widthTwips;
         final shading = _shading(cell.shading);
+        final decoration = _tableCellDecoration(cell.source);
         _write(
           '<$tag${cell.isHeader ? ' scope="col"' : ''}'
           '${cell.columnSpan > 1 ? ' colspan="${cell.columnSpan}"' : ''}'
           '${cell.rowSpan > 1 ? ' rowspan="${cell.rowSpan}"' : ''}'
-          '${shading.attributes}'
-          ' style="border:1px solid #888;vertical-align:top;padding:4px;'
+          '${shading.attributes}${decoration.attributes}'
+          ' style="${decoration.css.join(';')};'
           '${shading.css.isEmpty ? '' : '${shading.css.join(';')};'}'
           '${width != null && width > 0 ? 'width:${_twips(width)}pt;' : ''}">',
         );
@@ -761,6 +684,61 @@ class _HtmlWriter {
     }
     _write('</tbody></table>');
     _tableDepth--;
+  }
+
+  _HtmlDecoration _tableCellDecoration(LegacyWordTableCell cell) {
+    final css = <String>[
+      'vertical-align:${cell.verticalAlignment == LegacyWordCellVerticalAlignment.center ? 'middle' : cell.verticalAlignment.name}',
+    ];
+    var approximate = false;
+    for (final side in LegacyWordCellBorderSide.values) {
+      final border = cell.borders[side];
+      if (border != null) {
+        if (side.index >= 4) {
+          approximate = true;
+          continue;
+        }
+        if (border.widthEighthPoints < 0 || border.widthEighthPoints > 255) {
+          throw const FormatException('Invalid Word cell border width.');
+        }
+        final line = switch (border.style) {
+          'none' || 'nil' => 'none',
+          'single' => 'solid',
+          'double' => 'double',
+          'dotted' => 'dotted',
+          'dashed' || 'dashSmallGap' || 'dotDash' || 'dotDotDash' => 'dashed',
+          _ => null,
+        };
+        if (line == null) {
+          approximate = true;
+        } else {
+          css.add(
+            'border-${side.name}:${border.widthEighthPoints / 8}pt $line '
+            '${border.colorHex != null && _color.hasMatch(border.colorHex!) ? '#${border.colorHex}' : 'currentColor'}',
+          );
+        }
+        if (border.shadow ||
+            border.frame ||
+            const {
+              'dotDash',
+              'dotDotDash',
+              'dashSmallGap',
+            }.contains(border.style)) {
+          approximate = true;
+        }
+      }
+      final margin = cell.marginsTwips[side];
+      if (margin != null && side.index < 4) {
+        if (margin < 0 || margin > 31680) {
+          throw const FormatException('Invalid Word cell margin.');
+        }
+        css.add('padding-${side.name}:${_twips(margin)}pt');
+      }
+    }
+    return _HtmlDecoration(
+      css,
+      approximate ? ' data-word-border="approximate"' : '',
+    );
   }
 
   void _text(String text) {
@@ -811,7 +789,9 @@ class _HtmlCell {
     required this.columnSpan,
     required this.widthTwips,
     required this.shading,
+    required this.source,
   });
+  final LegacyWordTableCell source;
   final List<LegacyWordBlock> blocks;
   final bool isHeader;
   final int columnSpan;
