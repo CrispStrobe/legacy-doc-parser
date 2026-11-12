@@ -5,9 +5,11 @@ import 'dart:io';
 
 import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 
+import 'header_textbox_alias_fixture.dart' as header_aliases;
 import 'image_appearance_probe.dart' as image_appearance;
 import 'list_sequence_fixture.dart' as list_sequences;
 import 'metafile_probe.dart' as metafiles;
+import 'media_review_fixture.dart' as media_reviews;
 import 'note_boundary_fixture.dart' as note_boundaries;
 import 'note_format_fixture.dart' as note_formats;
 import 'packed_shape_probe.dart' as packed_shapes;
@@ -312,6 +314,27 @@ void main(List<String> arguments) {
       'tool/fidelity/review_schema_fixture.dart',
     );
   }
+  media_reviews.main(['${root.path}/media-reviews']);
+  for (final kind in [
+    'inline-picture',
+    'floating-picture',
+    'embedded-object',
+    'editable-shape',
+    'footnote-picture',
+    'footnote-anchor',
+    'endnote-anchor',
+    'comment-anchor',
+  ]) {
+    for (final state in ['inserted', 'deleted', 'overlapping']) {
+      final name = '$kind-$state';
+      record(
+        'media-reviews/$name',
+        'media-reviews/$name.doc',
+        'media-reviews/$name.docx',
+        'tool/fidelity/media_review_fixture.dart',
+      );
+    }
+  }
   sections.main(['${root.path}/section-review.doc']);
   File('${root.path}/section-review.docx').writeAsBytesSync(
     convertLegacyWordToStructuredDocx(
@@ -344,6 +367,24 @@ void main(List<String> arguments) {
       );
     }
   }
+  header_aliases.main(['${root.path}/header-alias']);
+  for (final kind in [
+    'content',
+    'empty',
+    'leading-blank',
+    'interior-blank',
+    'trailing-blank',
+    'two-trailing-blanks',
+    'two-content-paragraphs',
+  ]) {
+    final name = 'header-alias-$kind';
+    record(
+      'header-alias/$name',
+      'header-alias/$name.doc',
+      'header-alias/$name.docx',
+      'tool/fidelity/header_textbox_alias_fixture.dart',
+    );
+  }
   Directory('${root.path}/native-inputs').createSync();
   void nativeInput(String name, String relativeSource) {
     final source = File('${repository.path}/$relativeSource');
@@ -366,6 +407,8 @@ void main(List<String> arguments) {
     'word16-page-origin',
     'word16-page-origin-lo-blip-count',
     'poi-simple-table2',
+    'header-textbox-duplicate-chain',
+    'header-textbox-first-enabled',
   ]) {
     nativeInput(name, 'test/fixtures/word_native/$name.doc');
   }

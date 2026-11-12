@@ -77,6 +77,10 @@ EXPECTED_CASES = frozenset([
     *(f"note-formats/note-formats-{name}" for name in (
         "east-asian-sepx", "korean-sepx", "rtl-dop", "south-asian-dop", "cyrillic-sepx",
         "none-sepx", "fallback-sepx", "unknown-sepx", "revision")),
+    *(f"media-reviews/{kind}-{state}" for kind in (
+        "inline-picture", "floating-picture", "embedded-object", "editable-shape",
+        "footnote-picture", "footnote-anchor", "endnote-anchor", "comment-anchor",
+    ) for state in ("inserted", "deleted", "overlapping")),
     "reviews/numbering-change", "reviews/numbering-insertion",
     "reviews/listnum-display-change", "section-review",
     "native-inputs/formatting", "native-inputs/linked-textboxes",
@@ -84,6 +88,11 @@ EXPECTED_CASES = frozenset([
     "native-inputs/poi-simple-table2",
     "native-inputs/word16-page-origin-lo-blip-count",
     "native-inputs/officeart-shapes",
+    "native-inputs/header-textbox-duplicate-chain",
+    "native-inputs/header-textbox-first-enabled",
+    *(f"header-alias/header-alias-{kind}" for kind in (
+        "content", "empty", "leading-blank", "interior-blank", "trailing-blank",
+        "two-trailing-blanks", "two-content-paragraphs")),
     *(f"textbox-boundary/textbox-{story}-{kind}" for story in ("main", "header")
       for kind in ("content", "empty", "leading-blank", "interior-blank",
                    "trailing-blank", "two-trailing-blanks", "two-content-paragraphs")),

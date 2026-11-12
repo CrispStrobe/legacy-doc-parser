@@ -852,6 +852,7 @@ extension _WordStories on _StructuredWordWriter {
         case LegacyWordWarning.recoveredTextboxChainLength:
         case LegacyWordWarning.terminalMarkFormattingUnavailable:
         case LegacyWordWarning.recoveredGlobalTextboxSentinel:
+        case LegacyWordWarning.recoveredHeaderTextboxAlias:
           limitations.add(LegacyWordConversionLimitation.partialFormatting);
         case LegacyWordWarning.numberingNotReconstructed:
           limitations.add(LegacyWordConversionLimitation.fieldsLists);

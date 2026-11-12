@@ -13,6 +13,7 @@ import 'legacy_word_layout_model.dart';
 
 export 'legacy_word_compatibility.dart';
 export 'legacy_word_media_model.dart';
+export 'legacy_word_revision_model.dart';
 export 'legacy_word_layout_model.dart';
 
 part 'legacy_word_table_model.dart';
@@ -45,6 +46,10 @@ enum LegacyWordWarning {
   /// A main-textbox spare range ended at the exact whole-document sentinel.
   /// Every real range remained bounded by the textbox story length.
   recoveredGlobalTextboxSentinel,
+
+  /// A single-frame header text range is shared by separate normal/first
+  /// header occurrences, corroborated by their stored shapes and CPs.
+  recoveredHeaderTextboxAlias,
 
   /// A note format is unknown or requires a disclosed decimal fallback.
   /// The original MSONFC code remains available on the note numbering model.
@@ -242,6 +247,7 @@ class LegacyWordTextboxReference {
     this.chainLength = 1,
     this.declaredChainLength,
     this.anchors = const [],
+    this.headerAliases = const [],
   });
   final int id;
   final String storyId;
@@ -258,6 +264,11 @@ class LegacyWordTextboxReference {
   /// Actual OfficeArtClientTextbox chain indices, when available. A story is
   /// not duplicated for each shape and the library does not invent reflow.
   final List<LegacyWordTextboxAnchor> anchors;
+
+  /// Corroborated, separate header occurrences of a single-frame text range.
+  /// These retain their source chain index zero and are not text-flow links.
+  /// The converter revalidates the bounded normal/first-header recovery.
+  final List<LegacyWordTextboxAnchor> headerAliases;
 }
 
 class LegacyWordTextboxAnchor {
@@ -672,40 +683,6 @@ class LegacyWordRun {
   final LegacyWordRevisionInfo? deletionRevision;
   final LegacyWordCharacterFormattingRevision? formattingRevision;
   final int? formattingSaveId;
-}
-
-/// Source revision metadata. A missing name/date remains missing; the parser
-/// never invents an author or converts the source wall-clock timestamp to UTC.
-class LegacyWordRevisionInfo {
-  const LegacyWordRevisionInfo({
-    this.author,
-    this.time,
-    this.authorIndex,
-    this.rawDate,
-    this.saveId,
-    this.reason,
-  });
-  final String? author;
-  final DateTime? time;
-  final int? authorIndex;
-  final int? rawDate;
-  final int? saveId;
-
-  /// Original AutoFormat reason code, when recorded in the binary source.
-  final int? reason;
-
-  @override
-  bool operator ==(Object other) =>
-      other is LegacyWordRevisionInfo &&
-      author == other.author &&
-      time == other.time &&
-      authorIndex == other.authorIndex &&
-      rawDate == other.rawDate &&
-      saveId == other.saveId &&
-      reason == other.reason;
-  @override
-  int get hashCode =>
-      Object.hash(author, time, authorIndex, rawDate, saveId, reason);
 }
 
 class LegacyWordCharacterFormattingRevision {

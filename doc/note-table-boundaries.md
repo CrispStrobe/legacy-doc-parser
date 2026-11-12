@@ -51,3 +51,22 @@ writes its extra story-ending CR after the final note range endpoint.
 Removing our synthesized paragraph must be measured separately from this native
 table/frame representation change. It does not establish exact pagination for
 all note tables, nor authorize removing intentional blank note paragraphs.
+
+## Measured three-cycle result
+
+The [sealed native receipt](evidence/note-boundary-d622754/README.md) retains
+sixteen authored controls, all 64 initial/cycle imports, the exact binary inputs,
+DOCX outputs and PDFs. Every parser output preserves its actual source note
+blocks. The real `table-borders.docx` final-table footnote remains `[p,tbl]` and
+matches its authored original exactly in RGB, text and word rectangles through
+three cycles, with the note marker fixed at 682.10 points on the recorded renderer.
+Both final-table note kinds remain structurally stable. All 64 parser outputs
+and 16 authored controls pass independent SDK validation.
+
+The receipt also retains the failures: six controls with paragraphs following a
+table gain a native interior paragraph per cycle, endnote controls have an
+original-to-binary bridge layout difference, and the sixteen native DOCX
+projections have 48 schema errors. Native playback and the parser's preserved
+table are different representations. None of those differences is hidden by
+trimming a source CR, adopting native output as an authored golden, or changing
+the original red reports.

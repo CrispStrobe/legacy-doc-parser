@@ -66,7 +66,11 @@ remains one page, but exact rendered text/geometry/RGB comparisons are still
 red before and after the correction. The remaining frame dimensions, wrapping,
 placement and paint differences are not certified by this paragraph-boundary fix.
 
-## Retained native header failure
+## Retained native header failure at the separator checkpoint
+
+The subsequent [header-alias increment](header-textbox-aliases.md) handles the
+bounded normal/first-header case below. The original red fixture and receipt
+remain unchanged so the earlier failure is reproducible.
 
 The separately authored default-header control survives the native bridge with
 the expected paragraph sequence, but its binary drawing references are rejected
@@ -74,17 +78,17 @@ by both the unchanged `34e1484` converter and the patched converter. The exact
 [DOC input](../test/fixtures/word_native/header-textbox-duplicate-chain.doc),
 [authored DOCX](../test/fixtures/word_native/header-textbox-duplicate-chain-source.docx)
 and [source receipt](../test/fixtures/word_native/header-textbox-duplicate-chain-source.json)
-are retained. This is a red fixture, not a supported-conversion example.
+are retained. This was a red fixture at the separator-only checkpoint.
 
 The duplicate occurs across **distinct header ranges**. Header-relative CP 2
 anchors shape 1025 in the normal header's raw range `[2,5)`; CP 5 anchors shape
 1026 in the first-page header's raw range `[5,8)`. Both shapes store
 `ClientTextbox=0x00010000`, meaning the same FTXBXS index and chain index zero.
 `PlcfHdrtxbxTxt` contains only one real FTXBXS, with `cTxbx=1` and `lid=1025`,
-followed by its spare. The existing duplicate-chain guard therefore rejects the
-second shape. This increment does not invent a link, a second text range, or
-independent ownership for that alias. Resolving header aliases needs separate
-semantics and controls.
+followed by its spare. The duplicate-chain guard therefore rejected the second
+shape. The separator increment did not invent a link, a second text range, or
+independent ownership for that alias. The later recovery has separate native
+activation controls and retains the ordinary chain guards.
 
 To reproduce the native measurements, supply the native office executable and
 Dart. A saved baseline converter and its hash-bound source receipt are optional:
@@ -95,5 +99,6 @@ python3 tool/fidelity/textbox_boundary_probe.py \
   --output build/textbox-boundary-native
 ```
 
-The command deliberately remains red while the native header aliases are
-unresolved. It preserves completed measurements and errors in `report.json`.
+This historical probe compares a single box across the entire package. Use the
+separate header-alias probe above for the later two-occurrence semantics; the
+historical result remains red rather than silently changing its assertions.
