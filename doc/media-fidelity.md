@@ -60,9 +60,17 @@ Unknown commands, clipping, text, palette colors, pattern brushes, non-copy
 raster operations and unsupported mapping modes make the **entire SVG
 unavailable**. The parser reports their record types; it never displays a
 misleading partially drawn image. The independently validated original
-metafile may still be eligible for native Office embedding. A standalone
-WMF needs caller-supplied or placeable-header bounds for a portable preview;
-OfficeArt BLIPs already supply their own bounds.
+metafile may still be eligible for native Office embedding.
+
+The playback `bounds` use device coordinates and remain distinct from
+`officeArtBounds`, the original producer-dependent presentation/clipping
+rectangle. An OfficeArt physical-unit rectangle must not replace an EMF
+header's device canvas. A standalone WMF can use explicit caller bounds or a
+placeable header. Without either, a normalized canvas is accepted only when
+an explicit initial anisotropic mapping mode and nonzero window extent precede
+painting. Ambiguous viewport or saved-context setup prevents this inference;
+window origins are replayed separately. These rules retain the raw OfficeArt
+rectangle without guessing its units as SVG pixels.
 
 SVG contains fixed generated tags, numeric coordinates and resolved RGB
 colors. It never copies source markup, URLs, scripts, font files or external

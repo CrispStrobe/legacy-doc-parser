@@ -257,6 +257,7 @@ void _applyCharacter(
       'verticalAlign',
       'position',
       'spacing',
+      'kerning',
     ]) {
       output[key] = properties[key];
     }
@@ -315,6 +316,12 @@ void _applyCharacter(
           throw const FormatException('Invalid Word text position.');
         }
         output['position'] = position;
+      case 0x484b:
+        final threshold = data.i16(0);
+        if (threshold < 0 || threshold > 3276) {
+          throw const FormatException('Invalid Word kerning threshold.');
+        }
+        output['kerning'] = threshold;
       case 0x8840:
         output['spacing'] = data.i16(0);
       case 0x2a83:

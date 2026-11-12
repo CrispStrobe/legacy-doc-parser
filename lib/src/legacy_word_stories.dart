@@ -83,7 +83,7 @@ extension _WordStories on _StructuredWordParser {
         endCp: end,
         blocks: List.unmodifiable(blocks),
         plainText: _plainText(blocks),
-        safeHtml: _renderBlocks(blocks),
+        safeHtml: '', // Filled after media references are resolved.
         sectionIndex: sectionIndex,
         headerFooterType: headerFooterType,
       ),

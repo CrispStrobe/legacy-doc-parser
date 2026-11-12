@@ -104,6 +104,7 @@ enum LegacyWordTableCharacterProperty {
   verticalAlign,
   position,
   spacing,
+  kerning,
 }
 
 /// Supported native text differences, with explicit source-property masks.

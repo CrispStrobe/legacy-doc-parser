@@ -38,6 +38,9 @@ enum LegacyWordWarning {
 
   /// A cb=0 PAPX had one uninterpreted final byte after complete properties.
   recoveredNonconformingProperties,
+
+  /// The final main-story CR is missing from exact CHPX physical/bin bounds.
+  terminalMarkFormattingUnavailable,
 }
 
 enum LegacyWordAlignment { left, center, right, justify, distribute }
@@ -350,6 +353,7 @@ class LegacyWordNumberingDefinition {
     required this.levels,
     this.sourceListId,
     this.continuationOf,
+    this.startOverrides = const {},
   });
 
   /// The absolute, one-based ilfo referenced by paragraph listId.
@@ -362,6 +366,10 @@ class LegacyWordNumberingDefinition {
   /// parser sets this only for a shared lsid with no LFO level overrides.
   /// Both definitions retain their original ids and share the same levels.
   final int? continuationOf;
+
+  /// Explicit LFOLVL start overrides, distinct from each resolved level's
+  /// default. Formatting-only overrides can still share source LSID counters.
+  final Map<int, int> startOverrides;
   final List<LegacyWordNumberingLevel> levels;
 }
 
@@ -730,6 +738,7 @@ class LegacyWordCharacterStyle {
     this.hidden = false,
     this.fontName,
     this.fontSizeHalfPoints,
+    this.kerningThresholdHalfPoints = 0,
     this.colorHex,
     this.highlightHex,
     this.verticalAlign = LegacyWordVerticalAlignment.baseline,
@@ -750,6 +759,9 @@ class LegacyWordCharacterStyle {
   final bool hidden;
   final String? fontName;
   final int? fontSizeHalfPoints;
+
+  /// MS-DOC sprmCHpsKern threshold in half-points. Zero disables kerning.
+  final int kerningThresholdHalfPoints;
 
   /// Six hexadecimal RGB digits, without '#'; null means automatic/unspecified.
   final String? colorHex;
@@ -772,6 +784,7 @@ class LegacyWordCharacterStyle {
       hidden == other.hidden &&
       fontName == other.fontName &&
       fontSizeHalfPoints == other.fontSizeHalfPoints &&
+      kerningThresholdHalfPoints == other.kerningThresholdHalfPoints &&
       colorHex == other.colorHex &&
       highlightHex == other.highlightHex &&
       verticalAlign == other.verticalAlign &&
@@ -790,6 +803,7 @@ class LegacyWordCharacterStyle {
     hidden,
     fontName,
     fontSizeHalfPoints,
+    kerningThresholdHalfPoints,
     colorHex,
     highlightHex,
     verticalAlign,

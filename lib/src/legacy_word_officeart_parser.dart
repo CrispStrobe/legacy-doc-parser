@@ -152,6 +152,24 @@ class _OfficeArtShapeReader {
             autoTextMargin: _used(0x00bf, 3),
           )
         : null;
+    const positionProperties = {0x038f, 0x0390, 0x0391, 0x0392};
+    final position =
+        positionProperties.any(
+          (id) => p.containsKey(id) || properties.complex.containsKey(id),
+        )
+        ? LegacyWordOfficeArtPosition(
+            horizontalMode: p[0x038f],
+            horizontalRelativeTo: p[0x0390],
+            verticalMode: p[0x0391],
+            verticalRelativeTo: p[0x0392],
+          )
+        : null;
+    for (final id in positionProperties) {
+      final maximum = id == 0x038f || id == 0x0391 ? 5 : 3;
+      if (properties.complex.containsKey(id) || (p[id] ?? 0) > maximum) {
+        unsupported.add(id);
+      }
+    }
     final geometry = _geometry();
     if (fill?.type != null && fill!.type != 0) unsupported.add(0x0180);
     if (line?.type != null && line!.type != 0) unsupported.add(0x01c4);
@@ -191,7 +209,11 @@ class _OfficeArtShapeReader {
       // change appearance or placement. Plain name/description metadata does
       // not. Do not turn such a shape into an apparently complete plain path.
       if ((id >= 0x00c0 && id <= 0x00ff) ||
-          (id >= 0x0300 && id <= 0x07ff && id != 0x0380 && id != 0x0381)) {
+          (id >= 0x0300 &&
+              id <= 0x07ff &&
+              id != 0x0380 &&
+              id != 0x0381 &&
+              !positionProperties.contains(id))) {
         unsupported.add(id);
       }
     }
@@ -214,6 +236,7 @@ class _OfficeArtShapeReader {
       line: line,
       shadow: shadow,
       text: text,
+      position: position,
       ink: ink,
       discussionAnchor: p[0x0307] == 1,
       unsupportedProperties: unsupported.toList()..sort(),

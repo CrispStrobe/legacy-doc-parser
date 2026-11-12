@@ -19,7 +19,8 @@ import subprocess
 import sys
 import time
 
-from oracle import ROOT, bbox_snapshot, compare_layout, compare_semantics, digest, load_corpus, snapshot
+from oracle import ROOT, bbox_snapshot, compare_semantics, digest, load_corpus, snapshot
+from goldens import MANIFEST as GOLDEN_MANIFEST, compare_golden, compare_render, load_goldens
 
 
 def command(argv, *, timeout=50, cwd=None):
@@ -61,25 +62,19 @@ def render(office, source, output, dpi):
     command(['pdftotext', '-bbox-layout', '-enc', 'UTF-8', pdf, bbox])
     text = command(['pdftotext', '-layout', '-enc', 'UTF-8', pdf, '-'])
     (output / 'pages.txt').write_text(text)
-    command(['pdftoppm', '-r', str(dpi), '-gray', pdf, output / 'page'])
-    rasters = sorted(output.glob('page-*.pgm'), key=lambda path: int(path.stem.rsplit('-', 1)[-1]))
+    # RGB detects color changes that can disappear in a luminance-only raster.
+    command(['pdftoppm', '-r', str(dpi), pdf, output / 'page'])
+    rasters = sorted(output.glob('page-*.ppm'), key=lambda path: int(path.stem.rsplit('-', 1)[-1]))
     pages = bbox_snapshot(bbox)
     if len(pages) != len(rasters):
         raise RuntimeError('Native raster/page count disagrees')
     return {'pdfSha256': digest(pdf), 'pages': pages, 'text': text,
-            'rasterSha256': [digest(path) for path in rasters], 'rasterDpi': dpi}
+            'rasterSha256': [digest(path) for path in rasters], 'rasterDpi': dpi,
+            'rasterColorSpace': 'RGB'}
 
 
 def render_comparison(reference, actual):
-    result = compare_layout(reference['pages'], actual['pages'])
-    result['rasterExactlyMatches'] = reference['rasterSha256'] == actual['rasterSha256']
-    result['layoutTextExactlyMatches'] = reference['text'] == actual['text']
-    # Exact is intentionally stricter than a subpoint bounding-box tolerance.
-    result['exactOnThisRenderer'] = (result['rasterExactlyMatches'] and
-                                    result['layoutTextExactlyMatches'] and
-                                    result['maximumWordDriftPoints'] == 0 and
-                                    result['pageDimensionsMatch'])
-    return result
+    return compare_render(reference, actual)
 
 
 def parser_convert(executable, source, destination):
@@ -125,7 +120,7 @@ def source_receipt(root=ROOT):
     paths += list((root / 'lib').rglob('*.dart'))
     paths += list((root / 'tool/fidelity').glob('*.dart'))
     paths += list((root / 'tool/fidelity').glob('*.py'))
-    paths.append(root / 'tool/fidelity/corpus.json')
+    paths += [root / 'tool/fidelity/corpus.json', root / GOLDEN_MANIFEST]
     files = {path.relative_to(root).as_posix(): digest(path)
              for path in sorted(set(paths)) if path.is_file()}
     encoded = json.dumps(files, sort_keys=True, separators=(',', ':')).encode()
@@ -178,6 +173,9 @@ def case_is_exact(case):
     """Require every completed comparison, including losses hidden by stability."""
     if case_has_errors(case):
         return False
+    if any(case.get(key, {}).get('status') not in ('matched', 'not-recorded')
+           for key in ('sourceGolden', 'parserAgainstSourceGolden')):
+        return False
     if (case.get('semanticDifferencesFromNativeDoc') != []
             or case.get('bridgeChanges') not in (None, [])
             or (case.get('sourceFormat') == 'docx'
@@ -193,14 +191,16 @@ def case_is_exact(case):
                for cycle in case.get('roundtripCycles', []))
 
 
-def measure_case(case, args, executable, output):
+def measure_case(case, args, executable, output, *, golden_catalog=None, environment=None):
     source = ROOT / case['path']
     source_format = source.suffix.lower().lstrip('.')
     original_hash = None
     result = {'id': case['id'], 'features': case['features'], 'sourceSha256': None,
               'sourceFormat': source_format,
               'status': 'running', 'roundtripCyclesRequested': requested_roundtrips(args),
-              'roundtripCycles': [], 'snapshots': {}, 'renders': {}}
+              'roundtripCycles': [], 'snapshots': {}, 'renders': {},
+              'sourceGolden': {'status': 'not-recorded'},
+              'parserAgainstSourceGolden': {'status': 'not-recorded'}}
     result['comparisonAttribution'] = {
         'bridgePagination': ({'referenceRender': 'original', 'actualRender': 'binary',
                               'path': 'Original DOCX -> native DOC bridge, rendered before parser import',
@@ -259,6 +259,10 @@ def measure_case(case, args, executable, output):
             original_render = None
         result['binaryDocSha256'] = digest(bridge)
         binary_render = stage('binary-render', lambda: render_snapshot('binary', bridge))
+        if golden_catalog is not None:
+            result['sourceGolden'] = stage('source-golden', lambda: compare_golden(
+                case['id'], result['binaryDocSha256'], binary_render,
+                environment or {}, golden_catalog))
         result['bridgePagination'] = (render_comparison(original_render, binary_render)
                                       if original_render is not None else None)
         native = stage('native-docx', lambda: office_convert(args.office, bridge, output / 'native-docx', 'docx'))
@@ -272,6 +276,10 @@ def measure_case(case, args, executable, output):
         result['semanticDifferencesFromNativeDoc'] = compare_semantics(native_snapshot, ours_snapshot)
         result['convertedSha256'] = digest(converted)
         converted_render = stage('converted-render', lambda: render_snapshot('converted', converted))
+        if golden_catalog is not None:
+            result['parserAgainstSourceGolden'] = stage('parser-source-golden', lambda: compare_golden(
+                case['id'], result['binaryDocSha256'], converted_render,
+                environment or {}, golden_catalog))
         native_render = stage('native-render', lambda: render_snapshot('native', native))
         result['pagination'] = render_comparison(binary_render, converted_render)
         result['nativeConversionPagination'] = render_comparison(binary_render, native_render)
@@ -363,7 +371,7 @@ def main():
         dirty = bool(command(['git', 'status', '--porcelain'], cwd=ROOT).strip())
     except (OSError, RuntimeError, subprocess.TimeoutExpired):
         git_head, dirty = None, None
-    report = {'schema': 'legacy-doc-parser/fidelity-report', 'version': 3,
+    report = {'schema': 'legacy-doc-parser/fidelity-report', 'version': 4,
               'status': 'running', 'roundtripCyclesRequested': requested_roundtrips(args),
               'parserCommit': git_head, 'parserWorktreeDirty': dirty,
               'corpusSha256': digest(ROOT / 'tool/fidelity/corpus.json'),
@@ -378,6 +386,9 @@ def main():
         report['renderer'] = report['build']['office']['version']
         for name in ('pdftotext', 'pdftoppm'):
             report['build'][name] = stage(name + '-version', lambda name=name: tool_receipt(name, ('-v',)))
+        golden_catalog = stage('source-golden-integrity', load_goldens)
+        report['sourceGoldens'] = {'manifestSha256': digest(ROOT / GOLDEN_MANIFEST),
+                                  'cases': sorted(golden_catalog['cases'])}
         argv = [args.dart, 'compile', 'exe', 'tool/fidelity/convert.dart', '-o', executable]
         report['build']['compileCommand'] = [str(value) for value in argv]
         compile_log = stage('compile', lambda: command(argv, cwd=ROOT))
@@ -392,8 +403,21 @@ def main():
             fonts = command(['fc-list', '--format', '%{family}|%{style}|%{file}\n'])
             report['fontInventorySha256'] = hashlib.sha256('\n'.join(sorted(fonts.splitlines())).encode()).hexdigest()
             (args.output / 'fonts.txt').write_text(fonts)
+            font_paths = {line.rsplit('|', 1)[-1] for line in fonts.splitlines()}
+            font_files = {path: digest(Path(path)) for path in sorted(font_paths)}
+            report['fontFilesSha256'] = hashlib.sha256(
+                json.dumps(font_files, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+            write_json(args.output / 'font-files.json', font_files)
         except (OSError, RuntimeError, subprocess.TimeoutExpired):
             report['fontInventorySha256'] = None
+            report['fontFilesSha256'] = None
+        report['goldenEnvironment'] = {
+            'renderer': report['renderer'],
+            'fontInventorySha256': report['fontInventorySha256'],
+            'fontFilesSha256': report['fontFilesSha256'],
+            'rasterizerVersion': report['build']['pdftoppm']['version'],
+            'textExtractorVersion': report['build']['pdftotext']['version'],
+        }
     except Exception as error:
         report.update(status='error', error=str(error), errorType=type(error).__name__)
         write_json(args.output / 'report.json', report)
@@ -402,7 +426,8 @@ def main():
     for case in corpus['cases']:
         if args.case and case['id'] not in args.case:
             continue
-        result = measure_case(case, args, executable, args.output / case['id'])
+        result = measure_case(case, args, executable, args.output / case['id'],
+                              golden_catalog=golden_catalog, environment=report['goldenEnvironment'])
         report['cases'].append(result)
         write_json(args.output / 'report.json', report)
         pagination = result.get('pagination', {})

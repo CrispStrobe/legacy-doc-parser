@@ -132,3 +132,23 @@ Primary references:
 - [CommentEx paragraph join](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.office2013.word.commentex)
 - [VML next-textbox reference](https://learn.microsoft.com/en-us/windows/win32/vml/msdn-online-vml-mso-next-textbox-attribute)
 - [WordprocessingML revision structure](https://learn.microsoft.com/en-us/office/open-xml/word/how-to-accept-all-revisions-in-a-word-processing-document)
+
+## Recovered source goldens and RGB measurements
+
+The reconciled corpus contains 19 pinned source cases. `goldens.py` verifies
+two independent source-DOC page records and reviewable PNGs. It has no update
+mode. The compact and extended linked-textbox documents have separate paths
+and hashes; the extended document owns the recovered linked-box page golden.
+
+Runner report version 4 uses RGB rasters, records hashes of the actual font
+files, and checks both the native source and parser output against a recorded
+source golden when one exists. It retains the original DOCX render, native
+bridge, native DOCX export and all requested binary round trips separately.
+A font, Office build, PDF tool, color-space or DPI mismatch is unverified,
+even when another comparison happens to have equal page counts or text.
+
+The stronger recovered package reader selects one understood
+`mc:AlternateContent` branch by namespace URI, bounds XML depth/node count,
+resolves style/numbering references, and records section-to-story assignments.
+These checks complement the existing structural graph and revision text
+projections. Their mutation tests remain independent of the Dart converter.

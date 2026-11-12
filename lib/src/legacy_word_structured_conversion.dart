@@ -45,6 +45,8 @@ class _StructuredWordWriter {
   final _storyParts = <String, String>{};
   final _numberingIds = <int>{};
   final _numberingReferences = <int, int>{};
+  final _resolvedParagraphNumbering = <LegacyWordParagraph, int>{};
+  final _numberingInstances = <int, _WordNumberingInstance>{};
   final _tableStyleDefinitions = <int, LegacyWordTableStyle>{};
   var _tableDepth = 0;
   final _fields = <int, LegacyWordField>{};
@@ -69,6 +71,7 @@ class _StructuredWordWriter {
   Uint8List convert() {
     _prepareTableStyleDefinitions();
     _prepareStories();
+    _prepareNumbering();
     _prepareMedia();
     _prepareSemantics();
     _sortEvents();
@@ -455,6 +458,7 @@ class _StructuredWordWriter {
     if (style.spacingTwips != null || resetDefaults) {
       _xml.add('<w:spacing w:val="${style.spacingTwips ?? 0}"/>');
     }
+    _xml.add('<w:kern w:val="${_kerningThreshold(style)}"/>');
     if (style.positionHalfPoints != null || resetDefaults) {
       _xml.add('<w:position w:val="${style.positionHalfPoints ?? 0}"/>');
     }
@@ -475,6 +479,14 @@ class _StructuredWordWriter {
       );
     }
     _xml.add('<w:vertAlign w:val="${style.verticalAlign.name}"/>');
+  }
+
+  static int _kerningThreshold(LegacyWordCharacterStyle style) {
+    final value = style.kerningThresholdHalfPoints;
+    if (value < 0 || value > 3276) {
+      throw const FormatException('Invalid Word kerning threshold.');
+    }
+    return value;
   }
 
   void _writeRunText(LegacyWordRun run) {

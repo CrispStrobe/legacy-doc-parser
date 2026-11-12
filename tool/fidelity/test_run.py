@@ -23,7 +23,8 @@ def authored_state():
 def render_state():
     return {'pdfSha256': 'pdf', 'pages': [
         {'size': [612, 792], 'words': [{'text': 'Current', 'box': [10, 20, 50, 30]}]}],
-        'text': 'Current', 'rasterSha256': ['raster'], 'rasterDpi': 72}
+        'text': 'Current', 'rasterSha256': ['raster'], 'rasterDpi': 72,
+        'rasterColorSpace': 'RGB'}
 
 
 class RunnerTest(unittest.TestCase):
@@ -340,6 +341,8 @@ class RunnerTest(unittest.TestCase):
                 root = Path(directory)
                 (root / 'tool/fidelity').mkdir(parents=True)
                 (root / 'tool/fidelity/corpus.json').write_text('{"cases": []}')
+                (root / run.GOLDEN_MANIFEST).parent.mkdir(parents=True)
+                (root / run.GOLDEN_MANIFEST).write_text('{"cases": []}')
                 output = root / 'output'
                 before = {'files': {'lib/parser.dart': 'before'}, 'sha256': 'before'}
                 after = {'files': {'lib/parser.dart': 'after'}, 'sha256': 'after'}
@@ -358,6 +361,7 @@ class RunnerTest(unittest.TestCase):
                 argv = ['run.py', '--office', str(root / 'office'), '--dart', str(root / 'dart'),
                         '--output', str(output), '--roundtrip-cycles', '3']
                 with patch.object(run, 'ROOT', root), patch.object(run, 'load_corpus', return_value={'cases': []}), \
+                        patch.object(run, 'load_goldens', return_value={'cases': {}}), \
                         patch.object(run, 'source_receipt', side_effect=[before, after]), \
                         patch.object(run, 'tool_receipt', return_value=tool), patch.object(run, 'command', command), \
                         patch.object(run.sys, 'argv', argv), patch.dict(os.environ, {'TMPDIR': str(root / 'tmp')}):

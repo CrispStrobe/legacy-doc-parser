@@ -218,6 +218,8 @@ extension _WordMedia on _StructuredWordWriter {
         'source': _sourceMetadata(notice.source),
       });
       switch (notice.issue) {
+        case LegacyWordMediaIssue.recoveredVertexArrayLength:
+          limitations.add(LegacyWordConversionLimitation.partialFormatting);
         case LegacyWordMediaIssue.unsupportedImage:
           limitations.add(LegacyWordConversionLimitation.images);
         case LegacyWordMediaIssue.externalPictureNotFetched:
@@ -350,18 +352,15 @@ extension _WordMedia on _StructuredWordWriter {
     final width = (drawing.rightTwips - drawing.leftTwips) * 635;
     final height = (drawing.bottomTwips - drawing.topTwips) * 635;
     final id = ++_drawingId;
-    final horizontal = ['margin', 'page', 'column'][drawing.horizontalOrigin];
-    final vertical = ['margin', 'page', 'paragraph'][drawing.verticalOrigin];
     _mediaStart(drawing.presentation);
     _xml.add(
       '<w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" '
       'simplePos="0" relativeHeight="$id" behindDoc="${drawing.behindText ? 1 : 0}" '
       'locked="${drawing.anchorLocked ? 1 : 0}" layoutInCell="1" allowOverlap="1">'
-      '<wp:simplePos x="0" y="0"/>'
-      '<wp:positionH relativeFrom="$horizontal"><wp:posOffset>${drawing.leftTwips * 635}</wp:posOffset></wp:positionH>'
-      '<wp:positionV relativeFrom="$vertical"><wp:posOffset>${drawing.topTwips * 635}</wp:posOffset></wp:positionV>'
-      '<wp:extent cx="$width" cy="$height"/>',
+      '<wp:simplePos x="0" y="0"/>',
     );
+    _officeArtDrawingPosition(drawing);
+    _xml.add('<wp:extent cx="$width" cy="$height"/>');
     if (drawing.wrapMode == 3) {
       _xml.add('<wp:wrapNone/>');
     } else if (drawing.wrapMode == 1) {
@@ -715,6 +714,15 @@ Map<String, Object?> _drawingMetadata(LegacyWordDrawing drawing) => {
   ],
   'horizontalOrigin': drawing.horizontalOrigin,
   'verticalOrigin': drawing.verticalOrigin,
+  if (drawing.shape?.position case final position?)
+    'officeArtPosition': {
+      'horizontalMode': position.horizontalMode,
+      'verticalMode': position.verticalMode,
+      'horizontalRelativeTo': position.horizontalRelativeTo,
+      'verticalRelativeTo': position.verticalRelativeTo,
+      'semantics': 'WordFoptZeroBased',
+      'unsupportedProperties': drawing.shape!.unsupportedProperties,
+    },
   'wrapMode': drawing.wrapMode,
   'wrapSide': drawing.wrapSide,
   'behindText': drawing.behindText,

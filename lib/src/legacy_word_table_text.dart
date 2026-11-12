@@ -297,6 +297,7 @@ bool _tableTextPropertySupported(_Sprm operation, bool paragraph) {
     0x2a0c,
     0x2a48,
     0x4845,
+    0x484b,
     0x8840,
   }.contains(code);
 }

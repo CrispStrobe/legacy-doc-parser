@@ -169,9 +169,29 @@ the instances to one editable `w:num`; conversion evidence records that mapping.
 Numbering continues across intervening paragraphs and does not depend on which
 instance is encountered first.
 
-Groups that include start or formatting overrides still report
-`numberingNotReconstructed`. The first-use override and per-level restart rules
-require more than grouping by `lsid`; those instances are not silently merged.
+The reconciled shared resolver also retains explicit LFOLVL `startOverrides`,
+shares counters across compatible formatting-only changes, and resolves
+multilevel restarts and ancestor references in source character order. Ancestor
+placeholders use the same source `ilfo`, while compatible counters share `lsid`.
+Each body, header, note, comment, or textbox story starts its own scope. When a
+resumed sequence needs different counters or ancestor values, conversion emits
+a real editable `w:num` with `w:startOverride`, rather than baking a label into
+text. Paragraph numbering-change and insertion revisions reference that actual
+native instance.
+
+The two retained source fixtures `list-continue.doc` and `list-restart.doc` have
+independent single-level render receipts in `doc/list-sequence-native-check.json`
+from recovered branch `b03747396878518d0d623599baf9b376df776e3d`. These are historical
+receipts, not regenerated results for every later converter revision. Their
+source/converted labels are respectively `1, 2, 3, 4, 5` and
+`1, 2, 7, 8, 3, 9`. Authored binary tests additionally exercise Roman formatting
+changes, same-instance ancestors, never-restart lower levels, story isolation,
+hidden markers and numbering revisions on a resumed instance.
+
+Interleaved explicit-start groups and incompatible base policies still report
+`numberingNotReconstructed`; the published fStartAt algorithm is ambiguous for
+some restart/resume combinations. The two native examples do not establish
+identical behavior across all Word versions or all multilevel overrides.
 
 ## Marker font inheritance and the indentation oracle
 
@@ -305,6 +325,6 @@ cover the increment in `test/legacy_word_row_borders_test.dart` and
 
 Floating-table placement, additional conditional text operators, native relative
 table-style toggle rules, adjacent-row table boundaries that depend on style or
-floating-position changes, and list-instance
-continuation with overrides need their own property-level interpretation. Retaining nested
+floating-position changes, and unverified list-instance
+restart combinations need their own property-level interpretation. Retaining nested
 content alone does not establish page-layout equivalence to Microsoft Word.

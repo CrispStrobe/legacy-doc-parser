@@ -6,13 +6,16 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 
 import 'legacy_word_document.dart';
+import 'legacy_word_numbering.dart';
 
 part 'legacy_word_structured_conversion.dart';
 part 'opc_package_writer.dart';
 part 'word_story_writer.dart';
+part 'word_numbering_writer.dart';
 part 'word_layout_writer.dart';
 part 'word_compatibility_writer.dart';
 part 'word_media_writer.dart';
+part 'word_officeart_position_writer.dart';
 part 'word_shape_writer.dart';
 part 'word_textbox_writer.dart';
 part 'word_decoration_writer.dart';
