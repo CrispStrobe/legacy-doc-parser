@@ -445,8 +445,8 @@ def text_content(node, *, deleted=False):
             continue
         value = run_text(child, parent, deleted=deleted)
         if value is not None:
-            result.append(value)
             if value:
+                result.append(value)
                 content_end = len(result)
         elif child.tag == '{' + W + '}p' and result:
             result.append('\n')

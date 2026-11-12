@@ -516,6 +516,34 @@ class StructuralOracleTest(unittest.TestCase):
         self.assertEqual('\t\f A \n\t', measured['paragraphs'][0]['items'][0]['text'])
         self.assertEqual(1, measured['counts']['break:page'])
 
+    def _assert_empty_paragraph_summary(self, empty):
+        for before, after, expected in (
+                ('', self.paragraph('A'), 'A'),
+                (self.paragraph('A'), '', 'A'),
+                (self.paragraph('A'), self.paragraph('B'), 'A\n\nB'),
+                ('', '', '')):
+            node = ET.fromstring(f'<w:body xmlns:w="{W}">' + before + empty + after + '</w:body>')
+            for deleted in (False, True):
+                with self.subTest(empty=empty, before=before, after=after, deleted=deleted):
+                    self.assertEqual(expected, text_content(node, deleted=deleted))
+
+    def test_empty_text_tokens_match_empty_paragraphs(self):
+        for empty in ('<w:p/>', '<w:p><w:r/></w:p>',
+                      '<w:p><w:r><w:t/></w:r></w:p>',
+                      '<w:p><w:r><w:t></w:t></w:r></w:p>',
+                      '<w:p><w:r><w:t xml:space="preserve"/></w:r></w:p>'):
+            self._assert_empty_paragraph_summary(empty)
+        space = ET.fromstring(f'<w:body xmlns:w="{W}"><w:p><w:r>'
+                              '<w:t xml:space="preserve"> </w:t></w:r></w:p>'
+                              + self.paragraph('A') + '</w:body>')
+        self.assertEqual(' \nA', text_content(space))
+
+    def test_empty_deleted_text_tokens_match_empty_paragraphs(self):
+        for token in ('<w:delText/>', '<w:delText></w:delText>',
+                      '<w:delText xml:space="preserve"/>'):
+            self._assert_empty_paragraph_summary(
+                '<w:p><w:del w:id="1"><w:r>' + token + '</w:r></w:del></w:p>')
+
 
 if __name__ == '__main__':
     unittest.main()
