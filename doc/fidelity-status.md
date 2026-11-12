@@ -18,6 +18,13 @@ every Word document or every renderer.
 
 ## Evidence is versioned
 
+The [integrated acceptance receipt](evidence/combined-47b9c95/README.md)
+retains the clean main-source gate: 809 Dart tests, 162 Python tests, 51
+JavaScript media checks and all 218 required SDK outputs. All 194 earlier schema
+cases survive alongside the 24 textbox-table controls. A test-only follow-up
+also checks the generated fixture manifests against the emitted package XML
+in 13 focused tests; the producer and runtime are unchanged.
+
 The [completed 24-input checkpoint](evidence/e90f38f/README.md), reproducible
 from pushed `c3fa95e`, imports every original input and completes all 72 repeat
 imports without execution errors. All 24 initial page counts agree; six initial
