@@ -56,3 +56,9 @@ imitate page layout with CSS margins or claim wrapping fidelity. Native layout
 must be measured separately. The shape rectangle, table depth, source fonts,
 reviewed goldens and the previously measured 0.35-point border/placement
 difference are not adjusted by this property-preservation change.
+
+The [retained native comparison](evidence/textbox-wrap-stroke-20261112/README.md)
+records the baseline, the wrap-only initial and three-cycle results, and the
+withdrawn stroke-default candidate. Restoring the clearances repairs the Word
+14 reading-order difference. Remaining coordinate and RGB differences stay
+visible in the receipts; the fix is not a claim of exact visual fidelity.

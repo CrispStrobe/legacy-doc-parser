@@ -98,14 +98,14 @@ XmlDocument _convert(
 
 void main() {
   test(
-    'textbox source default line width is explicit without changing geometry',
+    'textbox default stroke remains unforced while frame semantics are unresolved',
     () {
       for (final line in [null, const LegacyWordOfficeArtLine(enabled: true)]) {
         final box = _convert(
           null,
           line: line,
         ).findAllElements('rect', namespace: _v).single;
-        expect(box.getAttribute('strokeweight'), '0.75pt');
+        expect(box.getAttribute('strokeweight'), isNull);
         expect(
           box.getAttribute('style'),
           contains(
@@ -175,7 +175,7 @@ void main() {
     expect(box.getAttribute('strokeweight'), '1584.0pt');
   });
 
-  test('Word14 default strokes are retained on all six textboxes', () {
+  test('Word14 unspecified strokes stay distinct from explicit widths', () {
     final document = parseLegacyWordDocument(
       File(
         'test/fixtures/word_native/word14-margin-origin.doc',
@@ -199,7 +199,7 @@ void main() {
     final boxes = xml.findAllElements('rect', namespace: _v).toList();
     expect(boxes, hasLength(6));
     for (var i = 0; i < boxes.length; i++) {
-      expect(boxes[i].getAttribute('strokeweight'), '0.75pt');
+      expect(boxes[i].getAttribute('strokeweight'), isNull);
       expect(
         boxes[i].getAttribute('style'),
         contains('margin-left:${drawings[i].leftTwips / 20}pt;'),
