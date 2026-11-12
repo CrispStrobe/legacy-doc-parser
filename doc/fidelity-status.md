@@ -26,6 +26,15 @@ The textbox range correction independently removes the extra paragraph from
 all six Word 14 boxes. It does not establish exact small-frame height or general
 header-chain layout.
 
+The [textbox boundary evidence](textbox-boundaries.md) retains all fourteen
+schema controls, seven passing native main-story controls and the separate
+native header-alias failures. The combined source at pushed `713973f` passes
+647 Dart tests, 109 Python tests and all 144 required SDK output checks. Its
+[interrupted native run](evidence/fe4d668-interrupted/README.md) completed eighteen
+three-cycle cases before the environment ran out of disk space; the complete
+partial report, errors and all 228 emitted documents are preserved. This run
+does not replace the complete corpus result below.
+
 The [clean 6b2b611 checkpoint](evidence/6b2b611/README.md), identical in source
 tree to pushed `34e1484`, retains all 22 original inputs and all 66 requested
 repeat imports without execution/import errors. Every initial page count
