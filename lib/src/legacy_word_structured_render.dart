@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'legacy_word_metafile.dart';
 import 'legacy_word_structured_model.dart';
 import 'legacy_word_numbering.dart';
 
+part 'legacy_word_html_media.dart';
+
 /// Renders only resolved, visible content. All markup and CSS property names
-/// are fixed here; document text cannot introduce links, assets or HTML.
+/// are fixed here; document text cannot introduce links or HTML. Referenced
+/// media may introduce bounded data images; external names are never fetched.
 ///
 /// Merged cells keep the paragraphs from their continuations. The preview is
 /// an approximation of Word layout, not a paginated rendering engine.
@@ -14,10 +19,34 @@ String renderLegacyWordHtml(
   List<LegacyWordBlock> blocks, {
   List<LegacyWordNumberingDefinition> numberingDefinitions = const [],
   int? defaultTabStopTwips,
-}) => _HtmlWriter(numberingDefinitions, defaultTabStopTwips).render(blocks);
+  LegacyWordMediaCatalog media = const LegacyWordMediaCatalog(),
+}) => LegacyWordHtmlRenderer(
+  numberingDefinitions: numberingDefinitions,
+  defaultTabStopTwips: defaultTabStopTwips,
+  media: media,
+).render(blocks);
+
+/// Reuses one bounded image validation/cache across related document stories.
+/// Each rendered story still has its own text/markup output budget.
+class LegacyWordHtmlRenderer {
+  LegacyWordHtmlRenderer({
+    this.numberingDefinitions = const [],
+    this.defaultTabStopTwips,
+    LegacyWordMediaCatalog media = const LegacyWordMediaCatalog(),
+  }) : _media = _HtmlMediaIndex(media);
+  final List<LegacyWordNumberingDefinition> numberingDefinitions;
+  final int? defaultTabStopTwips;
+  final _HtmlMediaIndex _media;
+
+  String render(List<LegacyWordBlock> blocks) => _HtmlWriter(
+    numberingDefinitions,
+    defaultTabStopTwips,
+    _media,
+  ).render(blocks);
+}
 
 class _HtmlWriter {
-  _HtmlWriter(this.numberingDefinitions, this.defaultTabStopTwips);
+  _HtmlWriter(this.numberingDefinitions, this.defaultTabStopTwips, this._media);
   static const _maxBytes = 24 * 1024 * 1024;
   static const _maxItems = 200000;
   static const _escape = HtmlEscape(HtmlEscapeMode.element);
@@ -25,11 +54,13 @@ class _HtmlWriter {
   final _buffer = StringBuffer();
   final List<LegacyWordNumberingDefinition> numberingDefinitions;
   final int? defaultTabStopTwips;
+  final _HtmlMediaIndex _media;
   final _markers = <LegacyWordParagraph, _HtmlListMarker>{};
   var _bytes = 0;
   var _items = 0;
   var _markerUnits = 0;
   var _tableDepth = 0;
+  var _imageUriCharacters = 0;
 
   String render(List<LegacyWordBlock> blocks) {
     _prepareNumbering(blocks);
@@ -435,9 +466,10 @@ class _HtmlWriter {
     }
     _write('<$tag$attributes style="${css.join(';')}">');
     var hasVisibleText = false;
-    final visible = paragraph.runs.any(
-      (run) => !run.style.hidden && run.text.isNotEmpty,
-    );
+    final images = _media.within(paragraph.startCp, paragraph.endCp);
+    final visible =
+        paragraph.runs.any((run) => !run.style.hidden && run.text.isNotEmpty) ||
+        images.isNotEmpty;
     if (visible &&
         marker != null &&
         marker.text != null &&
@@ -470,11 +502,51 @@ class _HtmlWriter {
           break;
       }
     }
+    var imageIndex = 0;
     for (final run in paragraph.runs) {
       _item();
-      if (run.style.hidden || run.text.isEmpty) continue;
+      while (imageIndex < images.length &&
+          images[imageIndex].cp < run.startCp) {
+        _image(images[imageIndex++]);
+        hasVisibleText = true;
+      }
+      if (run.style.hidden) {
+        // Source presentation already includes field privacy. Also respect a
+        // hidden public-model run even if its media metadata is inconsistent.
+        while (imageIndex < images.length &&
+            images[imageIndex].cp < run.endCp) {
+          imageIndex++;
+        }
+        continue;
+      }
+      var textStart = 0;
+      while (imageIndex < images.length && images[imageIndex].cp < run.endCp) {
+        final image = images[imageIndex++];
+        final offset = image.cp - run.startCp;
+        if (offset < textStart ||
+            offset > run.text.length ||
+            run.text.length != run.endCp - run.startCp ||
+            (offset > 0 &&
+                offset < run.text.length &&
+                run.text.codeUnitAt(offset - 1) >= 0xd800 &&
+                run.text.codeUnitAt(offset - 1) <= 0xdbff)) {
+          throw const FormatException('Ambiguous Word preview image anchor.');
+        }
+        if (offset > textStart) {
+          _run(run, text: run.text.substring(textStart, offset));
+        }
+        _image(image);
+        hasVisibleText = true;
+        textStart = offset;
+      }
+      if (textStart < run.text.length) {
+        _run(run, text: run.text.substring(textStart));
+        hasVisibleText = true;
+      }
+    }
+    while (imageIndex < images.length) {
+      _image(images[imageIndex++]);
       hasVisibleText = true;
-      _run(run);
     }
     final mark = paragraph.mark;
     if (mark != null && !mark.style.hidden && (mark.inserted || mark.deleted)) {
@@ -489,7 +561,7 @@ class _HtmlWriter {
     _write('</$tag>');
   }
 
-  void _run(LegacyWordRun run) {
+  void _run(LegacyWordRun run, {String? text}) {
     final style = run.style;
     final kerning = style.kerningThresholdHalfPoints;
     if (kerning < 0 || kerning > 3276) {
@@ -595,7 +667,7 @@ class _HtmlWriter {
         '${heavy ? 'text-decoration-thickness:0.12em;' : ''}">',
       );
     }
-    _text(run.text);
+    _text(text ?? run.text);
     if (style.underline) _write('</span>');
     if (css.isNotEmpty) _write('</span>');
     if (run.inserted) _write('</ins>');

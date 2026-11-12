@@ -83,7 +83,9 @@ extension _WordStories on _StructuredWordParser {
         endCp: end,
         blocks: List.unmodifiable(blocks),
         plainText: _plainText(blocks),
-        safeHtml: _renderBlocks(blocks),
+        // Media references are resolved after every story's character runs.
+        // The final pass renders all stories with one bounded image cache.
+        safeHtml: '',
         sectionIndex: sectionIndex,
         headerFooterType: headerFooterType,
       ),

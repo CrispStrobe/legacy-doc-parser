@@ -137,13 +137,33 @@ class _StructuredWordParser {
     _resolveReferencePresentations();
     final media = _readMediaCatalog(mediaRuns);
     _linkTextboxDrawings(media);
+    final renderer = LegacyWordHtmlRenderer(
+      numberingDefinitions: numbering,
+      defaultTabStopTwips: source.defaultTabStopTwips,
+      media: media,
+    );
+    final mainHtml = _renderBlocks(blocks, renderer);
+    for (var i = 0; i < stories.length; i++) {
+      final story = stories[i];
+      stories[i] = LegacyWordStory(
+        id: story.id,
+        kind: story.kind,
+        startCp: story.startCp,
+        endCp: story.endCp,
+        blocks: story.blocks,
+        plainText: story.plainText,
+        safeHtml: _renderBlocks(story.blocks, renderer),
+        sectionIndex: story.sectionIndex,
+        headerFooterType: story.headerFooterType,
+      );
+    }
     final orderedWarnings = warnings.toList()
       ..sort((a, b) => a.index.compareTo(b.index));
     return LegacyWordDocument(
       blocks: List.unmodifiable(blocks),
       sections: List.unmodifiable(sections),
       plainText: _plainText(blocks),
-      safeHtml: _renderBlocks(blocks),
+      safeHtml: mainHtml,
       warnings: List.unmodifiable(orderedWarnings),
       stories: List.unmodifiable(stories),
       noteReferences: List.unmodifiable(noteReferences),
@@ -238,12 +258,11 @@ class _StructuredWordParser {
     return plain.toString();
   }
 
-  String _renderBlocks(List<LegacyWordBlock> blocks) {
-    final html = renderLegacyWordHtml(
-      blocks,
-      numberingDefinitions: numbering,
-      defaultTabStopTwips: source.defaultTabStopTwips,
-    );
+  String _renderBlocks(
+    List<LegacyWordBlock> blocks,
+    LegacyWordHtmlRenderer renderer,
+  ) {
+    final html = renderer.render(blocks);
     // The renderer enforces a per-story limit; also cap their combined output
     // without allocating a second encoded copy of every generated string.
     for (final rune in html.runes) {

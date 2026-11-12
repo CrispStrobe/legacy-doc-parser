@@ -17,9 +17,14 @@ class _FkpRun {
 }
 
 class _FkpIndex {
-  const _FkpIndex(this.runs, this.fallback);
+  const _FkpIndex(this.runs, this.fallback, {this.finalPageEndFc});
   final List<_FkpRun> runs;
   final _FkpRun? fallback;
+
+  // Keep the last referenced page's actual boundary as well as the clipped
+  // bin ranges. A shortened BTE must not look like an omitted terminal mark
+  // when the physical page still describes that character.
+  final int? finalPageEndFc;
   _FkpRun at(int fc) {
     if (fallback != null) return fallback!;
     var low = 0, high = runs.length;
@@ -85,6 +90,7 @@ extension _WordFormattingTables on _StructuredWordParser {
     final pages = (count + 1) * 4;
     final result = <_FkpRun>[];
     var previousLimit = -1;
+    int? finalPageEndFc;
     for (var i = 0; i < count; i++) {
       final lower = bins.u32(i * 4), upper = bins.u32((i + 1) * 4);
       if (upper <= lower || lower < previousLimit) {
@@ -100,6 +106,7 @@ extension _WordFormattingTables on _StructuredWordParser {
       if (runs == 0 || headerEnd > 511) {
         throw const FormatException('Invalid Word formatting page.');
       }
+      finalPageEndFc = page.u32(runs * 4);
       var previous = -1;
       var covered = lower;
       for (var run = 0; run < runs; run++) {
@@ -167,7 +174,7 @@ extension _WordFormattingTables on _StructuredWordParser {
         throw const FormatException('Incomplete Word formatting bin.');
       }
     }
-    return _FkpIndex(result, null);
+    return _FkpIndex(result, null, finalPageEndFc: finalPageEndFc);
   }
 
   void _readFonts() {

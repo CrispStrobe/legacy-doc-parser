@@ -41,6 +41,11 @@ enum LegacyWordWarning {
 
   /// Note defaults recovered from the identified 610-byte LibreOffice DOP.
   recoveredLegacyNoteSettings,
+
+  /// The final main-story CR is present but absent from the last CHPX range.
+  /// Its paragraph mark stays null; its formatting and revision state are
+  /// unknown rather than inherited from a preceding character.
+  terminalMarkFormattingUnavailable,
 }
 
 enum LegacyWordAlignment { left, center, right, justify, distribute }

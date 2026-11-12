@@ -38,3 +38,9 @@ inputs from `test/support/list_sequence_fixture.dart`, not converter output.
 They retain the five-item shared-LSID continuation and six-item restart/resume
 controls, so the native corpus checks editable labels after future changes.
 Their original native checks are recorded in `doc/list-sequence-native-check.json`.
+
+`officeart-terminal-mark.doc` is the unchanged native binary export of
+`test/fixtures/fidelity/officeart-shapes.docx`. Its final CR is referenced by
+CLX/PAPX but omitted from the final CHPX range. The fixture retains three
+authored shapes and pins this narrow interoperability regression; its hash,
+provenance and strict recovery limits are in `doc/terminal-mark-formatting.md`.

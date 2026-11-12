@@ -11,11 +11,18 @@
   the observed stale native chain count only after every shape/link validates.
 - Preserve source pagination/section flags, column direction, compatibility
   settings and supported character/paragraph/section revision histories.
+- Preserve source kerning thresholds, including explicit disabled kerning,
+  through styles, paragraph marks, list markers and formatting history.
 - Preserve document/section footnote and endnote numbering, restart, placement
   and note-setting revision snapshots, including a disclosed narrow native-DOP
   interoperability recovery.
 - Retain supported comment thread/resolved metadata while disclosing ink and
   broader revision semantics as incomplete.
+- Render referenced PNG/JPEG and complete validated EMF/WMF vector images in
+  main and auxiliary HTML previews, with bounded output and explicit omissions
+  for cropped or unsupported content. Hidden/private media stays suppressed.
+- Recover only the verified native final-paragraph-mark boundary omission;
+  leave its unknown formatting and revision state explicitly unavailable.
 - Add a hash-pinned Quds corpus, independently authored binary/OOXML/media
   controls, native conversion/roundtrip reports, structural mutation oracles,
   reviewed source-DOC RGB goldens and JavaScript media acceptance.
