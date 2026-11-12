@@ -6,6 +6,7 @@
 library;
 
 import 'dart:typed_data';
+import 'legacy_word_note_settings.dart';
 
 import 'legacy_word_compatibility.dart';
 import 'legacy_word_media_model.dart';
@@ -14,6 +15,7 @@ import 'legacy_word_layout_model.dart';
 export 'legacy_word_compatibility.dart';
 export 'legacy_word_media_model.dart';
 export 'legacy_word_layout_model.dart';
+export 'legacy_word_note_settings.dart';
 
 enum LegacyWordWarning {
   unsupportedFormatting,
@@ -36,6 +38,9 @@ enum LegacyWordWarning {
 
   /// A cb=0 PAPX had one uninterpreted final byte after complete properties.
   recoveredNonconformingProperties,
+
+  /// Note defaults recovered from the identified 610-byte LibreOffice DOP.
+  recoveredLegacyNoteSettings,
 }
 
 enum LegacyWordAlignment { left, center, right, justify, distribute }
@@ -68,6 +73,8 @@ class LegacyWordDocument {
     this.evenAndOddHeaders = false,
     this.defaultTabStopTwips,
     this.compatibility = const LegacyWordCompatibility.unspecified(),
+    this.footnotes = const LegacyWordFootnoteSettings(),
+    this.endnotes = const LegacyWordEndnoteSettings(),
   });
   final List<LegacyWordBlock> blocks;
   final List<LegacyWordSection> sections;
@@ -94,6 +101,8 @@ class LegacyWordDocument {
   final bool evenAndOddHeaders;
   final int? defaultTabStopTwips;
   final LegacyWordCompatibility compatibility;
+  final LegacyWordFootnoteSettings footnotes;
+  final LegacyWordEndnoteSettings endnotes;
 }
 
 enum LegacyWordStoryKind {
@@ -705,6 +714,7 @@ class LegacyWordCharacterStyle {
     this.hidden = false,
     this.fontName,
     this.fontSizeHalfPoints,
+    this.kerningThresholdHalfPoints = 0,
     this.colorHex,
     this.highlightHex,
     this.verticalAlign = LegacyWordVerticalAlignment.baseline,
@@ -725,6 +735,12 @@ class LegacyWordCharacterStyle {
   final bool hidden;
   final String? fontName;
   final int? fontSizeHalfPoints;
+
+  /// Resolved font-size threshold for pair kerning in half-points. Zero
+  /// disables kerning, including the MS-DOC default. Positive source values
+  /// range from 1 to 3276; kerning applies when the font size reaches that
+  /// threshold.
+  final int kerningThresholdHalfPoints;
 
   /// Six hexadecimal RGB digits, without '#'; null means automatic/unspecified.
   final String? colorHex;
@@ -747,6 +763,7 @@ class LegacyWordCharacterStyle {
       hidden == other.hidden &&
       fontName == other.fontName &&
       fontSizeHalfPoints == other.fontSizeHalfPoints &&
+      kerningThresholdHalfPoints == other.kerningThresholdHalfPoints &&
       colorHex == other.colorHex &&
       highlightHex == other.highlightHex &&
       verticalAlign == other.verticalAlign &&
@@ -765,6 +782,7 @@ class LegacyWordCharacterStyle {
     hidden,
     fontName,
     fontSizeHalfPoints,
+    kerningThresholdHalfPoints,
     colorHex,
     highlightHex,
     verticalAlign,
@@ -850,6 +868,9 @@ class LegacyWordSection {
     this.columns = 1,
     this.breakKind = LegacyWordSectionBreak.newPage,
     this.titlePage = false,
+    this.footnotes,
+    this.endnotes,
+    this.suppressEndnotes = false,
   });
   final LegacyWordSectionLayout layout;
 
@@ -874,6 +895,13 @@ class LegacyWordSection {
 
   /// sprmSFTitlePage, independently of stored first-page header/footer text.
   final bool titlePage;
+
+  /// Resolved section overrides. Null inherits the document note settings.
+  final LegacyWordFootnoteSettings? footnotes;
+  final LegacyWordEndnoteSettings? endnotes;
+
+  /// sprmSFEndnote=0. Only applies when endnotes use end-of-section placement.
+  final bool suppressEndnotes;
 }
 
 class LegacyWordSectionFormattingRevision {

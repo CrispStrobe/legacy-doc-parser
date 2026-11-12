@@ -77,6 +77,42 @@ Map<String, List<Map<String, String>>> _state(
 }
 
 void main() {
+  test('note numbering and placement remain independently rejectable', () {
+    final document = parseLegacyWordDocument(
+      _source([
+        WordFixtureSection(5, [
+          ..._word(0x5040, 2), // lower Roman
+          ..._word(0x503f, 4),
+          ..._byte(0x303b, 2), // beneath text
+          ..._byte(0x3239, 1),
+          ..._word(0x5040, 3), // upper letter
+          ..._word(0x503f, 7),
+          ..._byte(0x303b, 1), // page bottom
+          ..._mark(),
+        ]),
+      ]),
+    );
+    final output = convertLegacyWordDocument(document);
+    final section = _sections(output.bytes).single;
+    final previous = section
+        .getElement('sectPrChange', namespace: _w)!
+        .getElement('sectPr', namespace: _w)!;
+    for (final (state, format, start, position) in [
+      (section, 'upperLetter', '7', 'pageBottom'),
+      (previous, 'lowerRoman', '4', 'beneathText'),
+    ]) {
+      final note = state.getElement('footnotePr', namespace: _w)!;
+      expect(_attr(note.getElement('numFmt', namespace: _w)!, 'val'), format);
+      expect(_attr(note.getElement('numStart', namespace: _w)!, 'val'), start);
+      expect(_attr(note.getElement('pos', namespace: _w)!, 'val'), position);
+      expect(state.childElements.first.name.local, 'footnotePr');
+    }
+    expect(
+      output.limitations,
+      isNot(contains(LegacyWordConversionLimitation.revisions)),
+    );
+  });
+
   test(
     'section change retains independently rejectable dimensions, columns and margins',
     () {

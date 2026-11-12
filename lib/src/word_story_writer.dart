@@ -765,6 +765,7 @@ extension _WordStories on _StructuredWordWriter {
       settings.add('<w:evenAndOddHeaders/>');
     }
     settings.add('<w:updateFields w:val="false"/>');
+    _writeDocumentNoteSettings(settings);
     _writeCompatibility(settings);
     settings.add('</w:settings>');
     _package.addXml(
@@ -834,6 +835,7 @@ extension _WordStories on _StructuredWordWriter {
         case LegacyWordWarning.recoveredNonconformingProperties:
         case LegacyWordWarning.recoveredEmptySection:
         case LegacyWordWarning.recoveredTextboxChainLength:
+        case LegacyWordWarning.recoveredLegacyNoteSettings:
           limitations.add(LegacyWordConversionLimitation.partialFormatting);
         case LegacyWordWarning.numberingNotReconstructed:
           limitations.add(LegacyWordConversionLimitation.fieldsLists);

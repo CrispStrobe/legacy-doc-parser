@@ -96,7 +96,7 @@ dart run example/legacy_doc_parser_example.dart input.doc new-copy.docm
 | Body text and formatting | Referenced Unicode text, ordered character/paragraph style resolution, exact supported underline variants and paragraph pagination controls |
 | Tables | Nested cell structure, conditional table-style regions, borders/shading/margins, signed origins, cell alignment, row heights and split/repeating-header controls |
 | Page layout | Page/section geometry, columns and their direction, margins, line numbering, document grid and source compatibility flags; exact pagination is measured separately |
-| Headers, footers and notes | Referenced stories and actual Word output parts; source first/even-header activation and note marker/reference formatting |
+| Headers, footers and notes | Referenced stories and actual Word output parts; source first/even-header activation, note marker/reference formatting and document/section note numbering/placement |
 | Comments and revisions | Comment text/ranges/authors and supported reply/resolved metadata; insertion/deletion, paragraph-mark and character/paragraph/section formatting history |
 | Bookmarks and fields | Bookmark ranges, safe locked field syntax and cached results; no field evaluation |
 | Lists | Editable numbering with compatible LSID continuation, explicit restart/resume metadata and story isolation; ambiguous policies remain reported |
@@ -117,6 +117,7 @@ See the detailed contracts:
 - [OfficeArt and metafile fidelity](doc/media-fidelity.md)
 - [Linked textbox fidelity](doc/textbox-fidelity.md)
 - [Revisions and comments](doc/revisions-comments.md)
+- [Footnote and endnote settings](doc/note-settings.md)
 - [Independent Quds/native oracles and reviewed source goldens](doc/fidelity-oracles.md)
 
 ## Preservation contract

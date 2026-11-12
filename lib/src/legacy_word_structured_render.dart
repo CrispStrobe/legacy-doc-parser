@@ -491,7 +491,16 @@ class _HtmlWriter {
 
   void _run(LegacyWordRun run) {
     final style = run.style;
+    final kerning = style.kerningThresholdHalfPoints;
+    if (kerning < 0 || kerning > 3276) {
+      throw const FormatException('Invalid Word preview kerning threshold.');
+    }
+    final unresolvedKerning = kerning > 0 && style.fontSizeHalfPoints == null;
     final css = <String>[
+      if (unresolvedKerning)
+        'font-kerning:auto'
+      else
+        'font-kerning:${kerning == 0 || style.fontSizeHalfPoints! < kerning ? 'none' : 'normal'}',
       if (style.bold) 'font-weight:bold',
       if (style.italic) 'font-style:italic',
       if (style.smallCaps) 'font-variant:small-caps',
@@ -540,7 +549,11 @@ class _HtmlWriter {
         'text-decoration:underline;">',
       );
     }
-    if (css.isNotEmpty) _write('<span style="${css.join(';')}">');
+    if (css.isNotEmpty) {
+      _write(
+        '<span${unresolvedKerning ? ' data-word-kerning="threshold-unresolved" data-word-kerning-threshold-half-points="$kerning"' : ''} style="${css.join(';')}">',
+      );
+    }
     if (style.underline) {
       final kind = style.underlineStyle;
       final line = switch (kind) {

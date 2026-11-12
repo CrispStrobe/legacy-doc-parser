@@ -218,6 +218,28 @@
         "pagination"
       ],
       "origin": "Independent compact eight-marker binary probe preserved from parallel checkpoint71025ea; original filename disambiguated during integration"
+    },
+    {
+      "id": "list-continue",
+      "path": "test/fixtures/word_native/list-continue.doc",
+      "sha256": "8eec6d255c450a5e4d3c21dd1fa7d159e53a0e49f229bc26928848ce66fda754",
+      "source": "authored-package-fixture",
+      "features": [
+        "list-continuation",
+        "pagination"
+      ],
+      "origin": "Independently assembled binary from test/support/list_sequence_fixture.dart; confirmed by installed Office in doc/list-sequence-native-check.json"
+    },
+    {
+      "id": "list-restart",
+      "path": "test/fixtures/word_native/list-restart.doc",
+      "sha256": "fff53b5abf0c8a4d57739945d1f3f467ee5594c58ad6a67017b67d3b93655b9e",
+      "source": "authored-package-fixture",
+      "features": [
+        "list-continuation",
+        "pagination"
+      ],
+      "origin": "Independently assembled binary from test/support/list_sequence_fixture.dart; confirmed by installed Office in doc/list-sequence-native-check.json"
     }
   ],
   "reference_expectations": [

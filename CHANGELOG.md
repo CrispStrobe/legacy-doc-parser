@@ -11,6 +11,9 @@
   the observed stale native chain count only after every shape/link validates.
 - Preserve source pagination/section flags, column direction, compatibility
   settings and supported character/paragraph/section revision histories.
+- Preserve document/section footnote and endnote numbering, restart, placement
+  and note-setting revision snapshots, including a disclosed narrow native-DOP
+  interoperability recovery.
 - Retain supported comment thread/resolved metadata while disclosing ink and
   broader revision semantics as incomplete.
 - Add a hash-pinned Quds corpus, independently authored binary/OOXML/media

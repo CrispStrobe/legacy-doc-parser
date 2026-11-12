@@ -253,6 +253,7 @@ void _applyCharacter(
       'allCaps',
       'hidden',
       'fontSize',
+      'kerning',
       'fontIndex',
       'color',
       'verticalAlign',
@@ -316,6 +317,13 @@ void _applyCharacter(
           throw const FormatException('Invalid Word text position.');
         }
         output['position'] = position;
+      case 0x484b:
+        // MS-DOC sprmCHpsKern: signed half-point threshold, 0 disables.
+        final threshold = data.i16(0);
+        if (threshold < 0 || threshold > 3276) {
+          throw const FormatException('Invalid Word kerning threshold.');
+        }
+        output['kerning'] = threshold;
       case 0x8840:
         output['spacing'] = data.i16(0);
       case 0x2a83:
@@ -717,8 +725,10 @@ Map<String, Object?> _sectionProperties(
       case 0xd243:
         _applyPropertyRevision(value, output, 'section');
       default:
-        output['_unsupportedSection'] = true;
-        warnings.add(LegacyWordWarning.unsupportedFormatting);
+        if (!_applySectionNoteProperty(operation, output, warnings)) {
+          output['_unsupportedSection'] = true;
+          warnings.add(LegacyWordWarning.unsupportedFormatting);
+        }
     }
   }
   for (final key in ['width', 'height']) {

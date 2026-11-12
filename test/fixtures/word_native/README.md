@@ -32,3 +32,9 @@ layout-fidelity certification or a macro-execution test.
 textbox input from the parallel preservation branch (`71025ea`). Its distinct
 bytes and regression remain available alongside the 24-word reflow probe. The
 old identical filename was renamed during integration so neither input is lost.
+
+`list-continue.doc` and `list-restart.doc` are independently assembled binary
+inputs from `test/support/list_sequence_fixture.dart`, not converter output.
+They retain the five-item shared-LSID continuation and six-item restart/resume
+controls, so the native corpus checks editable labels after future changes.
+Their original native checks are recorded in `doc/list-sequence-native-check.json`.

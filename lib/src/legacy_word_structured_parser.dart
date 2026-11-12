@@ -11,6 +11,7 @@ import 'legacy_word_structured_render.dart';
 
 part 'legacy_word_binary_source.dart';
 part 'legacy_word_compatibility_parser.dart';
+part 'legacy_word_note_settings_parser.dart';
 part 'legacy_word_sprms.dart';
 part 'legacy_word_layout_parser.dart';
 part 'legacy_word_revisions.dart';
@@ -81,6 +82,7 @@ class _StructuredWordParser {
     if (source.compatibility.issues.isNotEmpty) {
       warnings.add(LegacyWordWarning.unsupportedFormatting);
     }
+    warnings.addAll(source.noteSettingsWarnings);
     if (source.totalLength == 0) {
       final media = _readMediaCatalog(const []);
       final orderedWarnings = warnings.toList()
@@ -95,6 +97,8 @@ class _StructuredWordParser {
         evenAndOddHeaders: source.evenAndOddHeaders,
         defaultTabStopTwips: source.defaultTabStopTwips,
         compatibility: source.compatibility,
+        footnotes: source.footnotes,
+        endnotes: source.endnotes,
       );
     }
     body = Uint16List(source.totalLength);
@@ -152,6 +156,8 @@ class _StructuredWordParser {
       evenAndOddHeaders: source.evenAndOddHeaders,
       defaultTabStopTwips: source.defaultTabStopTwips,
       compatibility: source.compatibility,
+      footnotes: source.footnotes,
+      endnotes: source.endnotes,
     );
   }
 
@@ -734,6 +740,7 @@ class _StructuredWordParser {
       hidden: properties['hidden'] == true,
       fontName: font,
       fontSizeHalfPoints: properties['fontSize'] as int?,
+      kerningThresholdHalfPoints: properties['kerning'] as int? ?? 0,
       colorHex: properties['color'] as String?,
       highlightHex: properties['highlight'] as String?,
       verticalAlign: switch (properties['verticalAlign']) {

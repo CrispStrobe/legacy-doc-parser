@@ -197,6 +197,9 @@ extension _WordNumberingWriter on _StructuredWordWriter {
             '<w:color w:val="${_StructuredWordWriter._color(character.colorHex!)}"/>',
           );
         }
+        xml.add(
+          '<w:kern w:val="${_StructuredWordWriter._kerningThreshold(character)}"/>',
+        );
         if (character.fontSizeHalfPoints != null) {
           xml.add('<w:sz w:val="${character.fontSizeHalfPoints}"/>');
         }

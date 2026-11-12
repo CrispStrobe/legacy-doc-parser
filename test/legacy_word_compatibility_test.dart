@@ -543,6 +543,8 @@ void main() {
     final xml = XmlDocument.parse(utf8.decode(files['word/settings.xml']!));
     expect(xml.rootElement.childElements.map((node) => node.name.local), [
       'updateFields',
+      'footnotePr',
+      'endnotePr',
       'compat',
     ]);
     expect(

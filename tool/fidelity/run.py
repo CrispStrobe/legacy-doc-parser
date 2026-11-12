@@ -52,6 +52,14 @@ def environment_snapshot(office, output):
     return environment
 
 
+def parser_source_snapshot():
+    paths = set(ROOT.glob('lib/**/*.dart'))
+    paths.update(ROOT / name for name in ('pubspec.yaml', 'pubspec.lock',
+                                          'tool/fidelity/convert.dart'))
+    return {path.relative_to(ROOT).as_posix(): digest(path)
+            for path in sorted(paths) if path.is_file()}
+
+
 def office_convert(office, source, target_dir, kind):
     target_dir.mkdir(parents=True, exist_ok=False)
     profile = target_dir / 'profile'
@@ -110,6 +118,8 @@ def measure_case(case, args, executable, output, environment, goldens):
     started = time.monotonic()
     output.mkdir()
     try:
+        if original_hash != case['sha256']:
+            raise RuntimeError('Corpus source changed before its measurement')
         if source.suffix == '.docx':
             bridge = office_convert(args.office, source, output / 'bridge', 'doc')
             original_snapshot = snapshot(source)
@@ -176,9 +186,15 @@ def main():
     os.environ.setdefault('TMPDIR', str(args.output / 'tmp'))
     Path(os.environ['TMPDIR']).mkdir(parents=True, exist_ok=True)
     environment = environment_snapshot(args.office, args.output)
+    parser_sources = parser_source_snapshot()
+    source_json = json.dumps(parser_sources, sort_keys=True, separators=(',', ':'))
+    (args.output / 'parser-source.json').write_text(json.dumps(parser_sources, indent=2) + '\n')
+    corpus_hash = digest(ROOT / 'tool/fidelity/corpus.json')
     executable = args.output / 'convert'
     compile_log = command([args.dart, 'compile', 'exe', 'tool/fidelity/convert.dart', '-o', executable], cwd=ROOT)
     (args.output / 'compile.log').write_text(compile_log)
+    if parser_source_snapshot() != parser_sources:
+        raise RuntimeError('Parser sources changed during compilation')
     try:
         git_head = command(['git', 'rev-parse', 'HEAD'], cwd=ROOT).strip()
         dirty = bool(command(['git', 'status', '--porcelain'], cwd=ROOT).strip())
@@ -187,7 +203,10 @@ def main():
     report = {'schema': 'legacy-doc-parser/fidelity-report', 'version': 2,
               **environment,
               'parserCommit': git_head, 'parserWorktreeDirty': dirty,
-              'corpusSha256': digest(ROOT / 'tool/fidelity/corpus.json'),
+              'parserSourceSha256': hashlib.sha256(source_json.encode()).hexdigest(),
+              'parserExecutableSha256': digest(executable),
+              'dartVersion': command([args.dart, '--version']).strip(),
+              'corpusSha256': corpus_hash,
               'method': 'Independent DOC render + native DOCX + parser DOCX + second binary import. No automatic golden update.',
               'cases': []}
     for case in corpus['cases']:
@@ -201,6 +220,10 @@ def main():
         if result.get('error'):
             print(result['error'], flush=True)
     errors = any(case['status'] != 'measured' or not case['sourceUnchanged'] for case in report['cases'])
+    report['parserSourceUnchanged'] = parser_source_snapshot() == parser_sources
+    report['corpusUnchanged'] = digest(ROOT / 'tool/fidelity/corpus.json') == corpus_hash
+    errors |= not report['parserSourceUnchanged'] or not report['corpusUnchanged']
+    (args.output / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     if args.require_goldens:
         errors |= any(case.get('sourceGolden', {}).get('status') != 'matched' for case in report['cases'])
     if args.require_exact:

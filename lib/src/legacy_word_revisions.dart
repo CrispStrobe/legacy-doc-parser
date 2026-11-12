@@ -69,6 +69,9 @@ extension _WordRevisions on _StructuredWordParser {
       columnsSpaceTwips: properties['columnsSpace'] as int?,
       landscape: properties['landscape'] == true,
       titlePage: properties['titlePage'] == true,
+      footnotes: _sectionFootnoteSettings(properties, source.footnotes),
+      endnotes: _sectionEndnoteSettings(properties, source.endnotes),
+      suppressEndnotes: properties['suppressEndnotes'] == true,
       columns: properties['columns'] as int? ?? 1,
       breakKind:
           LegacyWordSectionBreak.values[properties['breakKind'] as int? ?? 2],

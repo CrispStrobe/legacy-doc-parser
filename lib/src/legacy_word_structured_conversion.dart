@@ -295,6 +295,7 @@ class _StructuredWordWriter {
     if (style.spacingTwips != null || resetDefaults) {
       _xml.add('<w:spacing w:val="${style.spacingTwips ?? 0}"/>');
     }
+    _xml.add('<w:kern w:val="${_kerningThreshold(style)}"/>');
     if (style.positionHalfPoints != null || resetDefaults) {
       _xml.add('<w:position w:val="${style.positionHalfPoints ?? 0}"/>');
     }
@@ -315,6 +316,14 @@ class _StructuredWordWriter {
       );
     }
     _xml.add('<w:vertAlign w:val="${style.verticalAlign.name}"/>');
+  }
+
+  static int _kerningThreshold(LegacyWordCharacterStyle style) {
+    final value = style.kerningThresholdHalfPoints;
+    if (value < 0 || value > 3276) {
+      throw const FormatException('Invalid Word kerning threshold.');
+    }
+    return value;
   }
 
   void _writeRunText(LegacyWordRun run) {
@@ -382,6 +391,7 @@ class _StructuredWordWriter {
         );
       }
     }
+    _writeSectionNoteSettings(section);
     _xml.add(
       '<w:type w:val="${switch (breakBefore) {
         LegacyWordSectionBreak.continuous => 'continuous',
@@ -423,6 +433,11 @@ class _StructuredWordWriter {
     }
     _sectionNumbering(section.layout);
     _sectionColumns(section);
+    if (section.suppressEndnotes &&
+        (section.endnotes ?? document.endnotes).position ==
+            LegacyWordEndnotePosition.sectionEnd) {
+      _xml.add('<w:noEndnote/>');
+    }
     if (section.titlePage) {
       _xml.add('<w:titlePg/>');
     }
