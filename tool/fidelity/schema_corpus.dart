@@ -9,6 +9,7 @@ import 'metafile_probe.dart' as metafiles;
 import 'review_schema_fixture.dart' as reviews;
 import 'section_review_fixture.dart' as sections;
 import 'shape_probe.dart' as shapes;
+import 'table_borders_fixture.dart' as table_borders;
 import 'table_layout_fixture.dart' as table_layout;
 import 'table_origin_fixture.dart' as origins;
 import 'table_text_fixture.dart' as table_text;
@@ -80,6 +81,28 @@ void main(List<String> arguments) {
       'table-layout/$name.doc',
       'table-layout/$name-converted.docx',
       'tool/fidelity/table_layout_fixture.dart',
+    );
+  }
+  table_borders.main(['${root.path}/table-borders']);
+  for (final name in [
+    'old-after',
+    'old-before',
+    'old-nil',
+    'old-explicit',
+    'modern-after',
+    'modern-before',
+    'modern-nil',
+    'modern-explicit',
+    'range-nil',
+    'range-none',
+    'interior-colors',
+    'row-reset',
+  ]) {
+    record(
+      'table-borders/$name',
+      'table-borders/$name.doc',
+      'table-borders/$name-converted.docx',
+      'tool/fidelity/table_borders_fixture.dart',
     );
   }
   shapes.main(['${root.path}/shapes']);

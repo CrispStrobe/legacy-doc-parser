@@ -305,6 +305,11 @@ class _StructuredWordWriter {
     for (final row in table.rows) {
       _countBreak();
       _xml.add('<w:tr>');
+      if (row.borders.isNotEmpty) {
+        _xml.add('<w:tblPrEx>');
+        _tableBorders(row.borders, _xml, 'tblBorders');
+        _xml.add('</w:tblPrEx>');
+      }
       final before = canWriteGrid ? edgeIndices[row.originTwips]! : 0;
       final rowEnd =
           row.originTwips +

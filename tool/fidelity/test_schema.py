@@ -4,6 +4,7 @@ import argparse
 import copy
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -145,6 +146,15 @@ class SchemaGateTest(unittest.TestCase):
         schema.write_json(directory / "manifest.json", manifest)
         with self.assertRaises(ValueError):
             schema.corpus_receipt(directory, {"case"})
+
+    def test_required_border_inventory_matches_the_independent_fixture_case_list(self):
+        fixture = (schema.ROOT / "test/support/table_border_fixture.dart").read_text()
+        names = re.findall(r"TableBorderCase\(\s*'([^']+)'", fixture)
+        self.assertEqual(12, len(names))
+        self.assertEqual(len(names), len(set(names)))
+        required = {name.removeprefix("table-borders/") for name in schema.EXPECTED_CASES
+                    if name.startswith("table-borders/")}
+        self.assertEqual(set(names), required)
 
     def test_corpus_rejects_unregistered_inputs_aliases_and_escape(self):
         directory, manifest = self.make_corpus()

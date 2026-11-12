@@ -68,6 +68,10 @@ extension _WordTables on _StructuredWordParser {
               cantSplit:
                   properties['tableCantSplit'] as bool? ??
                   properties['tableCantSplit90'] as bool?,
+              borders:
+                  properties['tableBorders']
+                      as Map<LegacyWordTableBorderSide, LegacyWordBorder>? ??
+                  const {},
               // Only leading, contiguous rows are repeating headers.
               isHeader:
                   properties['rowHeader'] == true &&

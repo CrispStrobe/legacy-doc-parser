@@ -84,6 +84,7 @@ Modern `sprmTInsert` rows can inherit cell formatting from the table style.
 Direct `TC80` borders and alignment, ordered `sprmTSetBrc80` / `sprmTSetBrc`
 updates, and `CSSA` default and per-cell margins survive as editable cell
 properties. A nil border explicitly removes a border; it does not inherit.
+A cell border of type none inherits the applicable style or row default.
 Raw nil shading inherits the style, whereas raw automatic shading clears the
 fill. These two nil meanings are deliberately separate.
 
@@ -264,9 +265,46 @@ Tests: `test/legacy_word_table_layout_test.dart` and
 `tool/fidelity/test_table_layout_probe.py`. These bounded cases do not establish
 exact pagination for arbitrary tables, other fonts or other renderers.
 
+## Direct row-wide borders
+
+Both `sprmTTableBorders80` and `sprmTTableBorders` preserve all six row defaults:
+top, left, bottom, right, horizontal interior and vertical interior. Record
+lengths are checked exactly. Row defaults survive whether they occur before
+or after `TDefTable`; later row-default records replace earlier values.
+Native output retains the defaults in `w:tr/w:tblPrEx/w:tblBorders` and also
+emits the resolved physical borders on each cell.
+
+Explicit non-none TC80 and range-update borders still take precedence. Nil
+suppresses an edge; none requests inheritance. A later range update to none
+can therefore restore a row default that an earlier explicit cell border
+overrode. Conditional cell-style borders are considered before row defaults;
+direct row defaults replace the base table-style defaults. The interpretation
+follows [MS-DOC TableBordersOperand80](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/e334b793-1c10-4fed-8fac-69c3f8fb41b6),
+[TableBordersOperand](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/203adfdf-332c-4f4e-b3d9-3a809d4b275b)
+and [Word's documented border-resolution rules](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/7c791c5d-44c3-4fe8-abdd-8f136761bb93).
+
+The independent producer `tool/fidelity/table_borders_fixture.dart OUTPUT_DIR`
+contains twelve cases: old/current row records, both application orders,
+explicit cell overrides, nil suppression, none inheritance, a whole-row reset,
+and differently colored and weighted outer/interior edges. Run
+`tool/fidelity/table_borders_probe.py` with the same `--office`, `--fixtures`,
+`--output` and `--golden` interface as the layout probe, using
+`test/fixtures/word_native/table-borders-golden.json`.
+
+On the renderer version recorded above, all twelve native source/converted
+border projections agreed and their colored border masks matched exactly at
+144 DPI. Positive fixtures contain 2,748–11,916 colored pixels; nil/reset
+controls contain zero. The comparison excludes grayscale text and is a
+border-rendering check, not a whole-document pixel claim. All twelve generated
+packages pass the independent Open XML SDK schema check, including row
+exceptions. Eight binary/model/XML tests and five probe failure-control tests
+cover the increment in `test/legacy_word_row_borders_test.dart` and
+`tool/fidelity/test_table_borders_probe.py`.
+
 ## Residual scope
 
 Floating-table placement, additional conditional text operators, native relative
-table-style toggle rules, and list-instance
+table-style toggle rules, adjacent-row table boundaries that depend on style or
+floating-position changes, and list-instance
 continuation with overrides need their own property-level interpretation. Retaining nested
 content alone does not establish page-layout equivalence to Microsoft Word.

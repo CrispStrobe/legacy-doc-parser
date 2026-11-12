@@ -444,6 +444,7 @@ class LegacyWordTableRow {
     this.halfGapTwips = 0,
     this.heightTwips,
     this.cantSplit,
+    this.borders = const {},
   });
   final List<LegacyWordTableCell> cells;
   final bool isHeader;
@@ -466,6 +467,10 @@ class LegacyWordTableRow {
 
   /// Null leaves the default ability to split a row across pages unchanged.
   final bool? cantSplit;
+
+  /// Direct row-wide outer and interior border defaults. Cell borders whose
+  /// type is none inherit; an explicit nil cell border suppresses the edge.
+  final Map<LegacyWordTableBorderSide, LegacyWordBorder> borders;
 }
 
 class LegacyWordTableCell {

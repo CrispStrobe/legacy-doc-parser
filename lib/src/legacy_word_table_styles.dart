@@ -26,6 +26,7 @@ extension _WordTableStyles on _StructuredWordParser {
         halfGapTwips: rows[r].halfGapTwips,
         heightTwips: rows[r].heightTwips,
         cantSplit: rows[r].cantSplit,
+        borders: rows[r].borders,
         cells: List.unmodifiable([
           for (var c = 0; c < rows[r].cells.length; c++)
             _resolvedTableCell(rows[r], r, rows, c),
@@ -40,6 +41,7 @@ extension _WordTableStyles on _StructuredWordParser {
     int c,
   ) {
     final cell = row.cells[c];
+    final inherited = _tableStyleCell(row, r, rows, c);
     var format = _mergeTableCellFormat(
       _mergeTableCellFormat(
         const LegacyWordTableCellFormat(
@@ -50,9 +52,23 @@ extension _WordTableStyles on _StructuredWordParser {
             LegacyWordBorderSide.right: 108,
           },
         ),
-        _tableStyleCell(row, r, rows, c),
+        inherited,
       ),
       cell.formatting,
+    );
+    // MS-DOC delegates border resolution to ECMA-376. Word's documented
+    // interpretation distinguishes "none" (inherit) from "nil" (suppress).
+    // Other cell border types, including ordered TSetBrc updates, still win.
+    format = _mergeTableCellFormat(
+      format,
+      LegacyWordTableCellFormat(
+        borders: Map.unmodifiable({
+          for (final entry in inherited.borders.entries)
+            if (cell.formatting.borders[entry.key] == null ||
+                cell.formatting.borders[entry.key]!.style == 'none')
+              entry.key: entry.value,
+        }),
+      ),
     );
     format = _mergeTableCellFormat(
       format,
@@ -194,17 +210,9 @@ extension _WordTableStyles on _StructuredWordParser {
           margins.addAll(decoded);
         case 0xd605:
         case 0xd613:
-          final old = operation.code == 0xd605;
-          final width = old ? 4 : 8;
-          if (value.length != width * 6) {
-            throw const FormatException('Invalid Word style table borders.');
-          }
-          for (var side = 0; side < 6; side++) {
-            borders[LegacyWordTableBorderSide.values[side]] = _readTableBorder(
-              _Bytes(value.slice(side * width, width)),
-              old: old,
-            );
-          }
+          borders.addAll(
+            _readTableBorders(value, old: operation.code == 0xd605),
+          );
         case 0xd47f:
         case >= 0xd680 && <= 0xd686:
           if (!conditional) {
@@ -243,14 +251,37 @@ extension _WordTableStyles on _StructuredWordParser {
     int column,
   ) {
     final id = row.tableStyleId;
-    if (id == null) return const LegacyWordTableCellFormat();
-    final chain = _tableStyleChain(id);
+    final chain = id == null ? <LegacyWordTableStyle>[] : _tableStyleChain(id);
     var value = const LegacyWordTableCellFormat();
     for (final style in chain) {
       value = _mergeTableCellFormat(value, style.cell);
     }
-    final conditions = _tableStyleConditions(row, rowIndex, rows, column);
-    final baseBorders = value.borders;
+    final conditions = id == null
+        ? <LegacyWordTableCondition>[]
+        : _tableStyleConditions(row, rowIndex, rows, column);
+    final baseBorders = {...value.borders, ...row.borders};
+    final inheritedBorders = <LegacyWordTableBorderSide, LegacyWordBorder>{
+      if (baseBorders[rowIndex == 0
+              ? LegacyWordTableBorderSide.top
+              : LegacyWordTableBorderSide.insideH]
+          case final border?)
+        LegacyWordTableBorderSide.top: border,
+      if (baseBorders[rowIndex == rows.length - 1
+              ? LegacyWordTableBorderSide.bottom
+              : LegacyWordTableBorderSide.insideH]
+          case final border?)
+        LegacyWordTableBorderSide.bottom: border,
+      if (baseBorders[column == 0
+              ? LegacyWordTableBorderSide.left
+              : LegacyWordTableBorderSide.insideV]
+          case final border?)
+        LegacyWordTableBorderSide.left: border,
+      if (baseBorders[column == row.cells.length - 1
+              ? LegacyWordTableBorderSide.right
+              : LegacyWordTableBorderSide.insideV]
+          case final border?)
+        LegacyWordTableBorderSide.right: border,
+    };
     value = LegacyWordTableCellFormat(
       shading: value.shading,
       verticalAlignment: value.verticalAlignment,
@@ -259,28 +290,7 @@ extension _WordTableStyles on _StructuredWordParser {
       fitText: value.fitText,
       hideMark: value.hideMark,
       margins: value.margins,
-      borders: Map.unmodifiable({
-        if (baseBorders[rowIndex == 0
-                ? LegacyWordTableBorderSide.top
-                : LegacyWordTableBorderSide.insideH]
-            case final border?)
-          LegacyWordTableBorderSide.top: border,
-        if (baseBorders[rowIndex == rows.length - 1
-                ? LegacyWordTableBorderSide.bottom
-                : LegacyWordTableBorderSide.insideH]
-            case final border?)
-          LegacyWordTableBorderSide.bottom: border,
-        if (baseBorders[column == 0
-                ? LegacyWordTableBorderSide.left
-                : LegacyWordTableBorderSide.insideV]
-            case final border?)
-          LegacyWordTableBorderSide.left: border,
-        if (baseBorders[column == row.cells.length - 1
-                ? LegacyWordTableBorderSide.right
-                : LegacyWordTableBorderSide.insideV]
-            case final border?)
-          LegacyWordTableBorderSide.right: border,
-      }),
+      borders: Map.unmodifiable(inheritedBorders),
     );
     for (final condition in conditions) {
       for (final style in chain) {
@@ -288,7 +298,16 @@ extension _WordTableStyles on _StructuredWordParser {
         if (rule != null) value = _mergeTableCellFormat(value, rule);
       }
     }
-    return value;
+    return _mergeTableCellFormat(
+      value,
+      LegacyWordTableCellFormat(
+        borders: Map.unmodifiable({
+          for (final entry in inheritedBorders.entries)
+            if (value.borders[entry.key]?.style == 'none')
+              entry.key: entry.value,
+        }),
+      ),
+    );
   }
 
   List<LegacyWordTableCondition> _tableStyleConditions(
@@ -338,6 +357,23 @@ extension _WordTableStyles on _StructuredWordParser {
         LegacyWordTableCondition.seCell,
     ];
   }
+}
+
+Map<LegacyWordTableBorderSide, LegacyWordBorder> _readTableBorders(
+  _Bytes value, {
+  required bool old,
+}) {
+  final width = old ? 4 : 8;
+  if (value.length != width * 6) {
+    throw const FormatException('Invalid Word row border operand.');
+  }
+  return Map.unmodifiable({
+    for (var side = 0; side < 6; side++)
+      LegacyWordTableBorderSide.values[side]: _readTableBorder(
+        _Bytes(value.slice(side * width, width)),
+        old: old,
+      ),
+  });
 }
 
 LegacyWordBorder _readTableBorder(_Bytes value, {bool old = false}) {

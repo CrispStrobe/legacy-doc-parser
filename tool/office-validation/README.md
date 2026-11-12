@@ -17,9 +17,9 @@ be selected with `--dart` and `--dotnet`. The default path builds the copied
 project with `dotnet publish`. The separate GitHub Actions job runs this gate
 without LibreOffice, Word, or Quds installed.
 
-The corpus contains 43 required DOC-to-DOCX conversions: nine authored table
+The corpus contains 55 required DOC-to-DOCX conversions: nine authored table
 origins/nesting cases, two full conditional table text/style cases, eight row
-height/splitting and cell-layout cases, twelve shape
+height/splitting and cell-layout cases, twelve border/default/reset cases, twelve shape
 cases, six EMF/WMF compound-fill cases, section formatting history, paragraph
 numbering change/insertion, LISTNUM result history, and the retained native
 formatting and linked-textbox DOCs. The generator calls the existing fixture

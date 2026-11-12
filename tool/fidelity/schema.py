@@ -25,6 +25,9 @@ EXPECTED_CASES = frozenset([
     *(f"table-layout/{name}" for name in (
         "auto", "minimum-short", "minimum-content", "exact-short", "exact-content",
         "keep-row", "split-row", "cell-layout")),
+    *(f"table-borders/{name}" for name in (
+        "old-after", "old-before", "old-nil", "old-explicit", "modern-after", "modern-before",
+        "modern-nil", "modern-explicit", "range-nil", "range-none", "interior-colors", "row-reset")),
     *(f"shapes/{name}" for name in ("rect", "ellipse", "line", "custom")),
     *(f"shapes/line-{axis}-{flip}" for axis in ("h", "v") for flip in ("none", "x", "y", "xy")),
     *(f"metafiles/{kind}-{mode}" for kind in ("emf32", "emf16", "wmf")

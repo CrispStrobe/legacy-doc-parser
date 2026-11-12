@@ -505,6 +505,12 @@ void _applyParagraph(
         output['tableStyleId'] = value.u16(0);
       case 0x740a:
         output['tableStyleOptions'] = value.u16(2);
+      case 0xd605:
+      case 0xd613:
+        output['tableBorders'] = _readTableBorders(
+          value,
+          old: operation.code == 0xd605,
+        );
       case 0xd632:
       case 0xd634:
         final wholeRow = operation.code == 0xd634;
