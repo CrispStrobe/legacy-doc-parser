@@ -28,6 +28,7 @@ class _HtmlWriter {
   var _bytes = 0;
   var _items = 0;
   var _markerUnits = 0;
+  var _tableDepth = 0;
 
   String render(List<LegacyWordBlock> blocks) {
     _prepareNumbering(blocks);
@@ -39,6 +40,12 @@ class _HtmlWriter {
       '<div style="white-space:pre-wrap;overflow-wrap:anywhere;'
       '${defaultTabStopTwips == null ? '' : 'tab-size:${_twips(defaultTabStopTwips!)}pt;'}">',
     );
+    _blocks(blocks);
+    _write('</div>');
+    return _buffer.toString();
+  }
+
+  void _blocks(List<LegacyWordBlock> blocks) {
     for (var index = 0; index < blocks.length; index++) {
       final block = blocks[index];
       _item();
@@ -59,8 +66,6 @@ class _HtmlWriter {
           _table(block);
       }
     }
-    _write('</div>');
-    return _buffer.toString();
   }
 
   void _prepareNumbering(List<LegacyWordBlock> blocks) {
@@ -119,23 +124,28 @@ class _HtmlWriter {
       }
     }
 
-    for (final block in blocks) {
-      scanItem();
-      switch (block) {
-        case LegacyWordParagraph():
-          add(block);
-        case LegacyWordTable():
-          for (final row in block.rows) {
-            scanItem();
-            for (final cell in row.cells) {
+    void scan(List<LegacyWordBlock> values, int depth) {
+      if (depth > 63) {
+        throw const FormatException('Word tables are nested too deeply.');
+      }
+      for (final block in values) {
+        scanItem();
+        switch (block) {
+          case LegacyWordParagraph():
+            add(block);
+          case LegacyWordTable():
+            for (final row in block.rows) {
               scanItem();
-              for (final paragraph in cell.paragraphs) {
-                add(paragraph);
+              for (final cell in row.cells) {
+                scanItem();
+                scan(cell.blocks, depth + 1);
               }
             }
-          }
+        }
       }
     }
+
+    scan(blocks, 0);
     // A vertically merged HTML cell can move a continuation's text earlier in
     // markup order. Number source paragraphs in CP order before merging them.
     ordered.sort((a, b) {
@@ -643,6 +653,9 @@ class _HtmlWriter {
   }
 
   void _table(LegacyWordTable table) {
+    if (++_tableDepth > 63) {
+      throw const FormatException('Word tables are nested too deeply.');
+    }
     final rows = <List<_HtmlCell>>[];
     var active = <(int, int), _HtmlCell>{};
     for (final row in table.rows) {
@@ -663,11 +676,11 @@ class _HtmlWriter {
           }
         }
         final span = column - start;
-        final paragraphs = <LegacyWordParagraph>[];
+        final blocks = <LegacyWordBlock>[];
         for (final cell in source) {
-          for (final paragraph in cell.paragraphs) {
+          for (final block in cell.blocks) {
             _item();
-            paragraphs.add(paragraph);
+            blocks.add(block);
           }
         }
         final continues = source.every(
@@ -677,12 +690,12 @@ class _HtmlWriter {
         final previous = active[key];
         if (continues && previous != null) {
           previous.rowSpan++;
-          previous.paragraphs.addAll(paragraphs);
+          previous.blocks.addAll(blocks);
           nextActive[key] = previous;
           continue;
         }
         final cell = _HtmlCell(
-          paragraphs: paragraphs,
+          blocks: blocks,
           isHeader: row.isHeader,
           columnSpan: span,
           widthTwips: source.every((cell) => cell.widthTwips != null)
@@ -716,20 +729,13 @@ class _HtmlWriter {
           '${shading.css.isEmpty ? '' : '${shading.css.join(';')};'}'
           '${width != null && width > 0 ? 'width:${_twips(width)}pt;' : ''}">',
         );
-        for (var index = 0; index < cell.paragraphs.length; index++) {
-          _paragraph(
-            cell.paragraphs[index],
-            previous: index > 0 ? cell.paragraphs[index - 1] : null,
-            next: index + 1 < cell.paragraphs.length
-                ? cell.paragraphs[index + 1]
-                : null,
-          );
-        }
+        _blocks(cell.blocks);
         _write('</$tag>');
       }
       _write('</tr>');
     }
     _write('</tbody></table>');
+    _tableDepth--;
   }
 
   void _text(String text) {
@@ -774,13 +780,13 @@ class _HtmlWriter {
 
 class _HtmlCell {
   _HtmlCell({
-    required this.paragraphs,
+    required this.blocks,
     required this.isHeader,
     required this.columnSpan,
     required this.widthTwips,
     required this.shading,
   });
-  final List<LegacyWordParagraph> paragraphs;
+  final List<LegacyWordBlock> blocks;
   final bool isHeader;
   final int columnSpan;
   final int? widthTwips;

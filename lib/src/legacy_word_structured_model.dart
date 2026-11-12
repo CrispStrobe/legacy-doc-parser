@@ -344,14 +344,20 @@ class LegacyWordTableRow {
 class LegacyWordTableCell {
   const LegacyWordTableCell({
     required this.paragraphs,
+    List<LegacyWordBlock>? blocks,
     this.widthTwips,
     this.mergeStart = false,
     this.mergeContinue = false,
     this.verticalMergeStart = false,
     this.verticalMergeContinue = false,
     this.shading,
-  });
+  }) : _blocks = blocks;
+
+  /// Direct paragraphs in this cell. [blocks] retains their order relative to
+  /// nested tables; consumers rendering complete content should use [blocks].
   final List<LegacyWordParagraph> paragraphs;
+  final List<LegacyWordBlock>? _blocks;
+  List<LegacyWordBlock> get blocks => _blocks ?? paragraphs;
   final int? widthTwips;
   final bool mergeStart;
   final bool mergeContinue;

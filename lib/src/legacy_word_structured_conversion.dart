@@ -41,6 +41,7 @@ class _StructuredWordWriter {
   final _headerFooters = <int, List<(bool, String, String)>>{};
   final _storyParts = <String, String>{};
   final _numberingIds = <int>{};
+  var _tableDepth = 0;
   final _fields = <int, LegacyWordField>{};
   final _fieldChildren = <int, List<LegacyWordField>>{};
   final _mediaAssets = <String, LegacyWordImageAsset>{};
@@ -204,6 +205,9 @@ class _StructuredWordWriter {
   }
 
   void _table(LegacyWordTable table) {
+    if (++_tableDepth > 63) {
+      throw const FormatException('Word tables are nested too deeply.');
+    }
     _count('tables');
     _xml.add(
       '<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/>'
@@ -269,19 +273,27 @@ class _StructuredWordWriter {
             cell.shading!,
             _xml,
             'tableCell',
-            cell.paragraphs.isEmpty ? null : cell.paragraphs.first.startCp,
+            cell.blocks.isEmpty ? null : cell.blocks.first.startCp,
           );
         }
         _xml.add('</w:tcPr>');
-        if (cell.paragraphs.isEmpty) _xml.add('<w:p/>');
-        for (final paragraph in cell.paragraphs) {
-          _paragraph(paragraph);
+        for (final block in cell.blocks) {
+          switch (block) {
+            case LegacyWordParagraph():
+              _paragraph(block);
+            case LegacyWordTable():
+              _table(block);
+          }
+        }
+        if (cell.blocks.isEmpty || cell.blocks.last is LegacyWordTable) {
+          _xml.add('<w:p/>');
         }
         _xml.add('</w:tc>');
       }
       _xml.add('</w:tr>');
     }
     _xml.add('</w:tbl>');
+    _tableDepth--;
   }
 
   void _writeRun(LegacyWordRun run) {

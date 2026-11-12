@@ -399,7 +399,15 @@ void _applyParagraph(
       case 0x2407:
         output['pageBreakBefore'] = _boolean(value);
       case 0x2416:
-        output['inTable'] = _boolean(value);
+        final inTable = _boolean(value);
+        output['inTable'] = inTable;
+        // PFInTable is the Word 97 representation. Later PItap/PDtap values
+        // replace its implied depth; a false value clears it in sequence.
+        if (!inTable) {
+          output['tableDepth'] = 0;
+        } else if ((output['tableDepth'] as int? ?? 0) == 0) {
+          output['tableDepth'] = 1;
+        }
       case 0x2417:
         output['rowEnd'] = _boolean(value);
       case 0x244b:
@@ -412,6 +420,14 @@ void _applyParagraph(
           throw const FormatException('Invalid Word table nesting.');
         }
         output['tableDepth'] = depth;
+        output['inTable'] = depth != 0;
+      case 0x664a:
+        final depth = (output['tableDepth'] as int? ?? 0) + value.i32(0);
+        if (depth < 0 || depth > 63) {
+          throw const FormatException('Invalid Word table nesting adjustment.');
+        }
+        output['tableDepth'] = depth;
+        output['inTable'] = depth != 0;
       case 0x3404:
         output['rowHeader'] = _boolean(value);
       case 0x840f:

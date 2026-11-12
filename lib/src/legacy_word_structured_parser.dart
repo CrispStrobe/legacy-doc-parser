@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'bounded_cfb_reader.dart';
 import 'compound/cfbf_writer.dart';
+import 'legacy_word_metafile.dart';
 import 'legacy_word_structured_model.dart';
 import 'legacy_word_structured_render.dart';
 
@@ -14,6 +15,7 @@ part 'legacy_word_format_tables.dart';
 part 'legacy_word_stories.dart';
 part 'legacy_word_fields.dart';
 part 'legacy_word_lists.dart';
+part 'legacy_word_tables.dart';
 part 'legacy_word_media_parser.dart';
 
 typedef _Props = Map<String, Object?>;
@@ -177,35 +179,31 @@ class _StructuredWordParser {
 
   String _plainText(List<LegacyWordBlock> blocks) {
     final plain = StringBuffer();
-    void paragraphText(LegacyWordParagraph paragraph) {
-      for (final run in paragraph.runs) {
-        if (!run.style.hidden) plain.write(run.text);
+    void content(List<LegacyWordBlock> values, int depth) {
+      if (depth > 63) {
+        throw const FormatException('Word tables are nested too deeply.');
+      }
+      for (var index = 0; index < values.length; index++) {
+        if (index != 0) plain.write('\n');
+        switch (values[index]) {
+          case LegacyWordParagraph(:final runs):
+            for (final run in runs) {
+              if (!run.style.hidden) plain.write(run.text);
+            }
+          case LegacyWordTable(:final rows):
+            for (var row = 0; row < rows.length; row++) {
+              if (row != 0) plain.write('\n');
+              for (var cell = 0; cell < rows[row].cells.length; cell++) {
+                if (cell != 0) plain.write('\t');
+                content(rows[row].cells[cell].blocks, depth + 1);
+              }
+            }
+        }
       }
     }
 
-    for (final block in blocks) {
-      switch (block) {
-        case LegacyWordParagraph():
-          paragraphText(block);
-          plain.writeln();
-        case LegacyWordTable():
-          for (final row in block.rows) {
-            for (var cell = 0; cell < row.cells.length; cell++) {
-              if (cell != 0) plain.write('\t');
-              final paragraphs = row.cells[cell].paragraphs;
-              for (var p = 0; p < paragraphs.length; p++) {
-                if (p != 0) plain.write('\n');
-                paragraphText(paragraphs[p]);
-              }
-            }
-            plain.writeln();
-          }
-      }
-    }
-    final plainText = plain.toString();
-    return plainText.endsWith('\n')
-        ? plainText.substring(0, plainText.length - 1)
-        : plainText;
+    content(blocks, 0);
+    return plain.toString();
   }
 
   String _renderBlocks(List<LegacyWordBlock> blocks) {
@@ -674,107 +672,6 @@ class _StructuredWordParser {
       positionHalfPoints: properties['position'] as int?,
       spacingTwips: properties['spacing'] as int?,
     );
-  }
-
-  List<LegacyWordBlock> _assembleTables(List<_Paragraph> paragraphs) {
-    final blocks = <LegacyWordBlock>[];
-    final rows = <LegacyWordTableRow>[];
-    final cells = <List<LegacyWordParagraph>>[];
-    var cell = <LegacyWordParagraph>[];
-    int? start;
-    var end = 0;
-    void finishRow(_Props properties) {
-      if (cell.isNotEmpty) {
-        cells.add(cell);
-        cell = [];
-      }
-      if (cells.isEmpty) {
-        throw const FormatException('Word table row has no cells.');
-      }
-      final definition = properties['tableDefinition'] as _TableDefinition?;
-      if (definition != null && definition.flags.length != cells.length) {
-        throw const FormatException(
-          'Word table cell count does not match its row.',
-        );
-      }
-      rows.add(
-        LegacyWordTableRow(
-          isHeader: properties['rowHeader'] == true,
-          cells: List.unmodifiable([
-            for (var i = 0; i < cells.length; i++)
-              LegacyWordTableCell(
-                paragraphs: List.unmodifiable(cells[i]),
-                widthTwips: definition == null
-                    ? null
-                    : definition.edges[i + 1] - definition.edges[i],
-                mergeStart:
-                    definition != null && (definition.flags[i] & 3) >= 2,
-                mergeContinue:
-                    definition != null && (definition.flags[i] & 3) == 1,
-                verticalMergeStart:
-                    definition != null && ((definition.flags[i] >> 5) & 3) >= 2,
-                verticalMergeContinue:
-                    definition != null && ((definition.flags[i] >> 5) & 3) == 1,
-                shading:
-                    (properties['cellShading']
-                        as Map<int, LegacyWordShading>?)?[i],
-              ),
-          ]),
-        ),
-      );
-      cells.clear();
-    }
-
-    void finishTable() {
-      if (start == null) return;
-      if (cell.isNotEmpty || cells.isNotEmpty) {
-        warnings.add(LegacyWordWarning.unsupportedFormatting);
-        finishRow(const {});
-      }
-      blocks.add(
-        LegacyWordTable(
-          startCp: start!,
-          endCp: end,
-          rows: List.unmodifiable(rows),
-        ),
-      );
-      rows.clear();
-      start = null;
-    }
-
-    for (final item in paragraphs) {
-      final paragraph = item.paragraph;
-      final properties = item.properties;
-      final depth = properties['tableDepth'] as int? ?? 0;
-      if (depth > 1 ||
-          properties['innerCellEnd'] == true ||
-          properties['innerRowEnd'] == true) {
-        warnings.add(LegacyWordWarning.nestedTablesFlattened);
-        finishTable();
-        blocks.add(paragraph);
-        continue;
-      }
-      if (properties['inTable'] != true && depth == 0) {
-        finishTable();
-        blocks.add(paragraph);
-        continue;
-      }
-      start ??= paragraph.startCp;
-      end = paragraph.endCp;
-      if (properties['rowEnd'] == true) {
-        if (paragraph.runs.isNotEmpty) cell.add(paragraph);
-        finishRow(properties);
-      } else {
-        cell.add(paragraph);
-        if (item.terminator == 7) {
-          cells.add(cell);
-          cell = [];
-        }
-      }
-      if (sectionEnds.contains(end)) finishTable();
-    }
-    finishTable();
-    return blocks;
   }
 }
 

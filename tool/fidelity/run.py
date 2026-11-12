@@ -34,8 +34,8 @@ def office_convert(office, source, target_dir, kind):
     # Isolated profile; no macro or document-link update is requested.
     (user / 'registrymodifications.xcu').write_text('''<?xml version="1.0"?>
 <oor:items xmlns:oor="http://openoffice.org/2001/registry">
-<item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item>
-<item oor:path="/org.openoffice.Office.Writer/Content/Update"><prop oor:name="Link" oor:op="fuse"><value>2</value></prop><prop oor:name="Field" oor:op="fuse"><value>false</value></prop><prop oor:name="Chart" oor:op="fuse"><value>false</value></prop></item>
+<item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop><prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>true</value></prop><prop oor:name="BlockUntrustedRefererLinks" oor:op="fuse"><value>true</value></prop></item>
+<item oor:path="/org.openoffice.Office.Writer/Content/Update"><prop oor:name="Link" oor:op="fuse"><value>0</value></prop><prop oor:name="Field" oor:op="fuse"><value>false</value></prop><prop oor:name="Chart" oor:op="fuse"><value>false</value></prop></item>
 </oor:items>''')
     conversion = {'doc': 'doc:MS Word 97', 'docx': 'docx:Office Open XML Text',
                   'pdf': 'pdf:writer_pdf_Export'}[kind]
