@@ -383,6 +383,10 @@ void main(List<String> arguments) {
     'word16-page-origin',
     'word16-page-origin-lo-blip-count',
     'poi-simple-table2',
+    'header-ending-paragraph',
+    'header-ending-table',
+    'footer-ending-paragraph',
+    'footer-ending-table',
   ]) {
     nativeInput(name, 'test/fixtures/word_native/$name.doc');
   }
