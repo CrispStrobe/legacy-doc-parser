@@ -335,6 +335,124 @@ void main() {
     expect(_attr(run, 'rsidDel'), isNull);
   });
 
+  test('shared image bytes retain independent occurrence revisions', () {
+    final document = parseLegacyWordDocument(
+      StructuredWordFixture(
+        pieces: const [WordFixturePiece('\x01\x01\r')],
+        characterRuns: [
+          for (var index = 0; index < 2; index++)
+            WordFixtureFkpRun(
+              8192 + index,
+              8193 + index,
+              properties: [
+                ...wordSprm(0x0855, [1]),
+                ...wordSprm(0x6a03, wordU32(16)),
+                ...mediaReviewProperties(
+                  inserted: index == 0,
+                  deleted: index == 1,
+                ),
+              ],
+            ),
+          const WordFixtureFkpRun(8194, 8195),
+        ],
+        extraTablePairs: {51: mediaReviewAuthors()},
+        extraStreams: {
+          'Data': Uint8List.fromList([
+            ...List.filled(16, 0),
+            ...inlinePictureData(),
+          ]),
+        },
+      ).build(),
+    );
+    expect(document.media.assets, hasLength(1));
+    expect(document.media.pictures, hasLength(2));
+    expect(
+      document.media.pictures[0].presentation.insertionRevision!.author,
+      'Alice',
+    );
+    expect(document.media.pictures[0].presentation.deletionRevision, isNull);
+    expect(
+      document.media.pictures[1].presentation.deletionRevision!.author,
+      'Bob',
+    );
+    expect(document.media.pictures[1].presentation.insertionRevision, isNull);
+    final parts = _parts(convertLegacyWordDocument(document).bytes),
+        xml = _xml(parts);
+    expect(_elements(xml, 'drawing'), hasLength(2));
+    for (final accepted in [false, true]) {
+      final projected = _project(
+        xml,
+        acceptInsertion: accepted,
+        acceptDeletion: accepted,
+      );
+      final run = _elements(projected, 'drawing').single.parentElement!;
+      expect(
+        _attr(run, accepted ? 'rsidR' : 'rsidDel'),
+        accepted ? '10203040' : '50607080',
+      );
+    }
+    expect(parts.keys.where((name) => name.endsWith('.png')), hasLength(1));
+  });
+
+  test(
+    'private-field masking keeps separate source identities without exposing objects',
+    () {
+      const text = '\x13IF\x14\x01\x15\r';
+      final document = parseLegacyWordDocument(
+        StructuredWordFixture(
+          pieces: const [WordFixturePiece(text)],
+          characterRuns: [
+            const WordFixtureFkpRun(8192, 8196),
+            WordFixtureFkpRun(
+              8196,
+              8197,
+              properties: [
+                ...wordSprm(0x0855, [1]),
+                ...wordSprm(0x6a03, wordU32(16)),
+                ...mediaReviewProperties(),
+              ],
+            ),
+            const WordFixtureFkpRun(8197, 8199),
+          ],
+          extraTablePairs: {
+            51: mediaReviewAuthors(),
+            16: [
+              ...wordU32(0),
+              ...wordU32(3),
+              ...wordU32(5),
+              ...wordU32(text.length),
+              0x13,
+              7,
+              0x14,
+              0,
+              0x15,
+              0xa0,
+            ],
+          },
+          extraStreams: {
+            'Data': Uint8List.fromList([
+              ...List.filled(16, 0),
+              ...inlinePictureData(),
+            ]),
+          },
+        ).build(),
+      );
+      final presentation = document.media.pictures.single.presentation;
+      expect(presentation.hidden, isTrue);
+      expect(presentation.insertionRevision!.author, 'Alice');
+      expect(presentation.deletionRevision!.author, 'Bob');
+      expect(presentation.insertionRevision!.rawDate, mediaInsertionDttm);
+      expect(presentation.deletionRevision!.rawDate, mediaDeletionDttm);
+      final parts = _parts(convertLegacyWordDocument(document).bytes);
+      expect(_elements(_xml(parts), 'drawing'), isEmpty);
+      expect(
+        parts.keys.where((name) => name.startsWith('word/media/')),
+        isEmpty,
+      );
+      expect(document.safeHtml, isNot(contains('data:image')));
+    },
+  );
+
   test(
     'legacy public model metadata remains a backward-compatible fallback',
     () {

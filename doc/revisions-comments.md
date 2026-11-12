@@ -49,6 +49,10 @@ combinations. The tests separately check immutable source/image bytes, complete
 story content, independent metadata, unique output revision IDs, false flags,
 malformed operands, unknown authors and bounded public save IDs. A footnote
 picture is written into its owning part with its own image relationship.
+The independent schema corpus includes all 24 object/reference and review-state
+combinations; its SDK result is a separate validity gate. Shared-image and
+private-field controls retain distinct occurrence metadata without exposing
+private payloads.
 These checks do not reconstruct moved objects, formatting histories of objects,
 comment range editing, automatic cleanup of unreferenced stories, or arbitrary
 cross-story revision topology. The converter never accepts or rejects the
