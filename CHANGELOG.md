@@ -7,6 +7,8 @@
 - Add native EMF/WMF retention and bounded SVG playback with strict record,
   compression and coordinate limits. Preserve supported editable OfficeArt
   geometry, positioning, rotation, fill/line and simple shadow properties.
+- Correct native VML dash spelling independently of DrawingML, after a
+  controlled native render exposed dotted outlines becoming solid.
 - Carry linked textbox graph identity and supported inner text layout. Recover
   the observed stale native chain count only after every shape/link validates.
 - Preserve source pagination/section flags, column direction, compatibility

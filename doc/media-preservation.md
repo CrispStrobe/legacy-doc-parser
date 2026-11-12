@@ -26,9 +26,15 @@ do not execute objects, evaluate fields, run VBA, or fetch linked resources.
 | VBA signatures | Named `StwUser` values `Sign`, `SigAgile`, `SigV3`, including the original count prefix. | Opaque signature evidence with its original stream extent. No signature decoding, verification or active signature relationship is produced. |
 | Other field binary data | Referenced `NilPICFAndBinData` extent retained. | Opaque bytes; no field-type evaluation. |
 
-The formatted HTML preview is a text/table preview. The media catalog supplies
-assets and placement metadata to consumers and to the separate DOCX/DOCM
-writer; it does not insert arbitrary original markup into HTML.
+The formatted HTML preview includes bounded referenced PNG/JPEG images and
+complete EMF/WMF previews generated from validated raw records, at their
+character anchors in the main and auxiliary stories. Floating images are shown
+inline as an explicit approximation. Cropped, unsupported or over-budget images
+receive placeholders; hidden/private occurrences and deleted OfficeArt shapes
+remain suppressed. See the [HTML preview contract](html-preview.md) for shared
+byte/pixel budgets and host requirements. The media catalog and separate
+DOCX/DOCM writer retain original assets and placement metadata independently of
+preview support; arbitrary original markup is never inserted into HTML.
 
 ## Exact bytes versus reconstructed containers
 
@@ -77,3 +83,7 @@ signature scopes, dangling references, depth/extent limits and immutable output.
 The authored `test/fixtures/word_native/formatting.doc` also verifies extraction
 of its real referenced PNG. These checks establish the documented subset; they
 are not evidence of universal layout, object, macro or signature fidelity.
+The [native media check receipt](metafile-native-check.json) records exact
+authored/native/converted payload hashes, retained evidence artifacts and the
+renderer fingerprints for the measured `b037473` build, with a separate pointer
+to the later final corpus rerun.

@@ -1,10 +1,10 @@
 # Measured fidelity: 12 November 2026
 
-The frozen package checkpoint **`b03747396878518d0d623599baf9b376df776e3d`**
+The frozen package checkpoint **`c8848d2b7323636d922ed211dfc911534f3acc9f`**
 completed all **19 native cases**, including a second import after saving its
 DOCX back to DOC. No case had an execution failure, every source remained
 unchanged, and the parser source and corpus fingerprints remained unchanged.
-This checkpoint passed **405 Dart tests**, **41 independent Python oracle
+This checkpoint passed **406 Dart tests**, **41 independent Python oracle
 tests**, the DOC JavaScript acceptance and **40 media assertions** under Node,
 static analysis, tracked-source formatting and a package dry run with no
 warnings. The package was not published.
@@ -65,6 +65,12 @@ locations, not counts of lost user features.
   The [narrow boundary recovery](terminal-mark-formatting.md) handles only the
   independently verified pattern. The missing mark remains unknown, with
   formatting/revision limitations; interior gaps still fail.
+- The independent OfficeArt visual review caught a dotted outline becoming
+  solid despite exact text coordinates. Correcting VML dash keyword casing
+  restores that outline; DrawingML spelling stays unchanged. The controlled
+  one-attribute experiment and actual-converter raster agreement are recorded
+  in [dash-pattern evidence](vml-dash-fidelity.md). Remaining raster differences
+  are still reported.
 - Continued and restarted lists keep their independently expected marker
   sequences: `1,2,3,4,5` and `1,2,7,8,3,9`. Their remaining page-size and word-box
   differences are visible in the table. The source controls omit explicit page
@@ -73,10 +79,23 @@ locations, not counts of lost user features.
   control drifts by 18.902 points. Table/note and compatibility cases also have
   unresolved visual or content differences. These remain findings, not new
   expected output silently blessed by the harness.
+- Native EMF and WMF payloads survive the converted package and second import
+  byte-for-byte. The [metafile receipt](metafile-native-check.json) distinguishes
+  the native bridge's removal of a 22-byte WMF placeable header from parser
+  preservation. Native byte retention does not imply an exact raster result.
 
 See [the eight-area status matrix](fidelity-status.md) for the implemented
 subsets and remaining acceptance work, including full review/protection policy,
 arbitrary OfficeArt/GDI, dynamic table styles and general pagination.
+
+### Reviewed outline comparison
+
+![Source DOC, former solid outline, and corrected dotted outline](measurements/2026-11-12/officeart-outline-comparison.png)
+
+These are matching crops from the recorded 72-DPI native renders, displayed with
+nearest-neighbor scaling. The outline is dotted again after correction; native
+dot spacing and rasterization still differ from the binary-DOC source. This
+comparison is evidence of the specific correction, not a new expected golden.
 
 ## Complete retained evidence
 
@@ -84,8 +103,10 @@ The [readable summary](measurements/2026-11-12/summary.json) contains every case
 its hashes, warnings, conversion limitations, page comparison, source-golden
 result and changed-property groups. The [compressed full native report](measurements/2026-11-12/native-report.json.gz)
 retains **all** original structural differences, values and measurements; it is
-not a filtered success report. The summary pins both compressed and decoded
-report hashes. [Parser source hashes](measurements/2026-11-12/parser-source.json)
+not a filtered success report. The complete
+[pre-correction report](measurements/2026-11-12/baseline-b037473-report.json.gz)
+also remains available with its original source identity. The summary pins
+both compressed and decoded report hashes. [Parser source hashes](measurements/2026-11-12/parser-source.json)
 bind the runtime source, local dependency lock and conversion entry point to
 the compiled executable fingerprint recorded in the report.
 

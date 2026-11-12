@@ -1,4 +1,10 @@
 {
+  "baselineReport": {
+    "gzipSha256": "9e282741da254daec13cd81e58aa7b4e16d92ea0a3ae1ecb8e63b9d4e22879da",
+    "parserCommit": "b03747396878518d0d623599baf9b376df776e3d",
+    "path": "baseline-b037473-report.json.gz",
+    "purpose": "Complete measurements before the controlled VML dash spelling correction; not relabeled as current results."
+  },
   "cases": [
     {
       "binaryDocSha256": "0ad636c6e3597152313055fd5428fb4b70ab483b3853b2666cac52498c953026",
@@ -51,7 +57,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "e2e980f6260ddab29c66519288f8e5fd1d86a2f9834693d33077e4fd43e55fec",
+      "nativeDocxSha256": "4d047d43078290209f383c2bfa2813b4a8f547688748de207a2b3213e32074eb",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": false,
@@ -165,7 +171,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "928c0e288bf6a50f3dbbc96a4b62c44d74f948addf2a2079c76cec6d5525d94c",
+      "nativeDocxSha256": "66b158a84893ac5f55a1e7267be83df70dcdd8db44416c021c85ba2af90773db",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": false,
@@ -261,7 +267,7 @@
         "referencePages": 2,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "1db47e609db312e7c5ec113e300b843d3910993561ff10384a2c77f7a9425e0c",
+      "nativeDocxSha256": "2da3d49fa0f4b1baa81eb88fa8512e242c1666bfbc6b6cc94f5ae276d1f954aa",
       "pagination": {
         "actualPages": 2,
         "exactOnThisRenderer": false,
@@ -351,7 +357,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "203e1e5d3aebe4d94aa27a60aefb490e64333bfc8101c3614fda97f138fd0d05",
+      "nativeDocxSha256": "57db8c6166a4352860fe95743f7bb736f5d40650633ad23db9284aa06083f1be",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": false,
@@ -441,7 +447,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "4161e9ea96e3da48b1e087f7262325d5758e438aadfbb1c575b0523347f6e449",
+      "nativeDocxSha256": "7fc569d992239617b4749d0d0cae5ebcf4eb3fa2faafb7b9cfa4a696c77ee56d",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": false,
@@ -522,7 +528,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "ea2b0dc418221178349e935ec28ed084d08be17125d93f03713cbe9c163be2dc",
+      "nativeDocxSha256": "32a972a652e7e53295aff69df4a2f963ab3251d601b6dec6353ffef0eac12f02",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": true,
@@ -613,7 +619,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "af0ec983bd6153d827cc8da73df78ff65dce6a6a365616554c9a7d5dd436975f",
+      "nativeDocxSha256": "d7e6382c409d06b651759376a1447d77289092443dd596c51c429ea3a5272e3e",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": false,
@@ -712,7 +718,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "8f4236655195f55e7a9e21610caac48d4d95820aa22e91ee47093cf0b0cfdd6b",
+      "nativeDocxSha256": "a00c770ca6b66c5804845e4f3f4273c325c55e34a29c37ca765dd145c380b849",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": false,
@@ -799,7 +805,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "236abdc0da76fbf231f58e8513ab5c1d94fde3dcdc2df596895404a6c9197557",
+      "nativeDocxSha256": "aa1948ec33b16fe1d51ad4cbbba229010d0066b413064ac0ac9db9da2fdeaec3",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": true,
@@ -886,7 +892,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "e0e6f63dc44c3e12a2f7b5049cd59fd420590ca2d4128a7aa40874939bdd1811",
+      "nativeDocxSha256": "dae88df50d6e7066f3f40908d21eb59652185d64fd2d33d73b1739fcfcced5a5",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": true,
@@ -972,7 +978,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "244c02cc90127702a8298d1663b667745d7ee835c29bf48aff38ac12f2f8b24a",
+      "nativeDocxSha256": "28a1b518e053dde2f0f4980cb41bc2e61e7ea1f57818801a9e041e14692c1170",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": true,
@@ -1060,7 +1066,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "288dd4782050344e030986be33003397466efdb8be57c86e53646f043cdef388",
+      "nativeDocxSha256": "2a60349293d4ebbba3d64e88053e594d9b1a3403ac81a6b76cd8cac79b633c9f",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": true,
@@ -1153,7 +1159,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "5b8d5c4137e75ab8d2921490820716d33aa9207ea4953d6ae391c2ed5af8b4c6",
+      "nativeDocxSha256": "c1276a1880814b5ffc3946f19f5d81ceae5aefd3a0a6028f80c23ca34f57fba4",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": false,
@@ -1230,7 +1236,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "c293179c25832fdd853ce99a47a0788489e3daee56f8db8f79fc041bb902f054",
+      "nativeDocxSha256": "a9d26a02c36b20613a2997fd49ac6556426a48ec9be7eec8f05473e47a7026e9",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": true,
@@ -1331,7 +1337,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "08d5fa729b93c5206f43535402a301d2503941a2871b5e2191f15cba0fc4469f",
+      "nativeDocxSha256": "fbc1fdf45f1efa01d686b35bfe8c98e570d1b16b1d7b4d770d8f1db9a7041549",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": false,
@@ -1416,7 +1422,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "aa992ff2e1ae8cddec634a640917374f614cf8605730d8f01029eab8867978c7",
+      "nativeDocxSha256": "eb4df29cd8878fb841abe8ac49250ef686e116993bb955510a442903ca6fd1fc",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": false,
@@ -1490,7 +1496,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "45e32216a55647b937d66f4c498940013064d07913d75108f672e6ee8237d70b",
+      "nativeDocxSha256": "e97c0e08ac5e229a1faebdd8142fe19b03c7c455a2e0b3489755e725bd7ee4d2",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": true,
@@ -1563,7 +1569,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "a94e4a7e58cac1c5441f7a449ff5c053a0fecae914ecff0f6fdfb27fc7fbeba8",
+      "nativeDocxSha256": "bddebbc9c738fdda02e8e5eebf17056fb625a312f822733e9c62e59764a79ff6",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": false,
@@ -1637,7 +1643,7 @@
         "referencePages": 1,
         "tolerancePoints": 0.25
       },
-      "nativeDocxSha256": "9a4eaf09b4c174ee5ce7c93aa41fe655616972c02321bbb37d9ea73bd3676c58",
+      "nativeDocxSha256": "dd3da96d8e6ff3904d24a095eba61fee24b3ab8b94035162c5abcd4cb69b4278",
       "pagination": {
         "actualPages": 1,
         "exactOnThisRenderer": false,
@@ -1682,16 +1688,38 @@
   "fontInventorySha256": "b42e0e2c6e9834b500eb67c1a35fe672e94ad122f43abb6f1246c3a3d84c1b25",
   "fullReport": {
     "complete": true,
-    "gzipBytes": 180485,
-    "gzipSha256": "9e282741da254daec13cd81e58aa7b4e16d92ea0a3ae1ecb8e63b9d4e22879da",
+    "gzipBytes": 180477,
+    "gzipSha256": "a1259582fe81c2aac3d0ebb7e9aee7e479dd7e9baddf3c577d1d06441ae2816d",
     "jsonBytes": 3972169,
-    "jsonSha256": "18af18daa571420060538c34040735e3b4eaf81057442577be05db35ef1f990f",
+    "jsonSha256": "36d9b34316531a634cf0e87ce79ba87eb3b88301d011a9e0eec2b22458291071",
     "path": "native-report.json.gz"
   },
   "method": "Independent DOC render + native DOCX + parser DOCX + second binary import. No automatic golden update.",
-  "parserCommit": "b03747396878518d0d623599baf9b376df776e3d",
-  "parserExecutableSha256": "456b1b10ed3225151a7f944aec132e6d49b3b9af0b688aa81a12bd27c0066026",
-  "parserSourceSha256": "e6a9e2cd46fc66018b159bee6adbc7d8ac7ade5771a026fb3715225fdd59eb98",
+  "outlineComparison": {
+    "afterParserCommit": "c8848d2b7323636d922ed211dfc911534f3acc9f",
+    "beforeParserCommit": "b03747396878518d0d623599baf9b376df776e3d",
+    "cropPixels": {
+      "x": [
+        55,
+        200
+      ],
+      "y": [
+        120,
+        225
+      ]
+    },
+    "display": "Nearest-neighbor display of 72 DPI raster crops; no color changes; not a golden",
+    "path": "officeart-outline-comparison.png",
+    "sha256": "5792290baad2a0d62fbaed50b6c470315b90693a5866b6bf4826bb8cdb0ddf11",
+    "sourceRasterSha256": {
+      "after": "c546d486eb9990145679e6984f58f927c8401b7b00314046a7d3fd25e88ff220",
+      "before": "dce7d4ba6a14cf9f2ac2821f9725bd603992d2bb4b4e3c48d79b77d39ac17e5f",
+      "source": "b924342214a67c272880ed0c7a8222d88a2315a7952eb1d5201a5daac84efc4a"
+    }
+  },
+  "parserCommit": "c8848d2b7323636d922ed211dfc911534f3acc9f",
+  "parserExecutableSha256": "056f178e542eba10253fa8b905c90d7bd9925401fbc0f9a4032edaf5f853ae21",
+  "parserSourceSha256": "b13997101aa83a8dd49a40bc3b779dc937cbbd6ac3e1dd3acff702e9775e3626",
   "parserSourceUnchanged": true,
   "parserWorktreeDirty": false,
   "rasterizerVersion": "pdftoppm version 26.05.0\nCopyright 2005-2026 The Poppler Developers - http://poppler.freedesktop.org\nCopyright 1996-2011, 2022 Glyph & Cog, LLC",
@@ -1712,7 +1740,7 @@
   "verification": {
     "corpusHashesVerified": 19,
     "dartAnalyzer": "no issues",
-    "dartTestsPassed": 405,
+    "dartTestsPassed": 406,
     "javascriptMediaAssertionsPassed": 40,
     "microsoftWordRun": false,
     "openXmlSdkValidatorRun": false,

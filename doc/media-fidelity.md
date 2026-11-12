@@ -108,6 +108,10 @@ Referenced supported presets and custom line/cubic paths are written as
 editable native VML in the Word package. Coordinate origin/size, rotation,
 horizontal/vertical flips, direct solid fill and line colors, opacity,
 stroke width/dash/join/cap, and simple offset shadows are carried forward.
+VML dash keywords use their lowercase XML spelling, independently of
+DrawingML's differently named dash values. The [controlled native dash
+check](vml-dash-fidelity.md) documents an outline loss caught by visual review
+and the resulting correction.
 Referenced pictures retain their image bytes and receive equivalent
 DrawingML transforms, line properties and simple shadows. Unsupported effects
 stay in the original OfficeArt evidence and keep the partial-formatting

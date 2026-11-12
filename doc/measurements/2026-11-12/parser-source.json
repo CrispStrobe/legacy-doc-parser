@@ -42,7 +42,7 @@
   "lib/src/word_media_writer.dart": "c807e85ca49042060d4384e255e547ae35b2975e6bee2496ace5ee557783774b",
   "lib/src/word_note_settings_writer.dart": "076b23e3c030c1a0a909b3f406c6cf1a36ca0f895601fdd176884ddd0059326d",
   "lib/src/word_numbering_writer.dart": "e9441aeb221cb8f1d62f9ae868819b093606b961e69ea157e75b8ecbfe6ff614",
-  "lib/src/word_officeart_writer.dart": "801bc039ccb247e6d34c399ae6e77b5906df100113d40e9f4482e4aa3e8050f6",
+  "lib/src/word_officeart_writer.dart": "46a39c714d9276df494c78eaa7ed054c783d5ad3d7dbcea5987511b3bf69079e",
   "lib/src/word_revision_writer.dart": "4e626e7cda065c724d8774ad8de55776c738ba7ea692813f45e711f0adf45181",
   "lib/src/word_story_writer.dart": "73e18bd3a047f6226473e569c2952d914a47870c1c3e65d742a0879aa706a3ec",
   "lib/src/word_table_writer.dart": "d5ed7c34edeb66406ecce5c21ce840dc5959661b4cb824039682d7e402640e61",

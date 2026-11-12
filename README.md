@@ -26,7 +26,7 @@ dependencies:
   legacy_doc_parser:
     git:
       url: https://github.com/CrispStrobe/legacy-doc-parser
-      ref: b03747396878518d0d623599baf9b376df776e3d
+      ref: c8848d2b7323636d922ed211dfc911534f3acc9f
 ```
 
 The example pins a tested development checkpoint. When updating, choose a
