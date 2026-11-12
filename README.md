@@ -10,13 +10,15 @@ The codebase currently supports:
 
 - Main text, sections, headers, footers, footnotes, endnotes, comments and
   bookmarks, with original UTF-16 character positions retained in the model.
-- Supported character and paragraph styles, tabs, borders, shading, numbering,
+- Supported character and paragraph styles, independent script font slots,
+  tabs, borders, shading, numbering,
   list continuation and section settings.
 - Nested tables, supported cell merges and conditional table styles, row
   properties, and modeled floating-table anchors. Source note endings are
   preserved without adding layout-changing paragraphs after final tables.
 - Supported tracked insertions/deletions and formatting histories. Field
-  instructions and stored results are preserved; fields are not evaluated.
+  instructions and stored results are preserved, including bounded internal
+  hyperlink fields; fields are not evaluated.
 - Supported raster images, bounded EMF/WMF preservation and vector previews,
   basic editable OfficeArt shapes and paths, and corroborated textbox chains
   and independent header instances.

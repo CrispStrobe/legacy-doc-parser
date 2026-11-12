@@ -792,6 +792,30 @@ class LegacyWordParagraphMark {
   final int? formattingSaveId;
 }
 
+/// The separately selected MS-DOC non-ASCII, East Asian and complex-script
+/// font faces. A null face remains unspecified; it is not the ASCII face.
+class LegacyWordScriptFonts {
+  const LegacyWordScriptFonts({
+    this.nonAscii,
+    this.eastAsia,
+    this.complexScript,
+  });
+
+  final String? nonAscii;
+  final String? eastAsia;
+  final String? complexScript;
+
+  @override
+  bool operator ==(Object other) =>
+      other is LegacyWordScriptFonts &&
+      nonAscii == other.nonAscii &&
+      eastAsia == other.eastAsia &&
+      complexScript == other.complexScript;
+
+  @override
+  int get hashCode => Object.hash(nonAscii, eastAsia, complexScript);
+}
+
 class LegacyWordCharacterStyle {
   const LegacyWordCharacterStyle({
     this.bold = false,
@@ -804,6 +828,7 @@ class LegacyWordCharacterStyle {
     this.allCaps = false,
     this.hidden = false,
     this.fontName,
+    this.scriptFonts,
     this.fontSizeHalfPoints,
     this.kerningThresholdHalfPoints = 0,
     this.colorHex,
@@ -825,6 +850,10 @@ class LegacyWordCharacterStyle {
   final bool allCaps;
   final bool hidden;
   final String? fontName;
+
+  /// When present, script-specific faces are independent of [fontName], which
+  /// is the ASCII face. A null set preserves the original single-face API.
+  final LegacyWordScriptFonts? scriptFonts;
   final int? fontSizeHalfPoints;
 
   /// MS-DOC sprmCHpsKern threshold in half-points. Zero disables kerning.
@@ -850,6 +879,7 @@ class LegacyWordCharacterStyle {
       allCaps == other.allCaps &&
       hidden == other.hidden &&
       fontName == other.fontName &&
+      scriptFonts == other.scriptFonts &&
       fontSizeHalfPoints == other.fontSizeHalfPoints &&
       kerningThresholdHalfPoints == other.kerningThresholdHalfPoints &&
       colorHex == other.colorHex &&
@@ -869,6 +899,7 @@ class LegacyWordCharacterStyle {
     allCaps,
     hidden,
     fontName,
+    scriptFonts,
     fontSizeHalfPoints,
     kerningThresholdHalfPoints,
     colorHex,

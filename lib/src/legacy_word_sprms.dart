@@ -255,6 +255,9 @@ void _applyCharacter(
       'hidden',
       'fontSize',
       'fontIndex',
+      'eastAsianFontIndex',
+      'nonAsciiFontIndex',
+      'complexScriptFontIndex',
       'color',
       'verticalAlign',
       'position',
@@ -290,7 +293,13 @@ void _applyCharacter(
         }
         output['fontSize'] = size;
       case 0x4a4f:
-        output['fontIndex'] = data.u16(0);
+        output['fontIndex'] = data.i16(0);
+      case 0x4a50:
+        output['eastAsianFontIndex'] = data.i16(0);
+      case 0x4a51:
+        output['nonAsciiFontIndex'] = data.i16(0);
+      case 0x4a5e:
+        output['complexScriptFontIndex'] = data.i16(0);
       case 0x4a30:
         final index = data.u16(0);
         if (resolveCharacterStyle == null) {
@@ -364,7 +373,7 @@ void _applyCharacter(
       case 0x080a:
         output['ole2'] = _boolean(data);
       // Language, proofing and revision-save identifiers do not change the
-      // supported visual properties. Alternate script fonts remain a limit.
+      // supported visual properties. Script language selection remains a limit.
       case 0x486d:
       case 0x4873:
       case 0x4874:
