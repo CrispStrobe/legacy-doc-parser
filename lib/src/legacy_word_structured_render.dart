@@ -473,6 +473,10 @@ class _HtmlWriter {
     var attributes = heading != null && heading >= 7 && heading <= 9
         ? ' role="heading" aria-level="$heading"'
         : '';
+    if (paragraph.formattingRevision?.marked == true) {
+      attributes +=
+          ' data-word-formatting-revision="paragraph" title="Paragraph formatting changed"';
+    }
     final css = <String>[
       'font-weight:normal',
       'font-size:inherit',
@@ -492,6 +496,11 @@ class _HtmlWriter {
       if (style.keepNext) 'break-after:avoid',
       if (style.keepTogether) 'break-inside:avoid',
       if (style.pageBreakBefore) 'break-before:page',
+      if (style.layout.rightToLeft) 'direction:rtl',
+      if (style.layout.rightToLeft) 'unicode-bidi:plaintext',
+      if (style.layout.suppressAutoHyphens) 'hyphens:none',
+      'widows:${style.layout.widowControl ? 2 : 1}',
+      'orphans:${style.layout.widowControl ? 2 : 1}',
     ];
     final marker = _markers[paragraph];
     if (marker?.unsupported == true ||
@@ -554,6 +563,15 @@ class _HtmlWriter {
       hasVisibleText = true;
       _run(run);
     }
+    final mark = paragraph.mark;
+    if (mark != null && !mark.style.hidden && (mark.inserted || mark.deleted)) {
+      final kind = mark.deleted ? 'deleted' : 'inserted';
+      _write(
+        '<span data-word-paragraph-mark="$kind" title="Paragraph mark $kind" '
+        'style="${mark.deleted ? 'background-color:#ffe8e8;text-decoration:line-through' : 'background-color:#e5f5e5;text-decoration:underline'};">¶</span>',
+      );
+      hasVisibleText = true;
+    }
     if (!hasVisibleText) _write('<br>');
     _write('</$tag>');
   }
@@ -590,6 +608,12 @@ class _HtmlWriter {
           .map((rune) => '\\${rune.toRadixString(16)} ')
           .join();
       css.add("font-family:'$escapedFont'");
+    }
+    if (run.formattingRevision?.marked == true) {
+      _write(
+        '<span data-word-formatting-revision="character" '
+        'title="Character formatting changed" style="outline:1px dotted #805a00;">',
+      );
     }
     if (run.deleted) {
       _write(
@@ -650,6 +674,7 @@ class _HtmlWriter {
     if (css.isNotEmpty) _write('</span>');
     if (run.inserted) _write('</ins>');
     if (run.deleted) _write('</del>');
+    if (run.formattingRevision?.marked == true) _write('</span>');
   }
 
   void _table(LegacyWordTable table) {
@@ -752,7 +777,8 @@ class _HtmlWriter {
       _write(
         escaped
             .replaceAll('\n', '<br>')
-            .replaceAll('\f', '<br style="break-after:page;">'),
+            .replaceAll('\f', '<br style="break-after:page;">')
+            .replaceAll('\u000e', '<br style="break-after:column;">'),
       );
       start = end;
     }
