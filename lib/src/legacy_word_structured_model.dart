@@ -50,6 +50,10 @@ enum LegacyWordWarning {
   /// A note format is unknown or requires a disclosed decimal fallback.
   /// The original MSONFC code remains available on the note numbering model.
   unsupportedNoteNumberFormat,
+
+  /// One native singleton textbox story was reused by separate header/footer
+  /// variants, each with its own index-zero shape and no continuation link.
+  recoveredSharedHeaderTextbox,
 }
 
 enum LegacyWordAlignment { left, center, right, justify, distribute }
@@ -243,6 +247,7 @@ class LegacyWordTextboxReference {
     this.chainLength = 1,
     this.declaredChainLength,
     this.anchors = const [],
+    this.replicaAnchors = const [],
   });
   final int id;
   final String storyId;
@@ -259,6 +264,10 @@ class LegacyWordTextboxReference {
   /// Actual OfficeArtClientTextbox chain indices, when available. A story is
   /// not duplicated for each shape and the library does not invent reflow.
   final List<LegacyWordTextboxAnchor> anchors;
+
+  /// Independent singleton placements of the same source text in distinct
+  /// header/footer stories. These are not continuations of [anchors].
+  final List<LegacyWordTextboxAnchor> replicaAnchors;
 }
 
 class LegacyWordTextboxAnchor {

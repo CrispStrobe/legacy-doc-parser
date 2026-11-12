@@ -533,7 +533,7 @@ extension _WordMedia on _StructuredWordWriter {
         _unplacedTextboxes.add((reference, story));
         continue;
       }
-      final chain = reference.anchors.isEmpty
+      final primaryChain = reference.anchors.isEmpty
           ? [
               LegacyWordTextboxAnchor(
                 shapeId: drawing.shapeId,
@@ -542,11 +542,31 @@ extension _WordMedia on _StructuredWordWriter {
               ),
             ]
           : reference.anchors;
+      final shared = reference.replicaAnchors.isNotEmpty;
+      if (shared &&
+          (!reference.inHeaderFooter ||
+              reference.chainLength != 1 ||
+              primaryChain.length != 1)) {
+        throw const FormatException('Invalid shared Word header textbox.');
+      }
+      final chain = [...primaryChain, ...reference.replicaAnchors];
       if (chain.length > 4096) _tooComplex();
       final resolved = <(LegacyWordDrawing, int, String)>[];
+      final sharedOwners = <String>{};
       for (final anchor in chain) {
         final shape = drawings[(reference.inHeaderFooter, anchor.shapeId)];
         final owner = _storyAt(anchor.anchorCp);
+        if (shared &&
+            (anchor.chainIndex != 0 ||
+                (anchor.nextShapeId ?? 0) != 0 ||
+                owner == null ||
+                !sharedOwners.add(owner) ||
+                !const {
+                  LegacyWordStoryKind.header,
+                  LegacyWordStoryKind.footer,
+                }.contains(_stories[owner]?.kind))) {
+          throw const FormatException('Invalid shared Word header textbox.');
+        }
         if (shape == null ||
             owner == null ||
             !_displayPosition(anchor.anchorCp) ||
@@ -564,8 +584,8 @@ extension _WordMedia on _StructuredWordWriter {
       }
       for (var i = 0; i < resolved.length; i++) {
         final (shape, anchor, owner) = resolved[i];
-        final first = i == 0;
-        final nextShape = i + 1 < resolved.length
+        final first = shared || i == 0;
+        final nextShape = !shared && i + 1 < resolved.length
             ? resolved[i + 1].$1.shapeId
             : null;
         _event(
@@ -580,6 +600,20 @@ extension _WordMedia on _StructuredWordWriter {
             nextShape: nextShape,
           ),
         );
+      }
+      if (shared) {
+        _evidenceRecords.add({
+          'kind': 'sharedHeaderTextbox',
+          'id': reference.id,
+          'story': reference.storyId,
+          'instances': [
+            for (final (shape, anchor, owner) in resolved)
+              {'shapeId': shape.shapeId, 'anchorCp': anchor, 'owner': owner},
+          ],
+          'reason':
+              'Native singleton content reused by distinct header/footer stories; '
+              'each editable instance retains its own source placement.',
+        });
       }
       if (reference.chainLength > 1) {
         _evidenceRecords.add({

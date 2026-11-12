@@ -200,10 +200,10 @@ extension _WordStories on _StructuredWordWriter {
   void _emitEventsThrough(int cp) {
     final events = _events[_storyId];
     if (events == null) return;
-    var index = _eventOffsets[_storyId] ?? 0;
+    var index = _eventOffsets[(_storyId, _part)] ?? 0;
     while (index < events.length && events[index].cp <= cp) {
       final event = events[index++];
-      _eventOffsets[_storyId] = index;
+      _eventOffsets[(_storyId, _part)] = index;
       event.write();
     }
   }
@@ -211,19 +211,20 @@ extension _WordStories on _StructuredWordWriter {
   void _emitBoundaryClosures(int cp) {
     final events = _events[_storyId];
     if (events == null) return;
-    var index = _eventOffsets[_storyId] ?? 0;
+    var index = _eventOffsets[(_storyId, _part)] ?? 0;
     while (index < events.length &&
         events[index].cp == cp &&
         events[index].closing) {
       final event = events[index++];
-      _eventOffsets[_storyId] = index;
+      _eventOffsets[(_storyId, _part)] = index;
       event.write();
     }
   }
 
   void _finishStoryEvents() {
     final events = _events[_storyId];
-    if (events == null || (_eventOffsets[_storyId] ?? 0) == events.length) {
+    if (events == null ||
+        (_eventOffsets[(_storyId, _part)] ?? 0) == events.length) {
       return;
     }
     _xml.add('<w:p');
@@ -243,7 +244,7 @@ extension _WordStories on _StructuredWordWriter {
     var position = run.startCp;
     final events = _events[_storyId] ?? const <_WordInlineEvent>[];
     while (position < run.endCp) {
-      final index = _eventOffsets[_storyId] ?? 0;
+      final index = _eventOffsets[(_storyId, _part)] ?? 0;
       final boundary = index < events.length && events[index].cp < run.endCp
           ? events[index].cp
           : run.endCp;
@@ -850,6 +851,7 @@ extension _WordStories on _StructuredWordWriter {
         case LegacyWordWarning.recoveredNonconformingProperties:
         case LegacyWordWarning.recoveredEmptySection:
         case LegacyWordWarning.recoveredTextboxChainLength:
+        case LegacyWordWarning.recoveredSharedHeaderTextbox:
         case LegacyWordWarning.terminalMarkFormattingUnavailable:
         case LegacyWordWarning.recoveredGlobalTextboxSentinel:
           limitations.add(LegacyWordConversionLimitation.partialFormatting);
