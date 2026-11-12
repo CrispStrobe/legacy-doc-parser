@@ -24,6 +24,7 @@ import 'table_review_fixture.dart' as table_reviews;
 import 'table_text_fixture.dart' as table_text;
 import 'table_width_fixture.dart' as table_width;
 import 'textbox_boundary_fixture.dart' as textbox_boundary;
+import 'textbox_table_fixture.dart' as textbox_tables;
 
 void main(List<String> arguments) {
   if (arguments.length != 1) {
@@ -384,6 +385,22 @@ void main(List<String> arguments) {
       'header-alias/$name.docx',
       'tool/fidelity/header_textbox_alias_fixture.dart',
     );
+  }
+  textbox_tables.main(['${root.path}/textbox-tables']);
+  for (final story in ['main', 'header']) {
+    for (final margin in ['default', 'zero', 'wide']) {
+      for (final nesting in ['flat', 'nested']) {
+        for (final anchor in ['paragraph', 'table']) {
+          final name = 'textbox-$story-$margin-$nesting-$anchor';
+          record(
+            'textbox-tables/$name',
+            'textbox-tables/$name.doc',
+            'textbox-tables/$name.docx',
+            'tool/fidelity/textbox_table_fixture.dart',
+          );
+        }
+      }
+    }
   }
   Directory('${root.path}/native-inputs').createSync();
   void nativeInput(String name, String relativeSource) {

@@ -99,6 +99,9 @@ EXPECTED_CASES = frozenset([
     *(f"note-boundary/{story}-{kind}" for story in ("footnote", "endnote")
       for kind in ("plain", "empty", "trailing-blank", "two-trailing-blanks",
                    "table", "table-blank", "table-two-blanks", "table-text")),
+    *(f"textbox-tables/textbox-{story}-{margin}-{nesting}-{anchor}"
+      for story in ("main", "header") for margin in ("default", "zero", "wide")
+      for nesting in ("flat", "nested") for anchor in ("paragraph", "table")),
 ])
 PACKAGES = (
     ("DocumentFormat.OpenXml", "3.3.0",
