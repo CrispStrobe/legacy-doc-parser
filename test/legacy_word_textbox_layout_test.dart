@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 import 'package:test/test.dart';
 import 'package:xml/xml.dart';
+
+import 'support/officeart_shape_fixture.dart';
 
 const _v = 'urn:schemas-microsoft-com:vml';
 const _w10 = 'urn:schemas-microsoft-com:office:word';
@@ -20,6 +24,8 @@ XmlDocument _convert(
   int wrap = 3,
   int? groupProperties,
   LegacyWordOfficeArtWrapDistances? distances,
+  LegacyWordOfficeArtLine? line,
+  List<int> unsupported = const [],
 }) {
   final paragraph = _paragraph(10, 'One editable story');
   final result = convertLegacyWordDocument(
@@ -69,6 +75,8 @@ XmlDocument _convert(
               type: 202,
               text: layout,
               wrapDistances: distances,
+              line: line,
+              unsupportedProperties: unsupported,
               groupShapeBooleanProperties: groupProperties,
             ),
             source: const LegacyWordSourceReference(
@@ -89,6 +97,120 @@ XmlDocument _convert(
 }
 
 void main() {
+  test(
+    'textbox source default line width is explicit without changing geometry',
+    () {
+      for (final line in [null, const LegacyWordOfficeArtLine(enabled: true)]) {
+        final box = _convert(
+          null,
+          line: line,
+        ).findAllElements('rect', namespace: _v).single;
+        expect(box.getAttribute('strokeweight'), '0.75pt');
+        expect(
+          box.getAttribute('style'),
+          contains(
+            'margin-left:72.0pt;margin-top:72.0pt;width:144.0pt;height:72.0pt;',
+          ),
+        );
+      }
+    },
+  );
+
+  test(
+    'explicit zero, hairline and disabled textbox strokes stay distinct',
+    () {
+      for (final (line, expected, disabled) in [
+        (const LegacyWordOfficeArtLine(widthEmu: 0), '0.0pt', false),
+        (const LegacyWordOfficeArtLine(widthEmu: 635), '0.05pt', false),
+        (const LegacyWordOfficeArtLine(widthEmu: 12700), '1.0pt', false),
+        (const LegacyWordOfficeArtLine(enabled: false), null, true),
+        (
+          const LegacyWordOfficeArtLine(enabled: false, widthEmu: 12700),
+          '1.0pt',
+          true,
+        ),
+      ]) {
+        final box = _convert(
+          null,
+          line: line,
+        ).findAllElements('rect', namespace: _v).single;
+        expect(box.getAttribute('strokeweight'), expected);
+        expect(box.getAttribute('stroked') == 'f', disabled);
+      }
+    },
+  );
+
+  test('unsupported line width cannot be relabeled as source default', () {
+    for (final bytes in [
+      officeArtShapeWordFixture(values: {0x01cb: 0xffffffff}),
+      officeArtShapeWordFixture(values: {0x01cb: 0x0132f541}),
+      officeArtShapeWordFixture(
+        complex: {
+          0x01cb: Uint8List.fromList([0, 0, 0, 0]),
+        },
+      ),
+    ]) {
+      final shape = parseLegacyWordDocument(bytes).media.drawings.single.shape!;
+      expect(shape.unsupportedProperties, contains(0x01cb));
+      final box = _convert(
+        null,
+        line: shape.line,
+        unsupported: shape.unsupportedProperties,
+      ).findAllElements('rect', namespace: _v).single;
+      expect(box.getAttribute('strokeweight'), isNull);
+    }
+  });
+
+  test('caller-built textbox widths respect the documented source range', () {
+    for (final width in [-1, 0x0132f541]) {
+      expect(
+        () => _convert(null, line: LegacyWordOfficeArtLine(widthEmu: width)),
+        throwsA(isA<LegacyWordConversionException>()),
+      );
+    }
+    final box = _convert(
+      null,
+      line: const LegacyWordOfficeArtLine(widthEmu: 0x0132f540),
+    ).findAllElements('rect', namespace: _v).single;
+    expect(box.getAttribute('strokeweight'), '1584.0pt');
+  });
+
+  test('Word14 default strokes are retained on all six textboxes', () {
+    final document = parseLegacyWordDocument(
+      File(
+        'test/fixtures/word_native/word14-margin-origin.doc',
+      ).readAsBytesSync(),
+    );
+    final drawings = document.media.drawings
+        .where((drawing) => drawing.textboxId != null)
+        .toList();
+    expect(drawings, hasLength(6));
+    for (final drawing in drawings) {
+      expect(drawing.shape!.line!.enabled, isTrue);
+      expect(drawing.shape!.line!.widthEmu, isNull);
+      expect(drawing.shape!.unsupportedProperties, isNot(contains(0x01cb)));
+    }
+    final archive = ZipDecoder().decodeBytes(
+      convertLegacyWordDocument(document).bytes,
+    );
+    final xml = XmlDocument.parse(
+      utf8.decode(archive.findFile('word/document.xml')!.content),
+    );
+    final boxes = xml.findAllElements('rect', namespace: _v).toList();
+    expect(boxes, hasLength(6));
+    for (var i = 0; i < boxes.length; i++) {
+      expect(boxes[i].getAttribute('strokeweight'), '0.75pt');
+      expect(
+        boxes[i].getAttribute('style'),
+        contains('margin-left:${drawings[i].leftTwips / 20}pt;'),
+      );
+      expect(
+        boxes[i].getAttribute('style'),
+        contains('margin-top:${drawings[i].topTwips / 20}pt;'),
+      );
+    }
+  });
+
   test(
     'outer clearance is independent of inner margins and wrapping modes',
     () {

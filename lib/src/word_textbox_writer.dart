@@ -171,9 +171,18 @@ extension _WordTextboxes on _StructuredWordWriter {
     if (color(fill?.color)) _xml.add(' fillcolor="#${fill!.color}"');
     if (shape == null || line?.enabled == false) _xml.add(' stroked="f"');
     if (color(line?.color)) _xml.add(' strokecolor="#${line!.color}"');
-    final width = line?.widthEmu;
+    // OfficeArt lineWidth defaults to 9525 EMU (0.75 pt). A consumer's
+    // omitted VML strokeweight may differ. Materialize only true absence:
+    // malformed source operands and disabled strokes do not select a default.
+    final width =
+        line?.widthEmu ??
+        (shape != null &&
+                line?.enabled != false &&
+                !shape.unsupportedProperties.contains(0x01cb)
+            ? 9525
+            : null);
     if (width != null) {
-      if (width < 0 || width > 0x7fffffff) _tooComplex();
+      if (width < 0 || width > 0x0132f540) _tooComplex();
       _xml.add(' strokeweight="${width / 12700}pt"');
     }
   }
