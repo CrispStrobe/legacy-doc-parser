@@ -10,6 +10,12 @@ The package was extracted from CrispCloud and is under active development at
 version `0.1.0-dev.1`. Supported features and remaining limitations are explicit;
 this is not a claim of complete MS-DOC fidelity or identical pagination.
 
+## Consumers and source ownership
+
+The parser is maintained in this repository. The [Quds fork](https://github.com/CrispStrobe/quds_office_suite) exposes its public parsing and conversion API through engine compatibility exports. [CrispCloud](https://github.com/CrispStrobe/CrispCloud) uses it for legacy Word previews and reviewed DOCX/DOCM copies. Consumers retain an exact source pin and the MPL-2.0 notices; a consumer update does not imply complete format fidelity or identical native pagination.
+
+Run `dart analyze`, `dart test`, and `python3 tool/verify_web.py` when updating a consumer pin. The web check compiles and executes the portable parser and converter with JavaScript; it is separate from native Word rendering acceptance.
+
 ## Use the development package
 
 Requires Dart 3.8 or later. The only runtime package dependency is `archive`.
@@ -20,7 +26,7 @@ dependencies:
   legacy_doc_parser:
     git:
       url: https://github.com/CrispStrobe/legacy-doc-parser
-      ref: 72da6223832c3cbc41929064c8f160cec10016f7
+      ref: df59af6181eeaf4e0ae55ddcc318fdc7bb76ada0
 ```
 
 The example pins a tested development checkpoint. When updating, choose a
