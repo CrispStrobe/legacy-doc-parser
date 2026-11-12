@@ -156,6 +156,15 @@ class SchemaGateTest(unittest.TestCase):
                     if name.startswith("table-borders/")}
         self.assertEqual(set(names), required)
 
+    def test_required_width_inventory_matches_literal_source_cases(self):
+        fixture = (schema.ROOT / "test/support/table_width_fixture.dart").read_text()
+        names = re.findall(r"TableWidthCase\(\s*'([^']+)'", fixture)
+        self.assertEqual(18, len(names))
+        self.assertEqual(len(names), len(set(names)))
+        required = {name.removeprefix("table-width/") for name in schema.EXPECTED_CASES
+                    if name.startswith("table-width/")}
+        self.assertEqual(set(names), required)
+
     def test_required_reconciled_inventories_match_literal_case_lists(self):
         for prefix, filename, constant, count in (
             ("table-operations", "table_operations_fixture.dart", "tableOperationsCaseNames", 12),

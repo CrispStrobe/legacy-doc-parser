@@ -601,6 +601,31 @@ void _applyParagraph(
           ...?output['cellAlignment'] as Map<int, int>?,
           for (var i = first; i < limit; i++) i: value.u8(2),
         });
+      case 0xd635:
+        if (value.length != 5) {
+          throw const FormatException(
+            'Invalid Word preferred cell-width operand.',
+          );
+        }
+        final (first, limit) = _tableCellRange(value, output);
+        final width = _tableCellPreferredWidth(value.u8(2), value.i16(3));
+        _applyTableCellFormatRange(
+          output,
+          first,
+          limit,
+          LegacyWordTableCellFormat(preferredWidth: width),
+        );
+      case 0xd639:
+        if (value.length != 3 || value.u8(2) > 1) {
+          throw const FormatException('Invalid Word cell no-wrap operand.');
+        }
+        final (first, limit) = _tableCellRange(value, output);
+        _applyTableCellFormatRange(
+          output,
+          first,
+          limit,
+          LegacyWordTableCellFormat(noWrap: value.u8(2) != 0),
+        );
       case 0xd620:
       case 0xd62f:
         final old = operation.code == 0xd620;
@@ -798,7 +823,12 @@ void _applyParagraph(
             LegacyWordTableCellFormat(
               borders: Map.unmodifiable(borders),
               verticalAlignment: LegacyWordCellAlignment.values[alignment],
-              noWrap: ((flag >> 9) & 7) != 3 && (flag & 0x2000) != 0,
+              noWrap: (flag & 0x2000) != 0,
+              preferredWidth: _tableCellPreferredWidth(
+                (flag >> 9) & 7,
+                i * 20 < available ? value.i16(cellStart + i * 20 + 2) : 0,
+                tc80: true,
+              ),
               textDirection: direction,
               fitText: (flag & 0x1000) != 0,
               hideMark: (flag & 0x4000) != 0,

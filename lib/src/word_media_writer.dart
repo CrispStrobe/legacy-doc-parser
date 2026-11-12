@@ -219,6 +219,7 @@ extension _WordMedia on _StructuredWordWriter {
       });
       switch (notice.issue) {
         case LegacyWordMediaIssue.recoveredVertexArrayLength:
+        case LegacyWordMediaIssue.recoveredBlipStoreCount:
           limitations.add(LegacyWordConversionLimitation.partialFormatting);
         case LegacyWordMediaIssue.unsupportedImage:
           limitations.add(LegacyWordConversionLimitation.images);

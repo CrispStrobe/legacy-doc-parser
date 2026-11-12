@@ -17,3 +17,9 @@ that Microsoft Word was run in this environment. The Word 14 source exercises th
 textbox spare-range sentinel. SHA256 hashes and exact
 raw-property observations are recorded in
 `doc/evidence/officeart-position-sources.json`.
+
+`word16-page-origin-lo-blip-count.doc` is a derived native round-trip specimen,
+not an unmodified Word-authored file. Its original source is
+`word16-page-origin.doc` above. The producing parser/native stages, hashes and
+constant BStore-count defect are documented in
+`doc/blip-store-count-recovery.md`.

@@ -130,6 +130,46 @@ void _resetTableStyleProperties(_Props output) {
   return (first, limit);
 }
 
+LegacyWordTableWidth _tableCellPreferredWidth(
+  int unit,
+  int value, {
+  bool tc80 = false,
+}) {
+  if (unit > 3 ||
+      unit < 0 ||
+      (tc80 && value < 0) ||
+      (unit == 1 && !tc80 && value != 0) ||
+      (unit == 2 && (value < 0 || value > 5000)) ||
+      (unit == 3 && (value < 0 || value > 31680))) {
+    throw const FormatException('Invalid Word preferred cell width.');
+  }
+  return LegacyWordTableWidth(
+    unit: LegacyWordTableWidthUnit.values[unit],
+    value: unit < 2 ? 0 : value,
+  );
+}
+
+void _applyTableCellFormatRange(
+  _Props output,
+  int first,
+  int limit,
+  LegacyWordTableCellFormat format,
+) {
+  final definition = output['tableDefinition'] as _TableDefinition;
+  output['tableDefinition'] =
+      _TableDefinition(definition.edges, definition.flags, [
+        for (var index = 0; index < definition.flags.length; index++)
+          _mergeTableCellFormat(
+            index < definition.formats.length
+                ? definition.formats[index]
+                : const LegacyWordTableCellFormat(),
+            index >= first && index < limit
+                ? format
+                : const LegacyWordTableCellFormat(),
+          ),
+      ]);
+}
+
 void _changeTableCells(_Sprm operation, _Props output) {
   final previous =
       output['tableDefinition'] as _TableDefinition? ??

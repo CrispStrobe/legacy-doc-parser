@@ -345,11 +345,46 @@ class _WordMediaReader {
     var hasStore = false;
     for (final child in group.children) {
       if (child.type == 0xf001) {
-        if (hasStore || child.children.length != child.instance) {
+        final countMismatch = child.children.length != child.instance;
+        // LibreOffice's WriteBlibStoreContainer writes recInstance=1 even
+        // when it writes multiple FBSEs. Recover only its bounded delayed
+        // entry form, after the entire record array has validated by length.
+        final recoverCount =
+            countMismatch &&
+            child.version == 15 &&
+            child.instance == 1 &&
+            child.children.length >= 2 &&
+            child.children.length <= 4095 &&
+            child.children.every(
+              (entry) =>
+                  entry.type == 0xf007 &&
+                  entry.version == 2 &&
+                  entry.data.length == 36 &&
+                  entry.data.u8(33) == 0 &&
+                  entry.data.u32(24) > 0 &&
+                  entry.data.u32(28) != 0xffffffff &&
+                  (entry.instance == entry.data.u8(0) ||
+                      entry.instance == entry.data.u8(1)),
+            );
+        if (hasStore ||
+            child.version != 15 ||
+            (countMismatch && !recoverCount)) {
           throw const FormatException('Invalid OfficeArt BLIP store.');
         }
         hasStore = true;
         _blipStore.addAll(child.children);
+        if (recoverCount) {
+          // Prevalidate every recovered entry, including any unreferenced
+          // slot, through the ordinary delayed-BLIP size, offset and payload
+          // reader. Cached results retain the existing media byte budgets.
+          for (var index = 1; index <= _blipStore.length; index++) {
+            _globalImage(index);
+          }
+          _notice(
+            LegacyWordMediaIssue.recoveredBlipStoreCount,
+            child.reference('OfficeArtBStoreContainer/recInstance'),
+          );
+        }
       } else {
         _drawingDefaults.addAll(_properties(child));
       }

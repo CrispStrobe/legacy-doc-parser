@@ -17,6 +17,7 @@ import 'table_layout_fixture.dart' as table_layout;
 import 'table_origin_fixture.dart' as origins;
 import 'table_operations_fixture.dart' as table_operations;
 import 'table_text_fixture.dart' as table_text;
+import 'table_width_fixture.dart' as table_width;
 
 void main(List<String> arguments) {
   if (arguments.length != 1) {
@@ -131,6 +132,34 @@ void main(List<String> arguments) {
       'tool/fidelity/table_operations_fixture.dart',
     );
   }
+  table_width.main(['${root.path}/table-width']);
+  for (final name in [
+    'tc80-nil',
+    'range-nil',
+    'tc80-auto',
+    'range-auto',
+    'tc80-percent',
+    'range-percent',
+    'tc80-dxa',
+    'range-dxa',
+    'tc80-narrow',
+    'range-narrow',
+    'dxa-to-auto',
+    'auto-to-dxa',
+    'range-reset',
+    'style-auto',
+    'style-dxa',
+    'tc80-asymmetric',
+    'range-asymmetric',
+    'grid-asymmetric-control',
+  ]) {
+    record(
+      'table-width/$name',
+      'table-width/$name.doc',
+      'table-width/$name-converted.docx',
+      'tool/fidelity/table_width_fixture.dart',
+    );
+  }
   list_sequences.main(['${root.path}/list-sequences']);
   for (final name in [
     'shared-counter',
@@ -239,6 +268,7 @@ void main(List<String> arguments) {
     'linked-textboxes',
     'word14-margin-origin',
     'word16-page-origin',
+    'word16-page-origin-lo-blip-count',
     'poi-simple-table2',
   ]) {
     final source = File(

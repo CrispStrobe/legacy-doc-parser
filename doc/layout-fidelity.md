@@ -109,3 +109,22 @@ Primary format references:
 - [MS-OSHARED MSONFC numbering formats](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-oshared/57c8f7d4-1426-44e0-b58d-6fa1a5a81659)
 - [Word bullet note-format fallback](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oe376/8863768d-49d8-4d6f-bacc-7a63e162d336)
 - [Word line-number start semantics](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/c4252e13-48d2-4ac9-9fb5-3b276d02be30)
+
+## Isolated compatibility spacing discrepancy
+
+The clean 8060ac1 native corpus retains a 3.05-point offset before `Beta` in
+the bookmark fixture. A controlled 61-option isolation identifies
+`balanceSingleByteDoubleByteWidth=1` as the only individual option that
+reproduces that offset. Copying native fonts, removing kerning, or assigning
+compatibility mode 11 does not resolve it. The
+[measurement receipt](evidence/compatibility-spacing-native.json) retains the
+source bytes, all isolated results and output hashes.
+
+All recorded source compatibility copies have `fDntBlnSbDbWid=0`. Microsoft's
+[Copts60 definition](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/8b8c7ac1-c424-40c2-8645-ba719af38bf9)
+requires the opposite meaning for the native OOXML flag. The
+[OOXML contract](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.balancesinglebytedoublebytewidth)
+defines the half/full-width adjustment. The parser therefore retains the
+enabled instruction. Removing source semantics to obtain a LibreOffice-only
+pixel match is not an accepted correction. The DOC and DOCX routes disagree
+on the recorded renderer; Microsoft Word was not run to arbitrate its layout.

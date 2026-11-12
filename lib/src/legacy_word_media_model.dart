@@ -369,6 +369,9 @@ enum LegacyWordMediaIssue {
 
   /// pVertices.op omitted its six-byte IMsoArray header; exact counts proved it.
   recoveredVertexArrayLength,
+
+  /// A constant one-entry BStore header covered multiple validated FBSEs.
+  recoveredBlipStoreCount,
 }
 
 class LegacyWordMediaNotice {

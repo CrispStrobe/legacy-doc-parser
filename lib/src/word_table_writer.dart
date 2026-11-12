@@ -141,8 +141,13 @@ extension _WordTableWriter on _StructuredWordWriter {
         _count('cells');
         _xml.add('<w:tc><w:tcPr>');
         final width = cell.widthTwips;
-        if (width != null && width > 0) {
+        final preference = cell.formatting.preferredWidth;
+        if (preference != null) {
+          _preferredCellWidth(preference);
+        } else if (width != null && width > 0) {
           _xml.add('<w:tcW w:w="$width" w:type="dxa"/>');
+        }
+        if (width != null && width > 0) {
           if (canWriteGrid) {
             final start = edgeIndices[offset]!;
             final end = edgeIndices[offset + width]!;
@@ -177,6 +182,20 @@ extension _WordTableWriter on _StructuredWordWriter {
           includeShading: false,
           includeBorders: false,
         );
+        if (cell.formatting.noWrapPreference == true &&
+            cell.formatting.noWrap == false) {
+          _evidenceRecords.add({
+            'kind': 'cellNoWrapWidthContext',
+            'tableStartCp': table.startCp,
+            'cellStartCp': cell.blocks.firstOrNull?.startCp,
+            'sourceNoWrap': true,
+            'effectiveNoWrap': false,
+            'preferredWidthUnit': preference?.unit.name,
+            'preferredWidth': preference?.value,
+            'reason':
+                'MS-DOC suppresses no-wrap for a dxa preferred width; the source preference remains evidence.',
+          });
+        }
         _xml.add('</w:tcPr>');
         for (final block in cell.blocks) {
           switch (block) {
@@ -203,4 +222,23 @@ extension _WordTableWriter on _StructuredWordWriter {
     LegacyWordAlignment.right => 'right',
     _ => throw const FormatException('Invalid Word table alignment.'),
   };
+
+  void _preferredCellWidth(LegacyWordTableWidth value) {
+    final unit = value.unit;
+    if (value.value < 0 ||
+        ((unit == LegacyWordTableWidthUnit.nil ||
+                unit == LegacyWordTableWidthUnit.auto) &&
+            value.value != 0) ||
+        (unit == LegacyWordTableWidthUnit.percent && value.value > 5000) ||
+        (unit == LegacyWordTableWidthUnit.twips && value.value > 31680)) {
+      throw const FormatException('Invalid Word preferred cell width.');
+    }
+    final type = switch (unit) {
+      LegacyWordTableWidthUnit.nil => 'nil',
+      LegacyWordTableWidthUnit.auto => 'auto',
+      LegacyWordTableWidthUnit.percent => 'pct',
+      LegacyWordTableWidthUnit.twips => 'dxa',
+    };
+    _xml.add('<w:tcW w:w="${value.value}" w:type="$type"/>');
+  }
 }
