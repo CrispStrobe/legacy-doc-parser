@@ -40,6 +40,17 @@ missing leading or trailing cells through `w:gridBefore`/`w:gridAfter` and
 grid without inventing content cells. This is property preservation; exact
 placement still needs an independently rendered comparison.
 
+Table nesting is scoped to the content story. A textbox anchored in a body or
+header table has its own top-level table origin; it does not inherit the
+anchor cell's nesting depth. Entering the textbox and returning to its anchor
+preserves both contexts, including genuinely nested tables in either story.
+`test/legacy_word_textbox_table_test.dart` compares identical textbox content
+anchored in a paragraph and in a table, across body/header placement,
+default/zero/explicit margins and nested content. The independent binary
+fixtures and converted packages can be produced with
+`tool/fidelity/textbox_table_fixture.dart`. These controls verify the emitted
+indentation and content without claiming arbitrary textbox pagination.
+
 The authored native-origin probe checks zero and nonzero default margins,
 per-cell overrides, negative and positive origins, an independent half-gap,
 and nested tables. On LibreOfficeDev 26.8.0.0.alpha0
