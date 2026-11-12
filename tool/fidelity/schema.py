@@ -87,6 +87,9 @@ EXPECTED_CASES = frozenset([
     *(f"textbox-boundary/textbox-{story}-{kind}" for story in ("main", "header")
       for kind in ("content", "empty", "leading-blank", "interior-blank",
                    "trailing-blank", "two-trailing-blanks", "two-content-paragraphs")),
+    *(f"note-boundary/{story}-{kind}" for story in ("footnote", "endnote")
+      for kind in ("plain", "empty", "trailing-blank", "two-trailing-blanks",
+                   "table", "table-blank", "table-two-blanks", "table-text")),
 ])
 PACKAGES = (
     ("DocumentFormat.OpenXml", "3.3.0",

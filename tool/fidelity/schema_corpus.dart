@@ -8,6 +8,7 @@ import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 import 'image_appearance_probe.dart' as image_appearance;
 import 'list_sequence_fixture.dart' as list_sequences;
 import 'metafile_probe.dart' as metafiles;
+import 'note_boundary_fixture.dart' as note_boundaries;
 import 'note_format_fixture.dart' as note_formats;
 import 'packed_shape_probe.dart' as packed_shapes;
 import 'review_schema_fixture.dart' as reviews;
@@ -255,6 +256,27 @@ void main(List<String> arguments) {
         'packed-shapes/$name.doc',
         'packed-shapes/$name.docx',
         'tool/fidelity/packed_shape_probe.dart',
+      );
+    }
+  }
+  note_boundaries.main(['${root.path}/note-boundary']);
+  for (final story in ['footnote', 'endnote']) {
+    for (final kind in [
+      'plain',
+      'empty',
+      'trailing-blank',
+      'two-trailing-blanks',
+      'table',
+      'table-blank',
+      'table-two-blanks',
+      'table-text',
+    ]) {
+      final name = '$story-$kind';
+      record(
+        'note-boundary/$name',
+        'note-boundary/$name.doc',
+        'note-boundary/$name.docx',
+        'tool/fidelity/note_boundary_fixture.dart',
       );
     }
   }

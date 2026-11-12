@@ -193,6 +193,18 @@ class SchemaGateTest(unittest.TestCase):
         self.assertEqual(required, {name for name in schema.EXPECTED_CASES
                                     if name.startswith("textbox-boundary/")})
 
+    def test_required_note_boundaries_preserve_table_tails_and_intentional_blanks(self):
+        fixture = (schema.ROOT / "test/support/note_boundary_fixture.dart").read_text()
+        declaration = re.search(r"const noteBoundaryCases = .*?\{(.*?)\n\};", fixture, re.S)
+        self.assertIsNotNone(declaration)
+        names = re.findall(r"^\s*'([^']+)':", declaration.group(1), re.M)
+        self.assertEqual(8, len(names))
+        self.assertEqual(8, len(set(names)))
+        required = {f"note-boundary/{story}-{name}"
+                    for story in ("footnote", "endnote") for name in names}
+        self.assertEqual(required, {name for name in schema.EXPECTED_CASES
+                                    if name.startswith("note-boundary/")})
+
     def test_corpus_rejects_unregistered_inputs_aliases_and_escape(self):
         directory, manifest = self.make_corpus()
         shutil.copyfile(directory / "case.docx", directory / "extra.DOCX")
