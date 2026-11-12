@@ -124,7 +124,7 @@ void main() {
         '0.5',
       );
       final stroke = shape.findElements('stroke', namespace: _v).single;
-      expect(stroke.getAttribute('dashstyle'), 'dashDot');
+      expect(stroke.getAttribute('dashstyle'), 'dashdot');
       expect(stroke.getAttribute('joinstyle'), 'miter');
       expect(stroke.getAttribute('endcap'), 'round');
       expect(stroke.getAttribute('opacity'), '0.25');
@@ -134,6 +134,51 @@ void main() {
       expect(shadow.getAttribute('obscured'), 'f');
     },
   );
+
+  test('maps binary dash enums separately for VML and DrawingML', () {
+    // Independent output expectations. VML dashstyle is a string, so parsing
+    // the XML alone cannot detect a case error that renders as a solid line.
+    const expected = {
+      0: ('solid', 'solid'),
+      1: ('shortdash', 'sysDash'),
+      2: ('shortdot', 'sysDot'),
+      3: ('shortdashdot', 'sysDashDot'),
+      4: ('shortdashdotdot', 'sysDashDotDot'),
+      5: ('dot', 'dot'),
+      6: ('dash', 'dash'),
+      7: ('longdash', 'lgDash'),
+      8: ('dashdot', 'dashDot'),
+      9: ('longdashdot', 'lgDashDot'),
+      10: ('longdashdotdot', 'lgDashDotDot'),
+    };
+    for (final entry in expected.entries) {
+      final properties = {0x01ce: entry.key, 0x01ff: 0x00080008};
+      final (_, shapeXml) = _convert(
+        officeArtShapeWordFixture(values: properties),
+      );
+      expect(
+        shapeXml
+            .findAllElements('stroke', namespace: _v)
+            .single
+            .getAttribute('dashstyle'),
+        entry.value.$1,
+        reason: 'VML binary dash enum ${entry.key}',
+      );
+      final (_, pictureXml) = _convert(
+        inlinePictureWordFixture(
+          picture: inlinePictureData(properties: properties),
+        ),
+      );
+      expect(
+        pictureXml
+            .findAllElements('prstDash', namespace: _a)
+            .single
+            .getAttribute('val'),
+        entry.value.$2,
+        reason: 'DrawingML binary dash enum ${entry.key}',
+      );
+    }
+  });
 
   test(
     'retains original picture bytes while adding DrawingML transforms and effects',

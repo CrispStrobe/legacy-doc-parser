@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: MPL-2.0
 part of 'conversion.dart';
 
+// VML uses lowercase dash keywords. DrawingML below has a different spelling;
+// the native regression rendered camel-case "shortDot" as a solid line.
 const _vmlDashStyles = [
   'solid',
-  'shortDash',
-  'shortDot',
-  'shortDashDot',
-  'shortDashDotDot',
+  'shortdash',
+  'shortdot',
+  'shortdashdot',
+  'shortdashdotdot',
   'dot',
   'dash',
-  'longDash',
-  'dashDot',
-  'longDashDot',
-  'longDashDotDot',
+  'longdash',
+  'dashdot',
+  'longdashdot',
+  'longdashdotdot',
 ];
 const _drawingDashStyles = [
   'solid',
