@@ -26,7 +26,7 @@ dependencies:
   legacy_doc_parser:
     git:
       url: https://github.com/CrispStrobe/legacy-doc-parser
-      ref: c5ec60bc4416f0ff4cbf2c2f7d26853718e82a50
+      ref: b03747396878518d0d623599baf9b376df776e3d
 ```
 
 The example pins a tested development checkpoint. When updating, choose a
@@ -97,7 +97,7 @@ dart run example/legacy_doc_parser_example.dart input.doc new-copy.docm
 | Tables | Nested cell structure, conditional table-style regions, borders/shading/margins, signed origins, cell alignment, row heights and split/repeating-header controls |
 | Page layout | Page/section geometry, columns and their direction, margins, line numbering, document grid and source compatibility flags; exact pagination is measured separately |
 | Headers, footers and notes | Referenced stories and actual Word output parts; source first/even-header activation, note marker/reference formatting and document/section note numbering/placement |
-| Comments and revisions | Comment text/ranges/authors and supported reply/resolved metadata; insertion/deletion, paragraph-mark and character/paragraph/section formatting history |
+| Comments and revisions | Comment text/ranges/authors and validated reply relationships (no inferred resolved state); insertion/deletion, paragraph-mark and character/paragraph/section formatting history |
 | Bookmarks and fields | Bookmark ranges, safe locked field syntax and cached results; no field evaluation |
 | Lists | Editable numbering with compatible LSID continuation, explicit restart/resume metadata and story isolation; ambiguous policies remain reported |
 | Images and drawings | Referenced PNG/JPEG/TIFF/EMF/WMF, bounded vector SVG preview, native metafile bytes, supported position/crop, simple OfficeArt paths/paint/effects |
@@ -121,6 +121,8 @@ See the detailed contracts:
 - [Footnote and endnote settings](doc/note-settings.md)
 - [Narrow terminal-mark recovery](doc/terminal-mark-formatting.md)
 - [Independent Quds/native oracles and reviewed source goldens](doc/fidelity-oracles.md)
+- [Fidelity status and remaining acceptance gaps](doc/fidelity-status.md)
+- [Measured fidelity results](doc/fidelity-results.md)
 
 ## Preservation contract
 

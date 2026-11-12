@@ -1,11 +1,17 @@
 # Fidelity corpus and independent oracles
 
 `tool/fidelity/corpus.json` pins ten authored Office XML fixtures from the MIT
-Quds fork at `ca9853b5b08784beac50df5680176cb4e5b3cb25`, plus the package's
-existing native DOC fixture. Source paths, feature tags, SHA-256 hashes, and
+Quds fork at `ca9853b5b08784beac50df5680176cb4e5b3cb25`, plus nine package
+controls, for 19 cases in total. Those controls cover the existing formatting
+DOC, three independent linked-textbox sources, editable OfficeArt shapes,
+EMF/WMF vectors and continued/restarted binary lists. Source paths, feature tags, SHA-256 hashes, and
 license provenance travel with the corpus. The Quds expectations are retained
 under `test/fixtures/fidelity/quds-expectations`; they describe original OOXML,
 not a promise that a native DOC bridge can carry every newer OOXML feature.
+
+The [recorded native results](fidelity-results.md) retain the full comparison
+report for a tested package checkpoint; the [status matrix](fidelity-status.md)
+separates that measured coverage from the remaining format capabilities.
 
 ```
 python3 tool/fidelity/oracle.py
