@@ -51,8 +51,7 @@ Remaining work prioritizes independently checked native layout, broader bounded
 format coverage, revision and drawing semantics, and a stable published API.
 The [fidelity status](doc/fidelity-status.md) gives the supported contracts and
 open gaps; the [oracle guide](doc/fidelity-oracles.md) explains how schema,
-semantic and native-rendering checks differ. Detailed runs and historical
-checkpoints belong in the linked evidence documents.
+semantic and native-rendering checks differ.
 
 Use Dart 3.8 or later. `archive` is the runtime package dependency. A development
 Git dependency can be configured as follows; pin a reviewed full commit SHA
