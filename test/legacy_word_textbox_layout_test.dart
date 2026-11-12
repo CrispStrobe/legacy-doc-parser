@@ -19,6 +19,7 @@ XmlDocument _convert(
   LegacyWordOfficeArtText? layout, {
   int wrap = 3,
   int? groupProperties,
+  LegacyWordOfficeArtWrapDistances? distances,
 }) {
   final paragraph = _paragraph(10, 'One editable story');
   final result = convertLegacyWordDocument(
@@ -67,6 +68,7 @@ XmlDocument _convert(
             shape: LegacyWordOfficeArtShape(
               type: 202,
               text: layout,
+              wrapDistances: distances,
               groupShapeBooleanProperties: groupProperties,
             ),
             source: const LegacyWordSourceReference(
@@ -87,6 +89,60 @@ XmlDocument _convert(
 }
 
 void main() {
+  test(
+    'outer clearance is independent of inner margins and wrapping modes',
+    () {
+      final xml = _convert(
+        const LegacyWordOfficeArtText(insetTopEmu: 12700, wrapMode: 2),
+        wrap: 1,
+        distances: const LegacyWordOfficeArtWrapDistances(
+          leftEmu: 0,
+          topEmu: 45720,
+          bottomEmu: 25400,
+        ),
+      );
+      final style = xml
+          .findAllElements('rect', namespace: _v)
+          .single
+          .getAttribute('style')!;
+      expect(style, contains('mso-wrap-distance-left:0.0pt;'));
+      expect(style, contains('mso-wrap-distance-top:3.6pt;'));
+      expect(style, contains('mso-wrap-distance-bottom:2.0pt;'));
+      expect(style, isNot(contains('mso-wrap-distance-right:')));
+      expect(style, contains('mso-wrap-style:none'));
+      expect(
+        xml
+            .findAllElements('textbox', namespace: _v)
+            .single
+            .getAttribute('inset'),
+        '7.2pt,1.0pt,7.2pt,3.6pt',
+      );
+      expect(
+        xml
+            .findAllElements('wrap', namespace: _w10)
+            .single
+            .getAttribute('type'),
+        'topAndBottom',
+      );
+    },
+  );
+
+  test('public wrap distance values outside the supported range reject', () {
+    for (final value in [-1, 0x80000000]) {
+      for (final distance in [
+        LegacyWordOfficeArtWrapDistances(leftEmu: value),
+        LegacyWordOfficeArtWrapDistances(topEmu: value),
+        LegacyWordOfficeArtWrapDistances(rightEmu: value),
+        LegacyWordOfficeArtWrapDistances(bottomEmu: value),
+      ]) {
+        expect(
+          () => _convert(null, distances: distance),
+          throwsA(isA<LegacyWordConversionException>()),
+        );
+      }
+    }
+  });
+
   test(
     'explicit textbox cell layout is independent of unspecified defaults',
     () {

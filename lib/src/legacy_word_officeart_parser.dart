@@ -171,6 +171,21 @@ class _OfficeArtShapeReader {
         unsupported.add(id);
       }
     }
+    const wrapProperties = {0x0384, 0x0385, 0x0386, 0x0387};
+    final wrapDistances =
+        wrapProperties.any(
+          (id) => p.containsKey(id) || properties.complex.containsKey(id),
+        )
+        ? LegacyWordOfficeArtWrapDistances(
+            leftEmu: _nonnegative(0x0384),
+            topEmu: _nonnegative(0x0385),
+            rightEmu: _nonnegative(0x0386),
+            bottomEmu: _nonnegative(0x0387),
+          )
+        : null;
+    for (final id in wrapProperties) {
+      if (properties.complex.containsKey(id)) unsupported.add(id);
+    }
     final geometry = _geometry();
     if (fill?.type != null && fill!.type != 0) unsupported.add(0x0180);
     if (line?.type != null && line!.type != 0) unsupported.add(0x01c4);
@@ -249,6 +264,7 @@ class _OfficeArtShapeReader {
               id != 0x0380 &&
               id != 0x0381 &&
               id != 0x03bf &&
+              !wrapProperties.contains(id) &&
               !positionProperties.contains(id))) {
         unsupported.add(id);
       }
@@ -273,6 +289,7 @@ class _OfficeArtShapeReader {
       shadow: shadow,
       text: text,
       position: position,
+      wrapDistances: wrapDistances,
       groupShapeBooleanProperties: p[0x03bf],
       ink: ink,
       discussionAnchor: p[0x0307] == 1,

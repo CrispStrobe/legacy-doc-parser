@@ -146,6 +146,9 @@ extension _WordTextboxes on _StructuredWordWriter {
       'shapeId': drawing.shapeId,
       'story': story.id,
       'insetsEmu': insets,
+      'wrapDistancesEmu': _drawingMetadata(
+        drawing,
+      )['officeArtWrapDistancesEmu'],
       'anchor': anchor,
       'wrapMode': text?.wrapMode,
       'flow': text?.flow,
