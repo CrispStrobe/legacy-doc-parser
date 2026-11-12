@@ -480,7 +480,9 @@ extension _WordMedia on _StructuredWordWriter {
           'kind': 'textboxChain',
           'id': reference.id,
           'story': reference.storyId,
-          'declaredLength': reference.chainLength,
+          'declaredLength':
+              reference.declaredChainLength ?? reference.chainLength,
+          'resolvedLength': reference.chainLength,
           'anchors': [
             for (final anchor in reference.anchors)
               {

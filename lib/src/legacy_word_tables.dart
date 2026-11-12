@@ -57,6 +57,8 @@ extension _WordTables on _StructuredWordParser {
           }
           rows.add(
             LegacyWordTableRow(
+              originTwips:
+                  properties['tableOrigin'] as int? ?? definition.edges.first,
               // Only leading, contiguous rows are repeating headers.
               isHeader:
                   properties['rowHeader'] == true &&

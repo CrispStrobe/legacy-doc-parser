@@ -7,7 +7,9 @@ part of 'legacy_word_structured_parser.dart';
 // state. A false wall clears the snapshot instead of accepting any edits.
 _Props _revisionSnapshot(_Props properties) => Map.unmodifiable({
   for (final entry in properties.entries)
-    if (entry.key != '_oldCharacter' && entry.key != '_oldParagraph')
+    if (entry.key != '_oldCharacter' &&
+        entry.key != '_oldParagraph' &&
+        entry.key != '_oldSection')
       entry.key: entry.value,
 });
 
@@ -35,6 +37,78 @@ const _paragraphStylePreserved = {
 };
 
 extension _WordRevisions on _StructuredWordParser {
+  LegacyWordSection _sectionFromProperties(
+    _Props properties,
+    int start,
+    int end, {
+    bool includeRevision = true,
+  }) {
+    for (final key in ['width', 'height']) {
+      final value = properties[key] as int?;
+      if (value != null && (value < 144 || value > 31680)) {
+        throw const FormatException('Invalid Word page dimension.');
+      }
+    }
+    return LegacyWordSection(
+      startCp: start,
+      endCp: end,
+      layout: _sectionLayout(properties),
+      formattingRevision: includeRevision
+          ? _sectionRevision(properties, start, end)
+          : null,
+      revisionSaveId: properties['sectionSaveId'] as int?,
+      pageWidthTwips: properties['width'] as int?,
+      pageHeightTwips: properties['height'] as int?,
+      marginTopTwips: properties['top'] as int?,
+      marginBottomTwips: properties['bottom'] as int?,
+      marginLeftTwips: properties['left'] as int?,
+      marginRightTwips: properties['right'] as int?,
+      gutterTwips: properties['gutter'] as int?,
+      headerDistanceTwips: properties['header'] as int?,
+      footerDistanceTwips: properties['footer'] as int?,
+      columnsSpaceTwips: properties['columnsSpace'] as int?,
+      landscape: properties['landscape'] == true,
+      titlePage: properties['titlePage'] == true,
+      columns: properties['columns'] as int? ?? 1,
+      breakKind:
+          LegacyWordSectionBreak.values[properties['breakKind'] as int? ?? 2],
+    );
+  }
+
+  LegacyWordSectionFormattingRevision? _sectionRevision(
+    _Props properties,
+    int start,
+    int end,
+  ) {
+    final previous = properties['_oldSection'] as _Props?;
+    final marked = properties['sectionRevisionMarked'] == true;
+    if (previous == null && !marked) return null;
+    final complete =
+        previous != null && previous['_unsupportedSection'] != true;
+    if (!marked || !complete) {
+      warnings.add(LegacyWordWarning.revisionMetadataIncomplete);
+    }
+    return LegacyWordSectionFormattingRevision(
+      previousSection: previous == null
+          ? null
+          : _sectionFromProperties(
+              previous,
+              start,
+              end,
+              includeRevision: false,
+            ),
+      revision: marked
+          ? _revisionInfo(
+              properties,
+              'sectionRevision',
+              saveIdKey: 'sectionSaveId',
+            )
+          : const LegacyWordRevisionInfo(),
+      marked: marked,
+      previousPropertiesComplete: complete,
+    );
+  }
+
   LegacyWordRevisionInfo _revisionInfo(
     _Props properties,
     String prefix, {

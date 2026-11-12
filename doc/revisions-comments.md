@@ -28,6 +28,30 @@ asserting UTC. Missing authors or invalid dates stay missing and produce the
 revision-metadata limitation. Unsupported pre-wall properties also produce that
 limitation, even when the supported subset can be exported.
 
+## Section formatting revisions
+
+`sprmSWall` captures the supported section properties before subsequent SPRMs
+modify the current state. `sprmSPropRMark` supplies the author and source date;
+`sprmSRsid` retains the section save identifier even without an active revision.
+The public section model exposes the prior state separately, and DOCX writes
+native `w:sectPrChange` with a complete prior set of the supported properties.
+Page size, orientation, margins, equal/unequal columns, section numbering,
+document grids and title-page state can therefore be rejected independently of
+the current settings. Prior section properties are validated too: a valid
+current value cannot hide a malformed historical snapshot. Missing or unmarked
+snapshots stay explicit evidence rather than fabricated history.
+
+A binary section's break type terminates that section, whereas OOXML places the
+break type on the following section. The writer shifts both the current break
+and its prior value. If the receiving section already has a separately authored
+layout revision, one `sectPrChange` cannot express both independent authors.
+The local layout revision remains native; the incoming break revision remains
+disclosed evidence. A changed terminal binary break likewise has no following
+OOXML section and is disclosed. These cases are not reported as full fidelity.
+Header/footer references remain outside `sectPrChange`, as required by the
+native previous-section schema. The parser does not invent revision history for
+header/footer relationships that the section SPRMs do not encode.
+
 ## Comment threads and ink evidence
 
 Validated `ATRDPost10` / `AtrdExtra` records map to native `comments.xml` and
@@ -48,7 +72,7 @@ thread part. A hidden/private parent keeps its reply branch inert as well.
 
 ## Remaining limits
 
-Table/row/cell and section formatting history, moves, list-numbering revision
+Table/row/cell formatting history, moves, list-numbering revision
 records, display-field revisions, and multi-step editing history are not
 reconstructed as native tracked changes. One binary wall contains one prior
 property snapshot, not an arbitrary revision log. Revision reasons are exposed
@@ -56,6 +80,15 @@ as source codes; they are not converted into invented user-visible edits.
 No change is accepted automatically. Formatting histories for unsupported
 properties remain a limitation even when a native revision element is written
 for the supported subset.
+
+Section decoding follows [MS-DOC section properties](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/46c3ec54-53ff-4c0a-b0d6-07ad15d2546e),
+and native history follows [SectionPropertiesChange](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.sectionpropertieschange)
+and [PreviousSectionProperties](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.previoussectionproperties).
+`test/legacy_word_section_revisions_test.dart` independently assembles the binary
+records and applies accept/reject property rules to parsed XML to verify both
+states, including section-break ownership, unequal columns, conflicting authors,
+missing snapshots and malformed historical values. These are semantic tests;
+they do not certify Microsoft Word's pagination or its user-interface behavior.
 
 ## Specification and tests
 

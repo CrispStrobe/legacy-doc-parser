@@ -106,6 +106,34 @@ extension _WordStories on _StructuredWordWriter {
         throw const FormatException('Invalid Word numbering definition.');
       }
     }
+    final definitions = {
+      for (final value in document.numbering) value.id: value,
+    };
+    for (final definition in document.numbering) {
+      final targetId = definition.continuationOf;
+      if (targetId != null) {
+        final target = definitions[targetId];
+        if (target == null ||
+            target.id == definition.id ||
+            target.continuationOf != null ||
+            target.sourceListId == null ||
+            target.sourceListId != definition.sourceListId ||
+            target.levels.length != definition.levels.length ||
+            !List.generate(
+              target.levels.length,
+              (i) => identical(target.levels[i], definition.levels[i]),
+            ).every((v) => v)) {
+          throw const FormatException('Invalid Word numbering continuation.');
+        }
+        _evidenceRecords.add({
+          'kind': 'numberingContinuation',
+          'sourceIlfo': definition.id,
+          'sourceLsid': definition.sourceListId,
+          'nativeNumId': targetId,
+        });
+      }
+      _numberingReferences[definition.id] = targetId ?? definition.id;
+    }
   }
 
   String? _storyAt(int cp) {
@@ -800,6 +828,7 @@ extension _WordStories on _StructuredWordWriter {
     if (document.numbering.isEmpty) return;
     final xml = _wordPart('numbering');
     for (final definition in document.numbering) {
+      if (definition.continuationOf != null) continue;
       xml.add(
         '<w:abstractNum w:abstractNumId="${definition.id}"><w:multiLevelType w:val="multilevel"/>',
       );
@@ -930,6 +959,7 @@ extension _WordStories on _StructuredWordWriter {
       xml.add('</w:abstractNum>');
     }
     for (final definition in document.numbering) {
+      if (definition.continuationOf != null) continue;
       xml.add(
         '<w:num w:numId="${definition.id}"><w:abstractNumId w:val="${definition.id}"/></w:num>',
       );
@@ -957,6 +987,7 @@ extension _WordStories on _StructuredWordWriter {
         case LegacyWordWarning.nestedTablesFlattened:
         case LegacyWordWarning.recoveredNonconformingProperties:
         case LegacyWordWarning.recoveredEmptySection:
+        case LegacyWordWarning.recoveredTextboxChainLength:
           limitations.add(LegacyWordConversionLimitation.partialFormatting);
         case LegacyWordWarning.numberingNotReconstructed:
           limitations.add(LegacyWordConversionLimitation.fieldsLists);

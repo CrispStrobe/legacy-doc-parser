@@ -481,6 +481,22 @@ void _applyParagraph(
         output['inTable'] = depth != 0;
       case 0x3404:
         output['rowHeader'] = _boolean(value);
+      case 0x9601:
+        final left = value.i16(0);
+        output['tableDxaLeft'] = left;
+        output['tableOrigin'] = left - (output['tableGapHalf'] as int? ?? 0);
+      case 0x9602:
+        final gap = value.i16(0);
+        if (gap < 0) {
+          throw const FormatException('Invalid Word table origin offset.');
+        }
+        final left =
+            output['tableDxaLeft'] as int? ??
+            (output['tableOrigin'] as int? ?? 0) +
+                (output['tableGapHalf'] as int? ?? 0);
+        output['tableGapHalf'] = gap;
+        output['tableDxaLeft'] = left;
+        output['tableOrigin'] = left - gap;
       case 0x840f:
       case 0x845e:
         output['leftIndent'] = value.i16(0);
@@ -598,6 +614,9 @@ void _applyParagraph(
           throw const FormatException('Invalid Word vertical cell merge.');
         }
         output['tableDefinition'] = _TableDefinition(edges, flags);
+        output['tableOrigin'] = edges.first;
+        output['tableDxaLeft'] =
+            edges.first + (output['tableGapHalf'] as int? ?? 0);
       // Section/table style properties beyond the represented subset are
       // reported rather than being represented as a different formatting.
       default:
@@ -660,8 +679,15 @@ Map<String, Object?> _sectionProperties(
         }
         output['columns'] = columns;
       case 0x703a:
-        break; // revision save ID
+        output['sectionSaveId'] = value.u32(0);
+      case 0x3239:
+        output['_oldSection'] = _boolean(value)
+            ? _revisionSnapshot(output)
+            : null;
+      case 0xd243:
+        _applyPropertyRevision(value, output, 'section');
       default:
+        output['_unsupportedSection'] = true;
         warnings.add(LegacyWordWarning.unsupportedFormatting);
     }
   }

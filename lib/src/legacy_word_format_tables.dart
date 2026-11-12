@@ -418,28 +418,7 @@ extension _WordFormattingTables on _StructuredWordParser {
         warnings,
       );
       if (emptyInitial) warnings.add(LegacyWordWarning.recoveredEmptySection);
-      result.add(
-        LegacyWordSection(
-          startCp: start,
-          endCp: end,
-          layout: _sectionLayout(properties),
-          pageWidthTwips: properties['width'] as int?,
-          pageHeightTwips: properties['height'] as int?,
-          marginTopTwips: properties['top'] as int?,
-          marginBottomTwips: properties['bottom'] as int?,
-          marginLeftTwips: properties['left'] as int?,
-          marginRightTwips: properties['right'] as int?,
-          gutterTwips: properties['gutter'] as int?,
-          headerDistanceTwips: properties['header'] as int?,
-          footerDistanceTwips: properties['footer'] as int?,
-          columnsSpaceTwips: properties['columnsSpace'] as int?,
-          landscape: properties['landscape'] == true,
-          titlePage: properties['titlePage'] == true,
-          columns: properties['columns'] as int? ?? 1,
-          breakKind: LegacyWordSectionBreak
-              .values[properties['breakKind'] as int? ?? 2],
-        ),
-      );
+      result.add(_sectionFromProperties(properties, start, end));
     }
     if (result.last.endCp != mainLength) {
       throw const FormatException(
