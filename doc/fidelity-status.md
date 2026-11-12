@@ -18,6 +18,16 @@ every Word document or every renderer.
 
 ## Evidence is versioned
 
+The [clean 24-input checkpoint](evidence/8367ce0/README.md), reproducible from
+pushed `d28be0a`, passes all 24 initial imports and page-count comparisons, with
+six exact initial renders and both reviewed source goldens. Twenty-three cases
+complete all three cycles. The first-page-enabled header case fails its first
+regenerated DOC import with an ambiguous shape anchor; all 281 emitted documents
+and the complete error report are retained. Portable checks pass 761 Dart and
+129 Python tests, 51 JavaScript media checks and all 193 required SDK outputs.
+The measured text oracle also counts tab-stop properties as text tabs, so those
+structural differences require corrected replay before loss attribution.
+
 The [header-alias correction](header-textbox-aliases.md) recovers the retained
 native failure without inventing a flow chain or activating the first header.
 Seven independently authored controls preserve each header occurrence and

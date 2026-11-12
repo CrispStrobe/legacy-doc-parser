@@ -180,9 +180,11 @@ overlapping conditional contexts cannot be represented by one context-free
 native toggle rule. This limitation does not apply to the ordinary CHPX toggles
 whose resolved runs remain explicit native text.
 Differently styled adjacent rows become separate tables, each retaining its own
-native style reference and resolved cell/text formatting. Floating tables,
-cell-spacing geometry, preferred percentage widths, and additional incremental
-row operators still require further work. This is not a claim of complete
+native style reference and resolved cell/text formatting. Bounded preferred
+cell widths retain their percentage and other source units independently of
+the physical grid. Floating tables, cell-spacing geometry, table-wide preferred
+widths, complete automatic-layout behavior and additional incremental row
+operators still require further work. This is not a claim of complete
 conditional-style equivalence.
 
 Primary references:
