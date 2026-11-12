@@ -156,6 +156,21 @@ class SchemaGateTest(unittest.TestCase):
                     if name.startswith("table-borders/")}
         self.assertEqual(set(names), required)
 
+    def test_required_reconciled_inventories_match_literal_case_lists(self):
+        for prefix, filename, constant, count in (
+            ("table-operations", "table_operations_fixture.dart", "tableOperationsCaseNames", 12),
+            ("list-sequences", "list_sequence_fixture.dart", "listSequenceCaseNames", 7),
+        ):
+            fixture = (schema.ROOT / "tool/fidelity" / filename).read_text()
+            declaration = re.search(r"const " + constant + r" = \[(.*?)\];", fixture, re.S)
+            self.assertIsNotNone(declaration)
+            names = re.findall(r"'([^']+)'", declaration.group(1))
+            self.assertEqual(count, len(names))
+            self.assertEqual(len(names), len(set(names)))
+            required = {name.removeprefix(prefix + "/") for name in schema.EXPECTED_CASES
+                        if name.startswith(prefix + "/")}
+            self.assertEqual(set(names), required)
+
     def test_corpus_rejects_unregistered_inputs_aliases_and_escape(self):
         directory, manifest = self.make_corpus()
         shutil.copyfile(directory / "case.docx", directory / "extra.DOCX")

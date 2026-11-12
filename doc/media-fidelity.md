@@ -100,13 +100,15 @@ unrelated inherited flags. Source complex properties remain bounds-checked
 views of the exact retained OfficeArt artifact.
 
 Supported geometry includes rectangle, rounded rectangle, ellipse and line
-presets, plus explicit 32-bit custom vertices connected by straight segments,
-cubic Beziers, moves and closes. Nonempty segment records take precedence over
+presets, plus explicit 32-bit and bounded packed signed 16-bit custom vertices
+connected by straight segments, cubic Beziers, moves and closes. Nonempty segment records take precedence over
 `shapePath`, as the binary specification requires. Vertex counts and segment
 consumption are checked before constructing paths. The geometry subset does
-not guess compressed POINT coordinates, unresolved guide formulas, adjusted
+not guess unsigned packed arc coordinates, unresolved guide formulas, adjusted
 presets or escape/client-escape segments. These remain retained evidence with
-an unsupported-drawing diagnostic.
+an unsupported-drawing diagnostic. The [packed vertex contract](packed-vertices.md)
+records the exact array boundary, independent source implementations and native
+full-width/packed DOC comparison.
 
 The model also exposes direct RGB fill/line colors and opacity, line width,
 dash/join/cap identifiers, and offset-shadow properties. Palette/system colors,

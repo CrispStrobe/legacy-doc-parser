@@ -1,0 +1,206 @@
+// SPDX-License-Identifier: MPL-2.0
+part of 'conversion.dart';
+
+extension _WordTableWriter on _StructuredWordWriter {
+  void _table(LegacyWordTable table) {
+    if (++_tableDepth > 63) {
+      throw const FormatException('Word tables are nested too deeply.');
+    }
+    _count('tables');
+    final origin = table.rows.isEmpty
+        ? 0
+        : table.rows
+              .map((row) => row.originTwips)
+              .reduce((a, b) => a < b ? a : b);
+    // Every row retains its logical origin. Include all absolute row edges in
+    // the shared grid, including omitted leading/trailing cells.
+    final grid = <int>{origin};
+    var canWriteGrid = table.rows.isNotEmpty;
+    for (final row in table.rows) {
+      var offset = row.originTwips;
+      grid.add(offset);
+      for (final cell in row.cells) {
+        final width = cell.widthTwips;
+        if (width == null || width <= 0) {
+          canWriteGrid = false;
+          break;
+        }
+        offset += width;
+        grid.add(offset);
+      }
+    }
+    final edges = grid.toList()..sort();
+    final edgeIndices = {for (var i = 0; i < edges.length; i++) edges[i]: i};
+    _xml.add('<w:tbl><w:tblPr>');
+    final firstRow = table.rows.firstOrNull;
+    final firstMargins = firstRow?.cells.firstOrNull?.formatting.margins;
+    final leadingMargin =
+        firstMargins?.containsKey(LegacyWordBorderSide.left) == true
+        ? firstMargins![LegacyWordBorderSide.left] ?? 0
+        : 108;
+    // Legacy Word/OOXML top-level indentation aligns the first cell's text,
+    // whereas TDefTable retains the outer boundary. Native DOC->DOCX oracles
+    // confirm this conversion for zero, signed, per-cell and default margins.
+    // Nested tables already use their boundary origin and need no adjustment.
+    final nativeIndent = origin + (_tableDepth == 1 ? leadingMargin : 0);
+    if (origin < -31680 ||
+        origin > 31680 ||
+        nativeIndent < -32768 ||
+        nativeIndent > 32767) {
+      throw const FormatException('Invalid Word table indentation.');
+    }
+    if (firstRow?.tableStyleId case final id?) {
+      if (!_tableStyleDefinitions.containsKey(id)) {
+        throw const FormatException('Unknown Word table style.');
+      }
+      _xml.add('<w:tblStyle w:val="LegacyTable$id"/>');
+    }
+    if (table.rightToLeft) _xml.add('<w:bidiVisual w:val="on"/>');
+    _xml.add(
+      canWriteGrid
+          ? '<w:tblW w:w="${edges.last - origin}" w:type="dxa"/>'
+          : '<w:tblW w:w="0" w:type="auto"/>',
+    );
+    _xml.add('<w:jc w:val="${_tableJustification(table.alignment)}"/>');
+    _xml.add('<w:tblInd w:w="$nativeIndent" w:type="dxa"/>');
+    _xml.add('<w:tblLayout w:type="${table.autoFit ? 'autofit' : 'fixed'}"/>');
+    _tableLook(firstRow?.styleOptions ?? 0x600, _xml);
+    _xml.add('</w:tblPr>');
+    if (canWriteGrid) {
+      _xml.add('<w:tblGrid>');
+      for (var i = 1; i < edges.length; i++) {
+        _xml.add('<w:gridCol w:w="${edges[i] - edges[i - 1]}"/>');
+      }
+      _xml.add('</w:tblGrid>');
+    } else {
+      _xml.add('<w:tblGrid/>');
+    }
+    for (final row in table.rows) {
+      _countBreak();
+      _xml.add('<w:tr>');
+      final rowAlignment = row.alignment ?? table.alignment;
+      final rowAutoFit = row.autoFit ?? table.autoFit;
+      if (row.borders.isNotEmpty ||
+          rowAlignment != table.alignment ||
+          rowAutoFit != table.autoFit) {
+        _xml.add('<w:tblPrEx>');
+        if (rowAlignment != table.alignment) {
+          _xml.add('<w:jc w:val="${_tableJustification(rowAlignment)}"/>');
+        }
+        _tableBorders(row.borders, _xml, 'tblBorders');
+        if (rowAutoFit != table.autoFit) {
+          _xml.add(
+            '<w:tblLayout w:type="${rowAutoFit ? 'autofit' : 'fixed'}"/>',
+          );
+        }
+        _xml.add('</w:tblPrEx>');
+      }
+      final before = canWriteGrid ? edgeIndices[row.originTwips]! : 0;
+      final rowEnd =
+          row.originTwips +
+          row.cells.fold<int>(0, (sum, cell) => sum + (cell.widthTwips ?? 0));
+      final after = canWriteGrid ? edges.length - 1 - edgeIndices[rowEnd]! : 0;
+      if (row.isHeader ||
+          before != 0 ||
+          after != 0 ||
+          row.heightTwips != null ||
+          row.cantSplit != null) {
+        _xml.add('<w:trPr>');
+        if (before != 0) {
+          _xml.add(
+            '<w:gridBefore w:val="$before"/>'
+            '<w:wBefore w:w="${row.originTwips - origin}" w:type="dxa"/>',
+          );
+        }
+        if (after != 0) {
+          _xml.add(
+            '<w:gridAfter w:val="$after"/>'
+            '<w:wAfter w:w="${edges.last - rowEnd}" w:type="dxa"/>',
+          );
+        }
+        if (row.heightTwips case final height?) {
+          if (height < -31680 || height > 31680) {
+            throw const FormatException('Invalid Word table row height.');
+          }
+          final rule = height == 0
+              ? 'auto'
+              : height < 0
+              ? 'exact'
+              : 'atLeast';
+          _xml.add('<w:trHeight w:val="${height.abs()}" w:hRule="$rule"/>');
+        }
+        if (row.cantSplit case final value?) {
+          _xml.add('<w:cantSplit w:val="${value ? 'on' : 'off'}"/>');
+        }
+        if (row.isHeader) _xml.add('<w:tblHeader/>');
+        _xml.add('</w:trPr>');
+      }
+      var offset = row.originTwips;
+      for (final cell in row.cells) {
+        _countBreak();
+        _count('cells');
+        _xml.add('<w:tc><w:tcPr>');
+        final width = cell.widthTwips;
+        if (width != null && width > 0) {
+          _xml.add('<w:tcW w:w="$width" w:type="dxa"/>');
+          if (canWriteGrid) {
+            final start = edgeIndices[offset]!;
+            final end = edgeIndices[offset + width]!;
+            if (end - start > 1) {
+              _xml.add('<w:gridSpan w:val="${end - start}"/>');
+            }
+          }
+          offset += width;
+        }
+        if (cell.mergeStart || cell.mergeContinue) {
+          _xml.add(
+            '<w:hMerge w:val="${cell.mergeStart ? 'restart' : 'continue'}"/>',
+          );
+        }
+        if (cell.verticalMergeStart || cell.verticalMergeContinue) {
+          _xml.add(
+            '<w:vMerge w:val="${cell.verticalMergeStart ? 'restart' : 'continue'}"/>',
+          );
+        }
+        _tableBorders(cell.formatting.borders, _xml, 'tcBorders');
+        if (cell.shading != null) {
+          _shading(
+            cell.shading!,
+            _xml,
+            'tableCell',
+            cell.blocks.isEmpty ? null : cell.blocks.first.startCp,
+          );
+        }
+        _tableCellFormat(
+          cell.formatting,
+          _xml,
+          includeShading: false,
+          includeBorders: false,
+        );
+        _xml.add('</w:tcPr>');
+        for (final block in cell.blocks) {
+          switch (block) {
+            case LegacyWordParagraph():
+              _paragraph(block);
+            case LegacyWordTable():
+              _table(block);
+          }
+        }
+        if (cell.blocks.isEmpty || cell.blocks.last is LegacyWordTable) {
+          _xml.add('<w:p/>');
+        }
+        _xml.add('</w:tc>');
+      }
+      _xml.add('</w:tr>');
+    }
+    _xml.add('</w:tbl>');
+    _tableDepth--;
+  }
+
+  String _tableJustification(LegacyWordAlignment value) => switch (value) {
+    LegacyWordAlignment.left => 'left',
+    LegacyWordAlignment.center => 'center',
+    LegacyWordAlignment.right => 'right',
+    _ => throw const FormatException('Invalid Word table alignment.'),
+  };
+}

@@ -7,6 +7,19 @@
       "commit": "ca9853b5b08784beac50df5680176cb4e5b3cb25",
       "license": "MIT",
       "license_file": "third_party/quds-fixtures-MIT.txt"
+    },
+    "libreoffice-word-qa": {
+      "repository": "LibreOffice/core",
+      "commit": "9a3be2502bf7762400fd0b655b6e42714cf2bb36",
+      "license": "MPL-2.0",
+      "license_file": "test/fixtures/word_native/COPYING.LibreOffice"
+    },
+    "apache-poi-table-qa": {
+      "repository": "apache/poi",
+      "blob": "1a5ff5f7109fcc8352530ace3d8c0b2c3bcd75aa",
+      "license": "Apache-2.0",
+      "license_file": "third_party/apache-poi-fixtures-LICENSE.txt",
+      "notice_file": "third_party/apache-poi-fixtures-NOTICE.txt"
     }
   },
   "cases": [
@@ -240,6 +253,47 @@
         "pagination"
       ],
       "origin": "Independently assembled binary from test/support/list_sequence_fixture.dart; confirmed by installed Office in doc/list-sequence-native-check.json"
+    },
+    {
+      "id": "word14-margin-origin",
+      "path": "test/fixtures/word_native/word14-margin-origin.doc",
+      "sha256": "cab742e55b62e7a638ada283e877144a574e0412032ac5d797c1eb8cfedcfb9a",
+      "source": "libreoffice-word-qa",
+      "source_path": "sw/qa/extras/ww8export/data/tdf101826_xattrTextBoxFill.doc",
+      "features": [
+        "officeart-positioning",
+        "textboxes",
+        "officeart-effects",
+        "pagination"
+      ],
+      "origin": "Unmodified Word 14 binary from public LibreOffice QA; source producer metadata and textbox spare-range recovery are recorded independently"
+    },
+    {
+      "id": "word16-page-origin",
+      "path": "test/fixtures/word_native/word16-page-origin.doc",
+      "sha256": "3e105980f47af62c81c1c451b0339e34d3fdfe6972c1fe5c664e7b25d966f84d",
+      "source": "libreoffice-word-qa",
+      "source_path": "sw/qa/extras/ww8import/data/tdf124601.doc",
+      "features": [
+        "officeart-positioning",
+        "floating-drawings",
+        "pagination"
+      ],
+      "origin": "Unmodified Word 16 binary from public LibreOffice QA; validates explicit page origin independently of the shape anchor fallback"
+    },
+    {
+      "id": "poi-simple-table2",
+      "path": "test/fixtures/word_native/poi-simple-table2.doc",
+      "sha256": "8aea59b70c19a150d657065f254c5e10db08a51518d1c7fce33fc8f75ab6c6cc",
+      "source": "apache-poi-table-qa",
+      "source_path": "test-data/document/simple-table2.doc",
+      "features": [
+        "tables",
+        "table-styles",
+        "table-operations",
+        "pagination"
+      ],
+      "origin": "Unmodified public Apache POI binary; independently demonstrates table-style PAPX framing and TInsert/TDxaCol/TIstd operation order"
     }
   ],
   "reference_expectations": [

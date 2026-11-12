@@ -27,6 +27,8 @@ extension _WordTableStyles on _StructuredWordParser {
         heightTwips: rows[r].heightTwips,
         cantSplit: rows[r].cantSplit,
         borders: rows[r].borders,
+        alignment: rows[r].alignment,
+        autoFit: rows[r].autoFit,
         cells: List.unmodifiable([
           for (var c = 0; c < rows[r].cells.length; c++)
             _resolvedTableCell(rows[r], r, rows, c),
@@ -98,6 +100,7 @@ extension _WordTableStyles on _StructuredWordParser {
       final plain = <_Sprm>[];
       int? rowBand, columnBand;
       for (final operation in raw.table) {
+        _validateTableStyleOperation(operation, 5, styleId: entry.key);
         final value = operation.data;
         if (operation.code == 0xd66a) {
           if (value.length < 2) {
@@ -112,9 +115,9 @@ extension _WordTableStyles on _StructuredWordParser {
             throw const FormatException('Invalid Word table style condition.');
           }
           final kind = LegacyWordTableCondition.values[condition.bitLength - 1];
-          final nested = _readProperties(value.slice(2, value.length - 2));
-          if (nested.any((p) => p.code == 0xd66a)) {
-            throw const FormatException('Nested Word table style condition.');
+          final nested = _decodeSprms(value.slice(2, value.length - 2), budget);
+          for (final item in nested) {
+            _validateTableStyleOperation(item, 5, conditional: true);
           }
           conditional[kind] = _mergeTableCellFormat(
             conditional[kind] ?? const LegacyWordTableCellFormat(),

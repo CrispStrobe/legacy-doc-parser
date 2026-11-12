@@ -63,6 +63,66 @@ References: [TDefTableOperand](https://learn.microsoft.com/en-us/openspecs/offic
 and [Table Properties](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/b39a6648-501c-4361-8366-4f042f579469).
 Tests: `test/legacy_word_table_origin_test.dart`.
 
+## Incremental row operations and table boundaries
+
+`PTableProps` reads the referenced bounded `Data` record and stops its containing
+property array. Older inline table properties after that pointer are not applied
+or decoded as current properties. The same rule applies when multiple rows reuse
+a cached record. Records shorter than ten bytes, cycles, excessive chains, and
+out-of-range extents fail explicitly.
+
+Rows now apply `TInsert`, `TDelete`, `TDxaCol`, `TMerge`, and `TSplit` in source
+order. Cell widths, TC80 formatting, borders, shading, margins, and alignment move
+with their cell definitions; deleting a cell cannot accidentally move its direct
+formatting onto an unrelated cell. Empty deletion results, invalid cell ranges,
+and excessive widths are rejected. Merge flags remain native editable `hMerge`
+properties. The preview keeps continuation text visible, which is intentionally
+not a claim of exact Word merged-cell layout.
+
+Style application replaces supported row defaults while retaining the existing
+cell definitions and direct cell formatting. It also retains TIstd's documented
+exceptions such as direction, origin-related positioning, half-gap, row height,
+auto-fit, style options, and review metadata. This distinction is independently
+tested with Apache POI's Word-authored `simple-table2.doc`: its modern Data rows
+contain `TInsert → TDxaCol → TIstd`, without another cell definition. Clearing
+the cell structure at TIstd would destroy that valid three-column table. The
+same fixture has an explicit two-byte `istd` prefix in both table-style PAPX
+records; the reconciled implementation retains that framing. See
+`doc/table-upx-native-evidence.md` for the source hashes and raw evidence.
+
+Adjacent rows with different table-style, direction, or retained group/position
+identities form separate tables before conditional text is resolved. Physical
+`TJc90` values and logical `TJc` values remain distinct, including in right-to-left
+tables. DOCX writes native `bidiVisual`, justification, width, and fixed/automatic
+layout properties. Later rows can explicitly restore left alignment and fixed
+layout through `tblPrEx`; defaults on a later row do not silently inherit the
+first row's nondefault setting. PGP hierarchy interpretation and floating table
+placement remain unsupported and diagnosed.
+
+Table style UPXs are decoded without following Data-stream references. Property
+groups, known forbidden structural operators, and nested conditions are checked
+before application. Supported conditional text/cell formatting keeps its existing
+precedence and explicit-reset semantics; other visual style properties continue
+to report partial formatting.
+
+Tests: `test/legacy_word_table_operations_test.dart`,
+`test/legacy_word_table_properties_test.dart`, and the independently assembled
+`tool/fidelity/table_operations_fixture.dart`. All twelve authored outputs are
+registered by exact identity in the independent Open XML SDK schema corpus.
+Schema validity does not establish native pagination or mirrored-table equivalence.
+
+The HTML preview now uses resolved cell borders, margins, vertical alignment,
+no-wrap, table direction, origin, alignment and sizing preferences. It no longer
+invents a gray grid or four-pixel cell margins. Exact row heights, unequal row
+origins, vertical cell text, fit-text, and hide-mark behavior remain explicitly
+marked as approximate when encountered. Tests are in
+`test/legacy_word_table_preview_test.dart`.
+
+References: [Table Properties](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/b39a6648-501c-4361-8366-4f042f579469),
+[Paragraph Properties](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/484822ee-a9d9-4af4-8423-29fda67a6a58),
+[UpxTapx](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/eed2eef0-2943-4c2f-b348-3f1d1af59fdf),
+and [UpxPapx](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/659f448a-473a-44c6-8b69-a25984af3645).
+
 ## Cell formatting and conditional table styles
 
 The parser now reads `StkTableGRLPUPX` table styles and retains their names,
@@ -119,10 +179,11 @@ are retained as conversion evidence and reported as partial formatting because
 overlapping conditional contexts cannot be represented by one context-free
 native toggle rule. This limitation does not apply to the ordinary CHPX toggles
 whose resolved runs remain explicit native text.
-Differently styled rows retain their resolved cell formatting; the first row's
-style supplies the table-wide native style reference. Floating tables,
-cell-spacing geometry, and additional incremental row operators still require
-further work. This is not a claim of complete conditional-style equivalence.
+Differently styled adjacent rows become separate tables, each retaining its own
+native style reference and resolved cell/text formatting. Floating tables,
+cell-spacing geometry, preferred percentage widths, and additional incremental
+row operators still require further work. This is not a claim of complete
+conditional-style equivalence.
 
 Primary references:
 

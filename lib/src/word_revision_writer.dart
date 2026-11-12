@@ -194,6 +194,7 @@ extension _WordRevisionWriter on _StructuredWordWriter {
     _sectionProperties(
       ownChange ? previous : section,
       mergeIncoming ? incomingPrevious.breakKind : currentBreakBefore,
+      historical: true,
     );
     _xml.add('</w:sectPr></w:sectPrChange>');
     _count('sectionFormattingRevisions');

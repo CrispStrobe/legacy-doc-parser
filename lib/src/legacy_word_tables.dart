@@ -18,6 +18,8 @@ extension _WordTables on _StructuredWordParser {
       final start = paragraphs[cursor].paragraph.startCp;
       var end = start;
       final rows = <LegacyWordTableRow>[];
+      _Props? tableProperties;
+      var rowCursor = cursor, lastRowEnd = start;
       final cells = <List<LegacyWordBlock>>[];
       var cell = <LegacyWordBlock>[];
       while (cursor < paragraphs.length) {
@@ -55,8 +57,19 @@ extension _WordTables on _StructuredWordParser {
               'Word table cell count does not match its row.',
             );
           }
+          if (tableProperties != null &&
+              !_sameTableRows(tableProperties, properties)) {
+            cursor = rowCursor;
+            cells.clear();
+            cell = [];
+            end = lastRowEnd;
+            break;
+          }
+          tableProperties ??= properties;
           rows.add(
             LegacyWordTableRow(
+              alignment: _tableAlignment(properties),
+              autoFit: properties['tableAutoFit'] == true,
               originTwips:
                   properties['tableOrigin'] as int? ?? definition.edges.first,
               tableStyleId: _resolvedTableStyleId(
@@ -89,6 +102,14 @@ extension _WordTables on _StructuredWordParser {
                           ? definition.formats[i]
                           : const LegacyWordTableCellFormat(),
                       LegacyWordTableCellFormat(
+                        verticalAlignment:
+                            (properties['cellAlignment']
+                                    as Map<int, int>?)?[i] ==
+                                null
+                            ? null
+                            : LegacyWordCellAlignment
+                                  .values[(properties['cellAlignment']
+                                  as Map<int, int>)[i]!],
                         margins: Map.unmodifiable({
                           ...?properties['tableMargins']
                               as Map<LegacyWordBorderSide, int?>?,
@@ -119,6 +140,8 @@ extension _WordTables on _StructuredWordParser {
             ),
           );
           cells.clear();
+          rowCursor = cursor;
+          lastRowEnd = end;
         } else {
           cell.add(paragraph);
           if (cellEnd) {
@@ -138,6 +161,11 @@ extension _WordTables on _StructuredWordParser {
         startCp: start,
         endCp: end,
         rows: List.unmodifiable(_resolveTableStyleCells(rows)),
+        rightToLeft:
+            tableProperties?['tableRtl'] == true ||
+            tableProperties?['tableRtl90'] == true,
+        autoFit: tableProperties?['tableAutoFit'] == true,
+        alignment: _tableAlignment(tableProperties ?? const {}),
       );
     }
 

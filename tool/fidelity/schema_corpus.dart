@@ -6,12 +6,16 @@ import 'dart:io';
 import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 
 import 'metafile_probe.dart' as metafiles;
+import 'packed_shape_probe.dart' as packed_shapes;
+import 'note_format_fixture.dart' as note_formats;
+import 'list_sequence_fixture.dart' as list_sequences;
 import 'review_schema_fixture.dart' as reviews;
 import 'section_review_fixture.dart' as sections;
 import 'shape_probe.dart' as shapes;
 import 'table_borders_fixture.dart' as table_borders;
 import 'table_layout_fixture.dart' as table_layout;
 import 'table_origin_fixture.dart' as origins;
+import 'table_operations_fixture.dart' as table_operations;
 import 'table_text_fixture.dart' as table_text;
 
 void main(List<String> arguments) {
@@ -105,6 +109,45 @@ void main(List<String> arguments) {
       'tool/fidelity/table_borders_fixture.dart',
     );
   }
+  table_operations.main(['${root.path}/table-operations']);
+  for (final name in [
+    'delete-resize',
+    'merge',
+    'split',
+    'rtl-physical-left',
+    'rtl-physical-center',
+    'rtl-physical-right',
+    'rtl-logical-left',
+    'rtl-logical-center',
+    'rtl-logical-right',
+    'row-exceptions',
+    'style-identities',
+    'indirect-cache',
+  ]) {
+    record(
+      'table-operations/$name',
+      'table-operations/$name.doc',
+      'table-operations/$name-converted.docx',
+      'tool/fidelity/table_operations_fixture.dart',
+    );
+  }
+  list_sequences.main(['${root.path}/list-sequences']);
+  for (final name in [
+    'shared-counter',
+    'explicit-start',
+    'format-continue',
+    'same-instance-ancestor',
+    'never-restart',
+    'legal-decimal-zero',
+    'hidden-marker',
+  ]) {
+    record(
+      'list-sequences/$name',
+      'list-sequences/$name.doc',
+      'list-sequences/$name-converted.docx',
+      'tool/fidelity/list_sequence_fixture.dart',
+    );
+  }
   shapes.main(['${root.path}/shapes']);
   for (final name in [
     'rect',
@@ -133,6 +176,37 @@ void main(List<String> arguments) {
       );
     }
   }
+  packed_shapes.main(['${root.path}/packed-shapes']);
+  for (final flip in ['none', 'xy']) {
+    for (final encoding in ['full', 'packed', 'packed-header-excluded']) {
+      final name = '$encoding-$flip';
+      record(
+        'packed-shapes/$name',
+        'packed-shapes/$name.doc',
+        'packed-shapes/$name.docx',
+        'tool/fidelity/packed_shape_probe.dart',
+      );
+    }
+  }
+  note_formats.main(['${root.path}/note-formats']);
+  for (final name in [
+    'note-formats-east-asian-sepx',
+    'note-formats-korean-sepx',
+    'note-formats-rtl-dop',
+    'note-formats-south-asian-dop',
+    'note-formats-cyrillic-sepx',
+    'note-formats-none-sepx',
+    'note-formats-fallback-sepx',
+    'note-formats-unknown-sepx',
+    'note-formats-revision',
+  ]) {
+    record(
+      'note-formats/$name',
+      'note-formats/$name.doc',
+      'note-formats/$name.docx',
+      'tool/fidelity/note_format_fixture.dart',
+    );
+  }
   reviews.main(['${root.path}/reviews']);
   for (final name in [
     'numbering-change',
@@ -160,7 +234,13 @@ void main(List<String> arguments) {
   );
   final repository = File.fromUri(Platform.script).parent.parent.parent;
   Directory('${root.path}/native-inputs').createSync();
-  for (final name in ['formatting', 'linked-textboxes']) {
+  for (final name in [
+    'formatting',
+    'linked-textboxes',
+    'word14-margin-origin',
+    'word16-page-origin',
+    'poi-simple-table2',
+  ]) {
     final source = File(
       '${repository.path}/test/fixtures/word_native/$name.doc',
     );

@@ -31,7 +31,8 @@
           "sourceLeftTwips": 5460
         }
       ],
-      "fullImportStatus": "existing FormatException: Missing or invalid Word textbox ranges. Raw bounded evidence only."
+      "initialImportStatusAt49959f9": "existing FormatException: Missing or invalid Word textbox ranges. Raw bounded evidence only.",
+      "fullImportStatus": "Passes with recoveredGlobalTextboxSentinel; all six real textbox ranges remain bounded and independently validated."
     },
     {
       "path": "test/fixtures/word_native/word16-page-origin.doc",

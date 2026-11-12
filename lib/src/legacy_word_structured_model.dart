@@ -41,6 +41,14 @@ enum LegacyWordWarning {
 
   /// The final main-story CR is missing from exact CHPX physical/bin bounds.
   terminalMarkFormattingUnavailable,
+
+  /// A main-textbox spare range ended at the exact whole-document sentinel.
+  /// Every real range remained bounded by the textbox story length.
+  recoveredGlobalTextboxSentinel,
+
+  /// A note format is unknown or requires a disclosed decimal fallback.
+  /// The original MSONFC code remains available on the note numbering model.
+  unsupportedNoteNumberFormat,
 }
 
 enum LegacyWordAlignment { left, center, right, justify, distribute }
@@ -438,8 +446,17 @@ class LegacyWordTable extends LegacyWordBlock {
     required super.startCp,
     required super.endCp,
     required this.rows,
+    this.autoFit = false,
+    this.rightToLeft = false,
+    this.alignment = LegacyWordAlignment.left,
   });
   final List<LegacyWordTableRow> rows;
+  final bool autoFit;
+  final bool rightToLeft;
+
+  /// Logical table alignment (left means its leading edge). Physical TJc90
+  /// source values are resolved against the table direction during parsing.
+  final LegacyWordAlignment alignment;
 }
 
 class LegacyWordTableRow {
@@ -453,6 +470,8 @@ class LegacyWordTableRow {
     this.heightTwips,
     this.cantSplit,
     this.borders = const {},
+    this.alignment,
+    this.autoFit,
   });
   final List<LegacyWordTableCell> cells;
   final bool isHeader;
@@ -475,6 +494,10 @@ class LegacyWordTableRow {
 
   /// Null leaves the default ability to split a row across pages unchanged.
   final bool? cantSplit;
+
+  /// Effective source row exceptions; null inherits the public table value.
+  final LegacyWordAlignment? alignment;
+  final bool? autoFit;
 
   /// Direct row-wide outer and interior border defaults. Cell borders whose
   /// type is none inherit; an explicit nil cell border suppresses the edge.

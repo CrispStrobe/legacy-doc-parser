@@ -265,18 +265,24 @@ extension _WordFormattingTables on _StructuredWordParser {
         upx += 2;
         final data = record.slice(upx, bytes);
         if (kind == 3 && u == 0) {
-          table = _readProperties(data);
+          // Table styles cannot contain Data-stream indirections. Decode the
+          // actual UPX first and validate its property group before use.
+          table = _decodeSprms(data, budget);
         } else if ((kind == 1 && u == 0) || (kind == 3 && u == 1)) {
           if (bytes < 2) {
             throw const FormatException(
               'Invalid Word style paragraph properties.',
             );
           }
-          paragraph = _readProperties(Uint8List.sublistView(data, 2));
+          paragraph = kind == 3
+              ? _decodeSprms(Uint8List.sublistView(data, 2), budget)
+              : _readProperties(Uint8List.sublistView(data, 2));
         } else if ((kind == 1 && u == 1) ||
             (kind == 2 && u == 0) ||
             (kind == 3 && u == 2)) {
-          character = _readProperties(data);
+          character = kind == 3
+              ? _decodeSprms(data, budget)
+              : _readProperties(data);
         } else if (bytes != 0) {
           warnings.add(LegacyWordWarning.unsupportedFormatting);
         }

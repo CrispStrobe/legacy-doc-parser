@@ -50,6 +50,7 @@ List<_Sprm> _decodeSprms(
   Uint8List bytes,
   _Budget budget, {
   void Function()? onPapxOrphanByte,
+  bool stopAtTableProperties = false,
 }) {
   final input = _Bytes(bytes);
   final output = <_Sprm>[];
@@ -107,6 +108,7 @@ List<_Sprm> _decodeSprms(
     input.require(position, size);
     output.add(_Sprm(code, input.slice(position + prefix, size - prefix)));
     position += size;
+    if (stopAtTableProperties && code == 0x646b) break;
   }
   return output;
 }
@@ -509,7 +511,48 @@ void _applyParagraph(
         }
         output['tableRowHeight'] = height;
       case 0x563a:
+        _resetTableStyleProperties(output);
         output['tableStyleId'] = value.u16(0);
+      case 0x7469:
+        output['tableGroup'] = value.u32(0);
+        // Identity prevents merging unrelated adjacent tables, but this
+        // bounded path does not interpret the referenced PGP hierarchy.
+        warnings.add(LegacyWordWarning.unsupportedFormatting);
+      case 0x560b:
+      case 0x5664:
+        final direction = value.u16(0);
+        if (direction > 1) {
+          throw const FormatException('Invalid Word table direction.');
+        }
+        output[operation.code == 0x560b ? 'tableRtl' : 'tableRtl90'] =
+            direction != 0;
+      case 0x5400:
+      case 0x548a:
+        final alignment = value.u16(0);
+        if (alignment > 2) {
+          throw const FormatException('Invalid Word table alignment.');
+        }
+        output[operation.code == 0x5400
+                ? 'tablePhysicalAlignment'
+                : 'tableAlignment'] =
+            alignment;
+      case 0x3615:
+        output['tableAutoFit'] = _boolean(value);
+      case 0x360d:
+      case 0x3465:
+      case 0x940e:
+      case 0x940f:
+      case 0x9410:
+      case 0x9411:
+      case 0x941e:
+      case 0x941f:
+        // Retain the operand identity for adjacent-row grouping. Floating
+        // placement itself still needs its own native layout interpretation.
+        output['tablePosition${operation.code}'] = value.bytes.fold<int>(
+          0,
+          (a, b) => a * 256 + b,
+        );
+        warnings.add(LegacyWordWarning.unsupportedFormatting);
       case 0x740a:
         output['tableStyleOptions'] = value.u16(2);
       case 0xd605:
@@ -532,6 +575,7 @@ void _applyParagraph(
                 ...margins,
               });
         } else {
+          _tableCellRange(value, output);
           final all = <int, Map<LegacyWordBorderSide, int?>>{
             ...?output['cellMargins']
                 as Map<int, Map<LegacyWordBorderSide, int?>>?,
@@ -543,55 +587,20 @@ void _applyParagraph(
               Map<int, Map<LegacyWordBorderSide, int?>>.unmodifiable(all);
         }
       case 0x7621:
-        final old =
-            output['tableDefinition'] as _TableDefinition? ??
-            _TableDefinition([output['tableOrigin'] as int? ?? 0], const []);
-        final first = value.u8(0), count = value.u8(1), width = value.i16(2);
-        if (first > old.flags.length ||
-            count == 0 ||
-            count + old.flags.length > 63 ||
-            width < 0 ||
-            old.edges.last - old.edges.first + count * width > 31680) {
-          throw const FormatException('Invalid Word table cell insertion.');
+      case 0x5622:
+      case 0x7623:
+      case 0x5624:
+      case 0x5625:
+        _changeTableCells(operation, output);
+      case 0xd62c:
+        if (value.length != 3 || value.u8(2) > 2) {
+          throw const FormatException('Invalid Word cell-alignment range.');
         }
-        final edges = [
-          ...old.edges.take(first + 1),
-          for (var i = 1; i <= count; i++) old.edges[first] + i * width,
-          for (final edge in old.edges.skip(first + 1)) edge + count * width,
-        ];
-        final formats = [
-          for (var i = 0; i < old.flags.length; i++)
-            i < old.formats.length
-                ? old.formats[i]
-                : const LegacyWordTableCellFormat(),
-        ];
-        output['tableDefinition'] = _TableDefinition(
-          edges,
-          [
-            ...old.flags.take(first),
-            ...List.filled(count, 0),
-            ...old.flags.skip(first),
-          ],
-          [
-            ...formats.take(first),
-            ...List.filled(count, const LegacyWordTableCellFormat()),
-            ...formats.skip(first),
-          ],
-        );
-        // Indexed overrides belong to the original cells, not their old
-        // numeric positions. Newly inserted cells inherit row/style defaults.
-        void shiftCells<T>(String key) {
-          final values = output[key] as Map<int, T>?;
-          if (values == null) return;
-          output[key] = Map<int, T>.unmodifiable({
-            for (final entry in values.entries)
-              if (entry.key < old.flags.length)
-                entry.key < first ? entry.key : entry.key + count: entry.value,
-          });
-        }
-        shiftCells<LegacyWordShading>('cellShading');
-        shiftCells<LegacyWordShading>('cellShadingRaw');
-        shiftCells<Map<LegacyWordBorderSide, int?>>('cellMargins');
+        final (first, limit) = _tableCellRange(value, output);
+        output['cellAlignment'] = Map<int, int>.unmodifiable({
+          ...?output['cellAlignment'] as Map<int, int>?,
+          for (var i = first; i < limit; i++) i: value.u8(2),
+        });
       case 0xd620:
       case 0xd62f:
         final old = operation.code == 0xd620;

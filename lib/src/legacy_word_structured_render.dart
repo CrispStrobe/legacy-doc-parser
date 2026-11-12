@@ -787,6 +787,7 @@ class _HtmlWriter {
               ? source.fold<int>(0, (sum, cell) => sum + cell.widthTwips!)
               : null,
           shading: first.shading,
+          source: first,
         );
         cells.add(cell);
         if (source.every(
@@ -798,19 +799,74 @@ class _HtmlWriter {
       rows.add(cells);
       active = nextActive;
     }
-    _write('<table style="border-collapse:collapse;"><tbody>');
-    for (final row in rows) {
-      _write('<tr>');
+    final origin = table.rows.isEmpty
+        ? 0
+        : table.rows
+              .map((row) => row.originTwips)
+              .reduce((a, b) => a < b ? a : b);
+    if (origin < -31680 || origin > 31680) {
+      throw const FormatException('Invalid Word preview table origin.');
+    }
+    final completeWidths =
+        table.rows.isNotEmpty &&
+        table.rows.every(
+          (row) => row.cells.every(
+            (cell) => cell.widthTwips != null && cell.widthTwips! > 0,
+          ),
+        );
+    final width = completeWidths
+        ? table.rows
+                  .map(
+                    (row) =>
+                        row.originTwips +
+                        row.cells.fold<int>(
+                          0,
+                          (sum, cell) => sum + cell.widthTwips!,
+                        ),
+                  )
+                  .reduce((a, b) => a > b ? a : b) -
+              origin
+        : null;
+    final alignment = switch (table.alignment) {
+      LegacyWordAlignment.left => 'margin-inline-start:${_twips(origin)}pt;',
+      LegacyWordAlignment.center =>
+        'margin-inline-start:auto;margin-inline-end:auto;',
+      LegacyWordAlignment.right =>
+        'margin-inline-start:auto;margin-inline-end:0;',
+      _ => throw const FormatException('Invalid Word preview table alignment.'),
+    };
+    final unequalOrigins = table.rows.any((row) => row.originTwips != origin);
+    _write(
+      '<table${table.rightToLeft ? ' dir="rtl"' : ''}'
+      '${unequalOrigins ? ' data-word-table-grid="approximate"' : ''}'
+      ' style="border-collapse:collapse;table-layout:${table.autoFit ? 'auto' : 'fixed'};'
+      '$alignment${width == null ? '' : 'width:${_twips(width)}pt;'}"><tbody>',
+    );
+    for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      final row = rows[rowIndex], sourceRow = table.rows[rowIndex];
+      final height = sourceRow.heightTwips;
+      if (height != null && (height < -31680 || height > 31680)) {
+        throw const FormatException('Invalid Word preview row height.');
+      }
+      _write(
+        '<tr${height != null && height < 0 ? ' data-word-row-height="approximate-exact"' : ''}'
+        ' style="${sourceRow.cantSplit == true ? 'break-inside:avoid;' : ''}'
+        '${height == null || height == 0 ? '' : 'height:${_twips(height.abs())}pt;'}">',
+      );
       for (final cell in row) {
         final tag = cell.isHeader ? 'th' : 'td';
         final width = cell.widthTwips;
         final shading = _shading(cell.shading);
+        final decoration = _tableCellDecoration(
+          cell.source,
+          rightToLeft: table.rightToLeft,
+        );
         _write(
           '<$tag${cell.isHeader ? ' scope="col"' : ''}'
           '${cell.columnSpan > 1 ? ' colspan="${cell.columnSpan}"' : ''}'
           '${cell.rowSpan > 1 ? ' rowspan="${cell.rowSpan}"' : ''}'
-          '${shading.attributes}'
-          ' style="border:1px solid #888;vertical-align:top;padding:4px;'
+          '${shading.attributes}${decoration.attributes}'
+          ' style="${decoration.css.join(';')};'
           '${shading.css.isEmpty ? '' : '${shading.css.join(';')};'}'
           '${width != null && width > 0 ? 'width:${_twips(width)}pt;' : ''}">',
         );
@@ -821,6 +877,85 @@ class _HtmlWriter {
     }
     _write('</tbody></table>');
     _tableDepth--;
+  }
+
+  _HtmlDecoration _tableCellDecoration(
+    LegacyWordTableCell cell, {
+    required bool rightToLeft,
+  }) {
+    final format = cell.formatting;
+    final alignment = format.verticalAlignment ?? LegacyWordCellAlignment.top;
+    final css = <String>[
+      'vertical-align:${alignment == LegacyWordCellAlignment.center ? 'middle' : alignment.name}',
+      if (format.noWrap != null)
+        'white-space:${format.noWrap! ? 'pre' : 'pre-wrap'}',
+      if (format.noWrap == true) 'overflow-wrap:normal',
+    ];
+    var approximate = false;
+    String physical(String side) => !rightToLeft
+        ? side
+        : side == 'left'
+        ? 'right'
+        : side == 'right'
+        ? 'left'
+        : side;
+    for (final entry in format.borders.entries) {
+      final side = entry.key, border = entry.value;
+      if (side.index >= 4) {
+        if (border.style != 'none' && border.style != 'nil') approximate = true;
+        continue;
+      }
+      if (border.widthEighthPoints < 0 || border.widthEighthPoints > 255) {
+        throw const FormatException('Invalid Word cell border width.');
+      }
+      final line = switch (border.style) {
+        'none' || 'nil' => 'none',
+        'single' || 'thick' => 'solid',
+        'double' => 'double',
+        'dotted' => 'dotted',
+        'dashed' || 'dashSmallGap' || 'dotDash' || 'dotDotDash' => 'dashed',
+        _ => null,
+      };
+      if (line == null) {
+        approximate = true;
+      } else {
+        css.add(
+          'border-${physical(side.name)}:${border.widthEighthPoints / 8}pt $line '
+          '${border.colorHex != null && _color.hasMatch(border.colorHex!) ? '#${border.colorHex}' : 'currentColor'}',
+        );
+      }
+      if (border.shadow ||
+          border.frame ||
+          const {
+            'dotDash',
+            'dotDotDash',
+            'dashSmallGap',
+          }.contains(border.style)) {
+        approximate = true;
+      }
+    }
+    for (final entry in format.margins.entries) {
+      if (entry.key.index >= 4) continue;
+      final margin = entry.value ?? 0;
+      if (margin < 0 || margin > 31680) {
+        throw const FormatException('Invalid Word cell margin.');
+      }
+      css.add('padding-${physical(entry.key.name)}:${_twips(margin)}pt');
+    }
+    final direction = format.textDirection;
+    var attributes = approximate ? ' data-word-border="approximate"' : '';
+    if (direction != null && direction != LegacyWordCellTextDirection.lrTb) {
+      // Preserve an explicit marker until the preview has a verified vertical
+      // layout engine. A generic CSS rotation cannot reproduce Word's modes.
+      attributes += ' data-word-cell-text-direction="${direction.name}"';
+    }
+    if (format.fitText == true) {
+      attributes += ' data-word-cell-fit-text="approximate"';
+    }
+    if (format.hideMark == true) {
+      attributes += ' data-word-cell-hide-mark="approximate"';
+    }
+    return _HtmlDecoration(css, attributes);
   }
 
   void _text(String text) {
@@ -871,7 +1006,9 @@ class _HtmlCell {
     required this.columnSpan,
     required this.widthTwips,
     required this.shading,
+    required this.source,
   });
+  final LegacyWordTableCell source;
   final List<LegacyWordBlock> blocks;
   final bool isHeader;
   final int columnSpan;

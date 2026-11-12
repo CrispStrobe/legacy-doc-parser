@@ -242,9 +242,9 @@ void main() {
   );
 
   test('independent Word14 binary contains zero-valued margin FOPT', () {
-    // The fixture's unrelated textbox-story failure is recorded in the
-    // evidence receipt. This assertion reads only the original bounded table
-    // bytes; it does not claim that the whole document can be imported.
+    // This source observation is independent of the production enum reader.
+    // Whole-document handling and the ignored spare-range recovery have their
+    // own tests in legacy_word_textbox_spare_test.dart.
     final file = BoundedCfbReader(
       File(
         'test/fixtures/word_native/word14-margin-origin.doc',

@@ -2,7 +2,7 @@
 
 The following files are unmodified public LibreOffice QA fixtures, renamed
 only to identify their purpose here. Credit belongs to the LibreOffice
-contributors. The upstream Mozilla Public License2.0 is reproduced in
+contributors. The upstream Mozilla Public License 2.0 is reproduced in
 `COPYING.LibreOffice`; upstream source and licensing are available from
 https://github.com/LibreOffice/core/tree/9a3be2502bf7762400fd0b655b6e42714cf2bb36.
 
@@ -11,9 +11,9 @@ https://github.com/LibreOffice/core/tree/9a3be2502bf7762400fd0b655b6e42714cf2bb3
 | word14-margin-origin.doc | sw/qa/extras/ww8export/data/tdf101826_xattrTextBoxFill.doc | 206f4830958aac1e3fa429b74edd4697d5876f13 |
 | word16-page-origin.doc | sw/qa/extras/ww8import/data/tdf124601.doc | a07bae1f01494e746f56591a7afaf20ab8c4c958 |
 
-These files identify Microsoft Office Word14.0 and16.0 in their own property
+These files identify Microsoft Office Word 14.0 and 16.0 in their own property
 sets. They support the raw position-enum investigation; they are not evidence
-that Microsoft Word was run in this environment. The Word14 source currently
-exposes an unrelated textbox-range import limitation. SHA256 hashes and exact
+that Microsoft Word was run in this environment. The Word 14 source exercises the explicitly diagnosed recovery of its global
+textbox spare-range sentinel. SHA256 hashes and exact
 raw-property observations are recorded in
 `doc/evidence/officeart-position-sources.json`.

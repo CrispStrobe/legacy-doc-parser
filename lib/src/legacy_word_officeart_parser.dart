@@ -328,6 +328,18 @@ class _OfficeArtShapeReader {
     final points = <LegacyWordOfficeArtPoint>[];
     pointCount = array.$2;
     for (var i = 0; i < array.$2; i++) {
+      if (array.$3 == 4) {
+        // pVertices' 0xFFF0 form stores two signed 16-bit coordinates. Both
+        // native DOC playback and an independently implemented OfficeArt
+        // producer confirm this POINT-specific interpretation of IMsoArray.
+        points.add(
+          LegacyWordOfficeArtPoint(
+            array.$1.i16(i * 4),
+            array.$1.i16(i * 4 + 2),
+          ),
+        );
+        continue;
+      }
       final x = array.$1.u32(i * 8), y = array.$1.u32(i * 8 + 4);
       if ((x >= 0x80000000 && x <= 0x8000007f) ||
           (y >= 0x80000000 && y <= 0x8000007f)) {
@@ -454,7 +466,7 @@ class _OfficeArtShapeReader {
     return LegacyWordOfficeArtGeometry(bounds: bounds, path: path);
   }
 
-  (_Bytes, int)? _array(Uint8List bytes, int id, int size, int limit) {
+  (_Bytes, int, int)? _array(Uint8List bytes, int id, int size, int limit) {
     final input = _Bytes(bytes);
     final count = input.u16(0), allocated = input.u16(2);
     final storedSize = input.u16(4);
@@ -465,10 +477,14 @@ class _OfficeArtShapeReader {
     if (actualSize == 0 || input.length != 6 + count * actualSize) {
       throw const FormatException('Invalid OfficeArt array extent.');
     }
-    if (storedSize != size) {
-      unsupported.add(id); // Truncated POINT encoding is retained, not guessed.
+    final packedPoints = id == 0x0145 && storedSize == 0xfff0;
+    if ((storedSize != size && !packedPoints) || (packedPoints && type == 19)) {
+      // Arc presets use a different unsigned packed-coordinate convention in
+      // native readers. Keep that unverified case inert instead of applying
+      // the signed custom-path interpretation to it.
+      unsupported.add(id);
       return null;
     }
-    return (_Bytes(input.slice(6, input.length - 6)), count);
+    return (_Bytes(input.slice(6, input.length - 6)), count, actualSize);
   }
 }

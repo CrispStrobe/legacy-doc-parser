@@ -28,13 +28,27 @@ EXPECTED_CASES = frozenset([
     *(f"table-borders/{name}" for name in (
         "old-after", "old-before", "old-nil", "old-explicit", "modern-after", "modern-before",
         "modern-nil", "modern-explicit", "range-nil", "range-none", "interior-colors", "row-reset")),
+    *(f"table-operations/{name}" for name in (
+        "delete-resize", "merge", "split", "rtl-physical-left", "rtl-physical-center",
+        "rtl-physical-right", "rtl-logical-left", "rtl-logical-center", "rtl-logical-right",
+        "row-exceptions", "style-identities", "indirect-cache")),
+    *(f"list-sequences/{name}" for name in (
+        "shared-counter", "explicit-start", "format-continue", "same-instance-ancestor",
+        "never-restart", "legal-decimal-zero", "hidden-marker")),
     *(f"shapes/{name}" for name in ("rect", "ellipse", "line", "custom")),
     *(f"shapes/line-{axis}-{flip}" for axis in ("h", "v") for flip in ("none", "x", "y", "xy")),
     *(f"metafiles/{kind}-{mode}" for kind in ("emf32", "emf16", "wmf")
       for mode in ("alternate", "winding")),
+    *(f"packed-shapes/{encoding}-{flip}" for encoding in
+      ("full", "packed", "packed-header-excluded") for flip in ("none", "xy")),
+    *(f"note-formats/note-formats-{name}" for name in (
+        "east-asian-sepx", "korean-sepx", "rtl-dop", "south-asian-dop", "cyrillic-sepx",
+        "none-sepx", "fallback-sepx", "unknown-sepx", "revision")),
     "reviews/numbering-change", "reviews/numbering-insertion",
     "reviews/listnum-display-change", "section-review",
     "native-inputs/formatting", "native-inputs/linked-textboxes",
+    "native-inputs/word14-margin-origin", "native-inputs/word16-page-origin",
+    "native-inputs/poi-simple-table2",
 ])
 PACKAGES = (
     ("DocumentFormat.OpenXml", "3.3.0",

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'bounded_cfb_reader.dart';
 import 'compound/cfbf_writer.dart';
 import 'legacy_word_metafile.dart';
+import 'legacy_word_number_formats.dart';
 import 'legacy_word_numbering.dart';
 import 'legacy_word_structured_model.dart';
 import 'legacy_word_structured_render.dart';
@@ -20,6 +21,7 @@ part 'legacy_word_stories.dart';
 part 'legacy_word_fields.dart';
 part 'legacy_word_lists.dart';
 part 'legacy_word_tables.dart';
+part 'legacy_word_table_operations.dart';
 part 'legacy_word_table_styles.dart';
 part 'legacy_word_table_text.dart';
 part 'legacy_word_media_parser.dart';
@@ -318,6 +320,7 @@ class _StructuredWordParser {
     final operations = _decodeSprms(
       bytes,
       budget,
+      stopAtTableProperties: true,
       onPapxOrphanByte: recoverPapxOrphanByte
           ? () {
               warnings.add(LegacyWordWarning.recoveredNonconformingProperties);
@@ -348,20 +351,27 @@ class _StructuredWordParser {
         continue;
       }
       final offset = operation.data.u32(0);
+      final data = source.data;
+      final length = data.u16(offset);
+      if (operation.code == 0x646b && length < 10) {
+        throw const FormatException('Invalid Word indirect table properties.');
+      }
       final cached = _indirectProperties[offset];
       if (cached != null) {
         append(cached);
+        if (operation.code == 0x646b) break;
         continue;
       }
       if (!_indirectActive.add(offset)) {
         throw const FormatException('Cyclic Word indirect properties.');
       }
-      final data = source.data;
-      final length = data.u16(offset);
       final nested = _readProperties(data.slice(offset + 2, length), depth + 1);
       _indirectActive.remove(offset);
       _indirectProperties[offset] = nested;
       append(nested);
+      // PTableProps replaces the remainder of its containing array; older
+      // table properties after it are intended for readers without styles.
+      if (operation.code == 0x646b) break;
     }
     return output;
   }

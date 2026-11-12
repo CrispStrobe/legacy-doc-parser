@@ -839,6 +839,7 @@ extension _WordStories on _StructuredWordWriter {
         case LegacyWordWarning.recoveredEmptySection:
         case LegacyWordWarning.recoveredTextboxChainLength:
         case LegacyWordWarning.terminalMarkFormattingUnavailable:
+        case LegacyWordWarning.recoveredGlobalTextboxSentinel:
           limitations.add(LegacyWordConversionLimitation.partialFormatting);
         case LegacyWordWarning.numberingNotReconstructed:
           limitations.add(LegacyWordConversionLimitation.fieldsLists);
@@ -861,6 +862,7 @@ extension _WordStories on _StructuredWordWriter {
         case LegacyWordWarning.headersFootersOmitted:
           limitations.add(LegacyWordConversionLimitation.headersFooters);
         case LegacyWordWarning.notesOmitted:
+        case LegacyWordWarning.unsupportedNoteNumberFormat:
           limitations.add(LegacyWordConversionLimitation.notesComments);
         case LegacyWordWarning.commentsOmitted:
           limitations.add(LegacyWordConversionLimitation.notesComments);

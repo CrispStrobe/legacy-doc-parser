@@ -49,3 +49,21 @@ Complete OfficeArt, GDI, ink, pagination and review behavior is not established
 by these reconciliations. The feature ledger and native reports retain the
 remaining gaps and distinguish source retention, editable output, schema
 validity and renderer agreement.
+
+## Later saved continuation through 2d490e5
+
+The separately saved oracle branch advanced to
+`2d490e5490f7d549deb36573a5ac26fc5f875cfa` during reconciliation. Its additional
+production change uses the lowercase VML dash keywords already present in this
+writer. Both sets of progress are retained in merge ancestry. Its complete
+native reports, source receipts, reviewed image and acceptance ledger are kept
+byte-for-byte under [the historical evidence archive](evidence/recovered-2d490e5/README.md).
+Those reports describe their original source tree and renderer; they are not
+relabelled as validation of the reconciled tree. New native measurements and
+schema checks use explicit new source identities.
+
+The reconciled schema inventory now includes bounded packed OfficeArt POINT
+encodings, table mutations and row exceptions, list counter transitions,
+international note formats, and three unmodified Word/POI documents. Schema
+validity is checked separately from pixels, editable semantics, and source
+recovery warnings. The native fidelity corpus includes 22 source documents.
