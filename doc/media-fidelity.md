@@ -41,6 +41,17 @@ subset of EMF and WMF. It supports solid/null pens and brushes, lines,
 polygons, rectangles, rounded rectangles, ellipses, and EMF cubic Beziers,
 including 16-bit point records. It follows object handles, saved device
 contexts, window/viewport transforms, and EMF affine world transforms.
+Compound `EMR_POLYPOLYGON` / `EMR_POLYPOLYGON16`,
+`EMR_POLYPOLYLINE` / `EMR_POLYPOLYLINE16`, and WMF `META_POLYPOLYGON`
+use bounded count arrays and one compound SVG path. This preserves alternate
+and winding fill across nested or overlapping figures. Separate figures do
+not acquire connecting lines, and these records do not alter the current
+drawing point. Declared EMF totals must equal their per-figure counts.
+Compound records are capped at 16,384 figures and share the cumulative point
+budget. The 32-bit EMF variants exceeding the documented largest 16K-point
+device limit have no asserted complete preview. WMF selections use actual
+object-table indices; the EMF high-bit stock-object convention is not applied
+to WMF indices.
 The result is a geometric preview, not a promise of pixel-identical GDI
 rasterization or native font metrics.
 
@@ -58,6 +69,18 @@ colors. It never copies source markup, URLs, scripts, font files or external
 resources. Preview limits add 100,000 cumulative points, 64 saved contexts,
 8 MiB of generated text, and finite bounded transforms. Generated previews
 also count toward the retained-media budget.
+
+The compound-fill native probe checks both EMF coordinate widths and WMF
+with independently authored nested rectangles. The native embedded metafile
+and generated SVG must both leave the center white in alternate mode and
+black in winding mode. Those interior-color assertions check actual drawing
+semantics; they do not certify all edge pixels or absolute image placement.
+The command requires installed LibreOffice, Poppler and PyMuPDF.
+
+```
+python3 tool/fidelity/metafile_render.py --office /path/to/soffice \
+  --dart /path/to/dart --output build/metafile-render
+```
 
 ## OfficeArt shape and text-box model
 
@@ -226,3 +249,8 @@ are capped at 16,384 elements, with 100,000 aggregate geometry points.
 - [MS-ODRAW line-join default](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/bd76cb1d-aac3-4913-a053-f3bf4a9ee52b)
 - [MS-ODRAW line-cap default](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/7bc33ac1-15bf-4bbc-8348-34371449faf1)
 - [MS-ODRAW horizontal shadow offset](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/364ecedd-9a50-4f78-bc9c-20718d2e621b)
+- [MS-EMF PolyPolygon](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/c60ff127-2711-42d3-85d4-502ca2e4caef)
+- [MS-EMF PolyPolyline](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/e23f75fd-3af6-49f3-8c86-ef121ff61701)
+- [MS-WMF PolyPolygon object](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wmf/cf1ac7c0-749d-4678-b32c-6f68d2a5f268)
+- [GDI polygon fill modes](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-setpolyfillmode)
+- [MS-WMF object selection](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wmf/59b4b6f3-40db-4685-8eda-3be3e4196fb2)
