@@ -9,7 +9,7 @@ every Word document or every renderer.
 | --- | --- | --- | --- |
 | Pagination | Paragraph keep/widow/wrapping flags; section/page breaks; unequal columns; line/page numbering; 59 fixed note-label formats and placement; source compatibility settings; table origins, row heights and splitting | Twenty-two pinned original/binary/native-DOCX/parser-DOCX comparisons with three requested cycles; page text, word boxes and raster hashes; nine authored table-origin cases, including nesting and custom margins | Exact pagination across arbitrary fonts, shaping, field evaluation, wrapping, notes, tables and Office versions. Equal page counts alone are insufficient. |
 | OfficeArt | Editable rectangles, ellipses, lines and bounded move/line/cubic/close paths, including full and packed POINT encodings; supported explicit paint, opacity, line and shadow properties; bounded picture-frame flips and absolute quarter turns; source evidence for unsupported geometry/effects | PDF-vector endpoints, curves, colors and widths compared with authored expectations; six packed/full variants; independent Word position records; nine image-appearance controls, eight RGB exact | Arbitrary presets, adjustment formulas, complex groups/transforms, 3D, warp, and unimplemented effects. Unsupported effects are not silently replaced with a plain shape. |
-| Metafiles | Bounded EMF/WMF payload validation and native image preservation; supported vector SVG previews, including compound polygons and polylines with alternate/winding fills | Real native PDF versus SVG interior-color assertions for EMF32, EMF16 and WMF; malformed record, object-table and aggregate-point tests | Complete GDI text, bitmap, clipping, brush, transform and raster-operation behavior. An unknown preview record invalidates the whole preview rather than disappearing. |
+| Metafiles | Bounded EMF/WMF payload validation and native image preservation; supported vector SVG previews, including compound polygons/polylines, alternate/winding fills, arcs, chords, pies, drawing direction and saved drawing state | Real native PDF versus SVG interior-color assertions for EMF32, EMF16 and WMF; fifteen independent native arc geometry/color controls; malformed record, object-table and aggregate-point tests | Complete GDI text, bitmap, clipping, brush, transform and raster-operation behavior. An unknown preview record invalidates the whole preview rather than disappearing. |
 | Table styles | Table-style inheritance, all twelve conditional regions, supported cell borders/shading/margins, table mutations, indirect property streams, preferred-width units and context-sensitive no-wrap, row alignment/autofit exceptions; contextual paragraph/run properties applied before run coalescing; false/default resets | Independently assembled binary styles and PCnf/CCnf records; native style XML; source and nested-table render probes; external schema checks | Every table property and interacting conditional rule. Relative toggles may require resolved direct formatting plus an explicit native-style limitation. Properties not valid in style XML remain diagnosed. |
 | Linked textboxes | Validated story chains, one owner for shared text, source margins/flow/wrap/alignment, narrowly corroborated native chain-length recovery; range separators excluded while intentional blank paragraphs remain | Resize probe verifies that markers actually move between boxes, appear once, and remain in order; fourteen main/header boundary controls cover empty content and leading/interior/trailing blanks; placement measured separately | General grouped/overlapping textbox layout, all wrapping interactions and paint effects. Native header cases that reference one story from separate frames still require explicit chain resolution. The former 72-point translation is corrected: measured marker drift is 0.0pt; the compact source retains five one-level RGB pixel differences, while the extended source is RGB-exact. |
 | Comments and ink | Native parent/reply relationships; bounded IMsoInkData envelope extraction; immutable ISF bytes and flags retained as inert occurrence evidence | Independent comment graph and missing-parent tests; forged GUID/length, version/extent, use-bit inheritance, and no-invented-comment-link tests | Resolved/done state is not reconstructed from binary records that contain no such field. Rendering/editing nonempty ink strokes, full ink/comment association, and all modern threaded-comment extensions remain open. The ink fixture proves envelope/header handling only. |
@@ -17,6 +17,27 @@ every Word document or every renderer.
 | Revisions | Supported inserted/deleted text and paragraph marks; run/paragraph/section formatting history; numbering NumRM history; LISTNUM display revisions; bounded row height/split/header property history; author/time and source evidence | Independent accepted/rejected text projections, previous-property checks, native section probe and six exact row accept/reject layouts; malformed/hidden/private history tests | Complete move, table/object, cross-story and overlapping revision semantics, every prior-property payload, and editor-level accept/reject behavior. Header revisions that can change conditional formatting remain diagnosed evidence. Reserved binary fields are not interpreted as move identities. |
 
 ## Evidence is versioned
+
+The [current clean 7308125 checkpoint](evidence/continuation-7308125/README.md)
+passes 725 Dart tests, 130 Python controls, 51 JavaScript media checks plus
+document browser acceptance, and 196 required DOCX schema outputs with zero
+errors. Its [complete native corpus](evidence/native-corpus-7308125/README.md)
+retains all 22 cases and 66 repeat imports without execution/import errors,
+including 2,438 archived files and 222 verified compressed raster pages. All
+initial and repeat page counts match. Six initial renders are exact; 47/66
+cycles are exact relative to the preceding parser import and 37/66 relative to
+the first. All strict structural comparisons still differ. Both source goldens
+reproduce, while only one of the two parser outputs matches its source golden.
+
+The current runtime recovers a closed native header/footer table only at its
+exact declared story boundary with the existing guard present. The
+[four native controls](evidence/header-table-boundary-20261112/README.md)
+retain exact relative table geometry and the remaining 0.35 pt absolute
+placement differences. A proposed textbox table-depth reset passed schema
+validation but caused a 12 pt native-source regression; it was
+[retracted with its counterexample retained](evidence/textbox-table-context-20261112/README.md).
+The [continuation handoff](continuation-20261112.md) records the exact app/parser
+pins, integration results and remaining priorities.
 
 The [solid-shape context control](officeart-context.md) now retains all three
 editable shapes in its native DOC. Ordered geometry agrees within 0.1 pt, while
