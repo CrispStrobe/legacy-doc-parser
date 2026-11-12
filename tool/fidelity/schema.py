@@ -88,6 +88,11 @@ EXPECTED_CASES = frozenset([
     "native-inputs/poi-simple-table2",
     "native-inputs/word16-page-origin-lo-blip-count",
     "native-inputs/officeart-shapes",
+    "native-inputs/note-table-ending", "native-inputs/note-floating-table",
+    "native-inputs/shared-header-textbox-paragraph",
+    "native-inputs/shared-header-textbox-table",
+    "native-inputs/header-textbox-page-variants",
+    "native-inputs/bookmarks-native-hyperlink",
     *(f"native-inputs/{kind}-ending-{ending}" for kind in ("header", "footer")
       for ending in ("paragraph", "table")),
     *(f"textbox-boundary/textbox-{story}-{kind}" for story in ("main", "header")
