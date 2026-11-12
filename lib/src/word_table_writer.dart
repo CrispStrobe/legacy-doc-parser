@@ -75,7 +75,11 @@ extension _WordTableWriter on _StructuredWordWriter {
     } else {
       _xml.add('<w:tblGrid/>');
     }
-    for (final row in table.rows) {
+    final conditionalFormatting = _tableHeaderHistoryHasConditionalFormatting(
+      table,
+    );
+    for (var rowIndex = 0; rowIndex < table.rows.length; rowIndex++) {
+      final row = table.rows[rowIndex];
       _countBreak();
       _xml.add('<w:tr>');
       final rowAlignment = row.alignment ?? table.alignment;
@@ -100,39 +104,36 @@ extension _WordTableWriter on _StructuredWordWriter {
           row.originTwips +
           row.cells.fold<int>(0, (sum, cell) => sum + (cell.widthTwips ?? 0));
       final after = canWriteGrid ? edges.length - 1 - edgeIndices[rowEnd]! : 0;
-      if (row.isHeader ||
+      final headerRequest = row.sourceHeaderRequest ?? row.isHeader;
+      if (headerRequest ||
           before != 0 ||
           after != 0 ||
           row.heightTwips != null ||
-          row.cantSplit != null) {
+          row.cantSplit != null ||
+          row.formattingRevision != null) {
         _xml.add('<w:trPr>');
-        if (before != 0) {
-          _xml.add(
-            '<w:gridBefore w:val="$before"/>'
-            '<w:wBefore w:w="${row.originTwips - origin}" w:type="dxa"/>',
-          );
-        }
-        if (after != 0) {
-          _xml.add(
-            '<w:gridAfter w:val="$after"/>'
-            '<w:wAfter w:w="${edges.last - rowEnd}" w:type="dxa"/>',
-          );
-        }
-        if (row.heightTwips case final height?) {
-          if (height < -31680 || height > 31680) {
-            throw const FormatException('Invalid Word table row height.');
-          }
-          final rule = height == 0
-              ? 'auto'
-              : height < 0
-              ? 'exact'
-              : 'atLeast';
-          _xml.add('<w:trHeight w:val="${height.abs()}" w:hRule="$rule"/>');
-        }
-        if (row.cantSplit case final value?) {
-          _xml.add('<w:cantSplit w:val="${value ? 'on' : 'off'}"/>');
-        }
-        if (row.isHeader) _xml.add('<w:tblHeader/>');
+        _tableRowProperties(
+          LegacyWordTableRowProperties(
+            heightTwips: row.heightTwips,
+            cantSplit: row.cantSplit,
+            isHeader: headerRequest,
+          ),
+          before: before,
+          after: after,
+          widthBefore: row.originTwips - origin,
+          widthAfter: edges.last - rowEnd,
+        );
+        _tableRowFormattingRevision(
+          row,
+          tableStartCp: table.startCp,
+          rowIndex: rowIndex,
+          gridKnown: canWriteGrid,
+          tableHasConditionalFormatting: conditionalFormatting,
+          before: before,
+          after: after,
+          widthBefore: row.originTwips - origin,
+          widthAfter: edges.last - rowEnd,
+        );
         _xml.add('</w:trPr>');
       }
       var offset = row.originTwips;

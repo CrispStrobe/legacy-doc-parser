@@ -419,6 +419,7 @@ void _applyParagraph(
   for (final operation in operations) {
     if (operation.group != 1 && operation.group != 5) continue;
     budget.apply();
+    _trackTableRevisionOperation(operation, output);
     if (_applyParagraphLayout(operation, output)) continue;
     final value = operation.data;
     switch (operation.code) {
@@ -500,6 +501,13 @@ void _applyParagraph(
         output['inTable'] = depth != 0;
       case 0x3404:
         output['rowHeader'] = _boolean(value);
+      case 0x3668:
+        output['tableRevisionSnapshot'] = _boolean(value)
+            ? _TableRowRevisionSnapshot(output)
+            : null;
+        output.remove('tableRevisionUnsupportedOperations');
+      case 0xd667:
+        _applyPropertyRevision(value, output, 'table');
       case 0x3403:
         output['tableCantSplit90'] = _boolean(value);
       case 0x3466:
@@ -843,6 +851,9 @@ void _applyParagraph(
       // reported rather than being represented as a different formatting.
       default:
         if (operation.group == 1) output['_unsupportedParagraph'] = true;
+        if (operation.group == 5) {
+          output['tableRevisionUnknownProperties'] = true;
+        }
         warnings.add(LegacyWordWarning.unsupportedFormatting);
     }
   }

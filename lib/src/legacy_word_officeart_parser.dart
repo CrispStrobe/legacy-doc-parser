@@ -202,6 +202,13 @@ class _OfficeArtShapeReader {
       0x023f,
     };
     for (final id in {...p.keys, ...properties.complex.keys}) {
+      // Coordinate/flip properties outside the resolved FSP flags and scalar
+      // rotation can change a transform. Retain them as unsupported instead
+      // of emitting a transform that silently overrides those source fields.
+      if ((id <= 0x003f && id != 0x0004) ||
+          (id == 0x0004 && properties.complex.containsKey(id))) {
+        unsupported.add(id);
+      }
       if (id >= 0x0140 && id <= 0x02ff && !mapped.contains(id)) {
         unsupported.add(id);
       }

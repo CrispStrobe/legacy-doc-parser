@@ -116,6 +116,13 @@ gradients, pattern fills, perspective/3-D settings and unmapped appearance
 properties remain explicit `unsupportedProperties`, never relabeled as a
 plain RGB style. Parsed data and native rendering support are separate.
 
+Ordinary image frames now have a separately verified DrawingML appearance
+path for FSP flips, absolute floating quarter turns, direct solid outlines
+and simple offset shadows. Its independent authored/native controls, exact
+results and remaining vertical-flip raster difference are recorded in
+[image-appearance.md](image-appearance.md). This does not relax the editable
+shape gate below or claim arbitrary OfficeArt effects.
+
 ### Editable native shape output
 
 Resolved rectangles, ellipses, lines, and custom move/line/cubic/close paths

@@ -52,6 +52,8 @@ EXPECTED_CASES = frozenset([
         "range-asymmetric",
         "grid-asymmetric-control",
     )),
+    *(f"table-reviews/table-review-{kind}-{state}" for kind in
+      ("height", "split", "header") for state in ("review", "accepted", "rejected")),
     *(f"list-sequences/{name}" for name in (
         "shared-counter", "explicit-start", "format-continue", "same-instance-ancestor",
         "never-restart", "legal-decimal-zero", "hidden-marker")),
@@ -59,6 +61,17 @@ EXPECTED_CASES = frozenset([
     *(f"shapes/line-{axis}-{flip}" for axis in ("h", "v") for flip in ("none", "x", "y", "xy")),
     *(f"metafiles/{kind}-{mode}" for kind in ("emf32", "emf16", "wmf")
       for mode in ("alternate", "winding")),
+    *(f"image-appearance/{name}" for name in (
+        "inline-horizontal",
+        "floating-control",
+        "floating-horizontal",
+        "floating-vertical",
+        "floating-both",
+        "floating-quarter",
+        "floating-negative-quarter",
+        "floating-margin-quarter",
+        "floating-outline-shadow",
+    )),
     *(f"packed-shapes/{encoding}-{flip}" for encoding in
       ("full", "packed", "packed-header-excluded") for flip in ("none", "xy")),
     *(f"note-formats/note-formats-{name}" for name in (
@@ -100,7 +113,8 @@ def source_snapshot(root: Path = ROOT) -> dict:
     paths = set()
     for pattern in ("lib/**/*.dart", "test/support/**/*.dart", "tool/fidelity/*.dart",
                     "tool/fidelity/schema.py", "tool/office-validation/*",
-                    "test/fixtures/word_native/*.doc", "pubspec.yaml", "pubspec.lock",
+                    "test/fixtures/word_native/*.doc", "test/fixtures/fidelity/image-appearance/**/*",
+                    "pubspec.yaml", "pubspec.lock",
                     ".dart_tool/package_config.json"):
         paths.update(path for path in root.glob(pattern) if path.is_file())
     files = {path.relative_to(root).as_posix(): sha(path) for path in sorted(paths)}

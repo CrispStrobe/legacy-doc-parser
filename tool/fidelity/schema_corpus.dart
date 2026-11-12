@@ -5,10 +5,11 @@ import 'dart:io';
 
 import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 
-import 'metafile_probe.dart' as metafiles;
-import 'packed_shape_probe.dart' as packed_shapes;
-import 'note_format_fixture.dart' as note_formats;
+import 'image_appearance_probe.dart' as image_appearance;
 import 'list_sequence_fixture.dart' as list_sequences;
+import 'metafile_probe.dart' as metafiles;
+import 'note_format_fixture.dart' as note_formats;
+import 'packed_shape_probe.dart' as packed_shapes;
 import 'review_schema_fixture.dart' as reviews;
 import 'section_review_fixture.dart' as sections;
 import 'shape_probe.dart' as shapes;
@@ -16,6 +17,7 @@ import 'table_borders_fixture.dart' as table_borders;
 import 'table_layout_fixture.dart' as table_layout;
 import 'table_origin_fixture.dart' as origins;
 import 'table_operations_fixture.dart' as table_operations;
+import 'table_review_fixture.dart' as table_reviews;
 import 'table_text_fixture.dart' as table_text;
 import 'table_width_fixture.dart' as table_width;
 
@@ -25,6 +27,7 @@ void main(List<String> arguments) {
       'Usage: dart run tool/fidelity/schema_corpus.dart NEW_DIR',
     );
   }
+  final repository = File.fromUri(Platform.script).parent.parent.parent;
   final root = Directory(arguments.single).absolute;
   if (root.existsSync()) throw ArgumentError('Output already exists.');
   root.createSync(recursive: true);
@@ -160,6 +163,18 @@ void main(List<String> arguments) {
       'tool/fidelity/table_width_fixture.dart',
     );
   }
+  table_reviews.main(['${root.path}/table-reviews']);
+  for (final kind in ['height', 'split', 'header']) {
+    for (final state in ['review', 'accepted', 'rejected']) {
+      final name = 'table-review-$kind-$state';
+      record(
+        'table-reviews/$name',
+        'table-reviews/$name.doc',
+        'table-reviews/$name.docx',
+        'tool/fidelity/table_review_fixture.dart',
+      );
+    }
+  }
   list_sequences.main(['${root.path}/list-sequences']);
   for (final name in [
     'shared-counter',
@@ -204,6 +219,31 @@ void main(List<String> arguments) {
         'tool/fidelity/metafile_probe.dart',
       );
     }
+  }
+  image_appearance.main([
+    '${repository.path}/test/fixtures/fidelity/image-appearance/binary',
+    '${root.path}/image-appearance',
+  ]);
+  for (final name in [
+    'inline-horizontal',
+    'floating-control',
+    'floating-horizontal',
+    'floating-vertical',
+    'floating-both',
+    'floating-quarter',
+    'floating-negative-quarter',
+    'floating-margin-quarter',
+    'floating-outline-shadow',
+  ]) {
+    File(
+      '${repository.path}/test/fixtures/fidelity/image-appearance/binary/$name.doc',
+    ).copySync('${root.path}/image-appearance/$name.doc');
+    record(
+      'image-appearance/$name',
+      'image-appearance/$name.doc',
+      'image-appearance/$name.docx',
+      'tool/fidelity/image_appearance_probe.dart',
+    );
   }
   packed_shapes.main(['${root.path}/packed-shapes']);
   for (final flip in ['none', 'xy']) {
@@ -261,7 +301,6 @@ void main(List<String> arguments) {
     'section-review.docx',
     'tool/fidelity/section_review_fixture.dart',
   );
-  final repository = File.fromUri(Platform.script).parent.parent.parent;
   Directory('${root.path}/native-inputs').createSync();
   for (final name in [
     'formatting',

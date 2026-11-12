@@ -68,6 +68,8 @@ extension _WordTables on _StructuredWordParser {
           tableProperties ??= properties;
           rows.add(
             LegacyWordTableRow(
+              sourceHeaderRequest: properties['rowHeader'] as bool?,
+              formattingRevision: _tableRowRevision(properties),
               alignment: _tableAlignment(properties),
               autoFit: properties['tableAutoFit'] == true,
               originTwips:
@@ -143,6 +145,7 @@ extension _WordTables on _StructuredWordParser {
           rowCursor = cursor;
           lastRowEnd = end;
         } else {
+          _unplacedTableRowRevision(properties);
           cell.add(paragraph);
           if (cellEnd) {
             cells.add(cell);
@@ -173,6 +176,7 @@ extension _WordTables on _StructuredWordParser {
     while (cursor < paragraphs.length) {
       final item = paragraphs[cursor];
       if (depthOf(item) == 0) {
+        _unplacedTableRowRevision(item.properties);
         if (item.properties['rowEnd'] == true ||
             item.properties['innerRowEnd'] == true ||
             item.properties['innerCellEnd'] == true) {

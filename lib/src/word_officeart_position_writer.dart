@@ -63,7 +63,11 @@ extension _WordOfficeArtPositionWriter on _StructuredWordWriter {
         '${position.vertical < 3 ? ' anchory="${origins[position.vertical]}"' : ''}';
   }
 
-  void _officeArtDrawingPosition(LegacyWordDrawing drawing) {
+  void _officeArtDrawingPosition(
+    LegacyWordDrawing drawing, {
+    int? horizontalOffsetEmu,
+    int? verticalOffsetEmu,
+  }) {
     final position = _officeArtPosition(drawing);
     const horizontal = ['margin', 'page', 'column', 'character'];
     const vertical = ['margin', 'page', 'paragraph', 'line'];
@@ -80,7 +84,7 @@ extension _WordOfficeArtPositionWriter on _StructuredWordWriter {
       _xml.add('<wp:position$name relativeFrom="$origin">');
       _xml.add(
         mode == 0
-            ? '<wp:posOffset>${offset * 635}</wp:posOffset>'
+            ? '<wp:posOffset>$offset</wp:posOffset>'
             : '<wp:align>$align</wp:align>',
       );
       _xml.add('</wp:position$name>');
@@ -91,14 +95,14 @@ extension _WordOfficeArtPositionWriter on _StructuredWordWriter {
       horizontal[position.horizontal],
       position.horizontalMode,
       horizontalModes[position.horizontalMode],
-      drawing.leftTwips,
+      horizontalOffsetEmu ?? drawing.leftTwips * 635,
     );
     axis(
       'V',
       vertical[position.vertical],
       position.verticalMode,
       verticalModes[position.verticalMode],
-      drawing.topTwips,
+      verticalOffsetEmu ?? drawing.topTwips * 635,
     );
   }
 }

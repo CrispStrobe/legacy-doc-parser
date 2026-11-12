@@ -201,6 +201,60 @@ Map<String, Object> verifyMediaWebAcceptance() {
     converted.preservedCounts['editableShapes'] == 1,
     'editable shape preservation report',
   );
+  final imageResult = convertLegacyWord(
+    floatingPictureWordFixture(
+      anchorBounds: (-120, 240, 600, 1680),
+      shapeFlags: 0x0ac0,
+      imageProperties: {
+        4: -90 * 65536,
+        0x0390: 1,
+        0x0392: 1,
+        0x01ff: 0x80008,
+        0x01c0: 0x332211,
+        0x01cb: 25400,
+        0x01ce: 2,
+        0x023f: 0x20002,
+        0x0201: 0x665544,
+        0x0204: 49152,
+        0x0205: -12700,
+        0x0206: 0,
+      },
+    ),
+  );
+  final imageXml = XmlDocument.parse(
+    utf8.decode(
+      ZipDecoder()
+          .decodeBytes(imageResult.bytes)
+          .findFile('word/document.xml')!
+          .content,
+    ),
+  );
+  final imageTransform = imageXml.findAllElements('a:xfrm').single;
+  check(
+    imageTransform.getAttribute('rot') == '16200000' &&
+        imageTransform.getAttribute('flipH') == '1' &&
+        imageTransform.getAttribute('flipV') == '1',
+    'signed picture-frame quarter turn and independent FSP flips',
+  );
+  check(
+    imageTransform.findElements('a:ext').single.getAttribute('cx') ==
+            '914400' &&
+        imageXml.findAllElements('wp:positionH').single.innerText == '-304800',
+    'quarter-turn source center and pre-rotation extent under JavaScript',
+  );
+  check(
+    imageXml.findAllElements('a:ln').single.getAttribute('w') == '25400' &&
+        imageXml.findAllElements('a:prstDash').single.getAttribute('val') ==
+            'sysDot',
+    'direct DrawingML image outline',
+  );
+  final shadow = imageXml.findAllElements('a:outerShdw').single;
+  check(
+    shadow.getAttribute('dist') == '12700' &&
+        shadow.getAttribute('dir') == '10800000' &&
+        shadow.findAllElements('a:alpha').single.getAttribute('val') == '75000',
+    'signed image shadow distance, direction and opacity',
+  );
   return {
     'checks': checks,
     'recordCounts': recordCounts,

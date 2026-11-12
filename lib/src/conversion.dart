@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -16,6 +17,7 @@ part 'word_numbering_writer.dart';
 part 'word_layout_writer.dart';
 part 'word_compatibility_writer.dart';
 part 'word_media_writer.dart';
+part 'word_image_appearance_writer.dart';
 part 'word_officeart_position_writer.dart';
 part 'word_shape_writer.dart';
 part 'word_textbox_writer.dart';
@@ -24,6 +26,7 @@ part 'word_revision_writer.dart';
 part 'word_comment_writer.dart';
 part 'word_table_style_writer.dart';
 part 'word_table_writer.dart';
+part 'word_table_revision_writer.dart';
 part 'word_table_text_writer.dart';
 
 /// DOCM is an explicit choice. The DOCX entry point never writes active VBA.

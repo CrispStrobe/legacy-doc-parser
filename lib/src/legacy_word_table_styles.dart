@@ -16,25 +16,35 @@ extension _WordTableStyles on _StructuredWordParser {
 
   List<LegacyWordTableRow> _resolveTableStyleCells(
     List<LegacyWordTableRow> rows,
-  ) => [
-    for (var r = 0; r < rows.length; r++)
-      LegacyWordTableRow(
-        isHeader: rows[r].isHeader,
-        originTwips: rows[r].originTwips,
-        tableStyleId: rows[r].tableStyleId,
-        styleOptions: rows[r].styleOptions,
-        halfGapTwips: rows[r].halfGapTwips,
-        heightTwips: rows[r].heightTwips,
-        cantSplit: rows[r].cantSplit,
-        borders: rows[r].borders,
-        alignment: rows[r].alignment,
-        autoFit: rows[r].autoFit,
-        cells: List.unmodifiable([
-          for (var c = 0; c < rows[r].cells.length; c++)
-            _resolvedTableCell(rows[r], r, rows, c),
-        ]),
-      ),
-  ];
+  ) {
+    final conditionalFormatting = _tableHeaderHistoryHasConditionalFormatting(
+      rows,
+    );
+    return [
+      for (var r = 0; r < rows.length; r++)
+        LegacyWordTableRow(
+          isHeader: rows[r].isHeader,
+          sourceHeaderRequest: rows[r].sourceHeaderRequest,
+          formattingRevision: _guardConditionalTableRowHistory(
+            rows[r],
+            conditionalFormatting: conditionalFormatting,
+          ),
+          originTwips: rows[r].originTwips,
+          tableStyleId: rows[r].tableStyleId,
+          styleOptions: rows[r].styleOptions,
+          halfGapTwips: rows[r].halfGapTwips,
+          heightTwips: rows[r].heightTwips,
+          cantSplit: rows[r].cantSplit,
+          borders: rows[r].borders,
+          alignment: rows[r].alignment,
+          autoFit: rows[r].autoFit,
+          cells: List.unmodifiable([
+            for (var c = 0; c < rows[r].cells.length; c++)
+              _resolvedTableCell(rows[r], r, rows, c),
+          ]),
+        ),
+    ];
+  }
 
   LegacyWordTableCell _resolvedTableCell(
     LegacyWordTableRow row,

@@ -169,6 +169,7 @@ class SchemaGateTest(unittest.TestCase):
         for prefix, filename, constant, count in (
             ("table-operations", "table_operations_fixture.dart", "tableOperationsCaseNames", 12),
             ("list-sequences", "list_sequence_fixture.dart", "listSequenceCaseNames", 7),
+            ("image-appearance", "image_appearance_probe.dart", "imageAppearanceCases", 9),
         ):
             fixture = (schema.ROOT / "tool/fidelity" / filename).read_text()
             declaration = re.search(r"const " + constant + r" = \[(.*?)\];", fixture, re.S)

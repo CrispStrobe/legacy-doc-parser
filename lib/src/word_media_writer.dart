@@ -313,6 +313,8 @@ extension _WordMedia on _StructuredWordWriter {
       id,
       cx,
       cy,
+      shape: picture.shape,
+      transform: _imageTransform(picture.shape),
       crop: [
         picture.cropLeftFixed16,
         picture.cropTopFixed16,
@@ -350,8 +352,29 @@ extension _WordMedia on _StructuredWordWriter {
       drawing.wrapSide <= 3;
 
   void _drawing(LegacyWordDrawing drawing, LegacyWordImageAsset asset) {
-    final width = (drawing.rightTwips - drawing.leftTwips) * 635;
-    final height = (drawing.bottomTwips - drawing.topTwips) * 635;
+    final sourceWidth = (drawing.rightTwips - drawing.leftTwips) * 635;
+    final sourceHeight = (drawing.bottomTwips - drawing.topTwips) * 635;
+    final position = drawing.shape?.position;
+    final transform = _imageTransform(
+      drawing.shape,
+      floatingAbsolute:
+          (position?.horizontalMode ?? 0) == 0 &&
+          (position?.verticalMode ?? 0) == 0 &&
+          [
+            position?.horizontalRelativeTo,
+            position?.verticalRelativeTo,
+          ].every((value) => value == null || (value >= 0 && value <= 3)),
+    );
+    final width = transform.swapsAxes ? sourceHeight : sourceWidth;
+    final height = transform.swapsAxes ? sourceWidth : sourceHeight;
+    final x = drawing.leftTwips * 635 + ((sourceWidth - width) / 2).round();
+    final y = drawing.topTwips * 635 + ((sourceHeight - height) / 2).round();
+    if (x < -0x80000000 ||
+        x > 0x7fffffff ||
+        y < -0x80000000 ||
+        y > 0x7fffffff) {
+      _tooComplex();
+    }
     final id = ++_drawingId;
     _mediaStart(drawing.presentation);
     _xml.add(
@@ -360,7 +383,11 @@ extension _WordMedia on _StructuredWordWriter {
       'locked="${drawing.anchorLocked ? 1 : 0}" layoutInCell="1" allowOverlap="1">'
       '<wp:simplePos x="0" y="0"/>',
     );
-    _officeArtDrawingPosition(drawing);
+    _officeArtDrawingPosition(
+      drawing,
+      horizontalOffsetEmu: x,
+      verticalOffsetEmu: y,
+    );
     _xml.add('<wp:extent cx="$width" cy="$height"/>');
     if (drawing.wrapMode == 3) {
       _xml.add('<wp:wrapNone/>');
@@ -384,6 +411,8 @@ extension _WordMedia on _StructuredWordWriter {
       id,
       width,
       height,
+      shape: drawing.shape,
+      transform: transform,
       crop: [
         drawing.cropLeftFixed16,
         drawing.cropTopFixed16,
@@ -401,6 +430,8 @@ extension _WordMedia on _StructuredWordWriter {
     int id,
     int cx,
     int cy, {
+    LegacyWordOfficeArtShape? shape,
+    _ImageTransform transform = const _ImageTransform(),
     List<int> crop = const [0, 0, 0, 0],
   }) {
     final relation = _imageRelation(asset);
@@ -420,10 +451,11 @@ extension _WordMedia on _StructuredWordWriter {
     }
     _xml.add(
       '<a:stretch><a:fillRect/></a:stretch></pic:blipFill>'
-      '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="$cx" cy="$cy"/></a:xfrm>'
-      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>'
-      '</pic:pic></a:graphicData></a:graphic>',
+      '<pic:spPr><a:xfrm${transform.attributes}><a:off x="0" y="0"/><a:ext cx="$cx" cy="$cy"/></a:xfrm>'
+      '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>',
     );
+    _imageAppearance(shape);
+    _xml.add('</pic:spPr></pic:pic></a:graphicData></a:graphic>');
   }
 
   void _embeddedObject(LegacyWordEmbeddedObject object, String path) {

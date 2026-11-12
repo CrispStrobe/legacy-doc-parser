@@ -463,6 +463,8 @@ class LegacyWordTableRow {
   const LegacyWordTableRow({
     required this.cells,
     this.isHeader = false,
+    this.sourceHeaderRequest,
+    this.formattingRevision,
     this.originTwips = 0,
     this.tableStyleId,
     this.styleOptions = 0x600,
@@ -475,6 +477,12 @@ class LegacyWordTableRow {
   });
   final List<LegacyWordTableCell> cells;
   final bool isHeader;
+
+  /// The source header instruction before applying the contiguous-prefix
+  /// rule. A dormant request can become effective after a preceding row's
+  /// header-property revision is rejected. Null uses [isHeader].
+  final bool? sourceHeaderRequest;
+  final LegacyWordTableRowFormattingRevision? formattingRevision;
 
   /// Logical left outer edge, including cell spacing, relative to the page's
   /// logical left margin. Negative values retain an outdent. Rows can differ.
@@ -502,6 +510,46 @@ class LegacyWordTableRow {
   /// Direct row-wide outer and interior border defaults. Cell borders whose
   /// type is none inherit; an explicit nil cell border suppresses the edge.
   final Map<LegacyWordTableBorderSide, LegacyWordBorder> borders;
+}
+
+/// The bounded, native row properties represented by a table revision wall.
+/// Header state is the instruction, before the contiguous-prefix rule.
+class LegacyWordTableRowProperties {
+  const LegacyWordTableRowProperties({
+    this.heightTwips,
+    this.cantSplit,
+    this.isHeader = false,
+  });
+  final int? heightTwips;
+  final bool? cantSplit;
+  final bool isHeader;
+}
+
+class LegacyWordTableRowFormattingRevision {
+  LegacyWordTableRowFormattingRevision({
+    required this.previousProperties,
+    this.revision = const LegacyWordRevisionInfo(),
+    this.marked = true,
+    this.previousPropertiesComplete = true,
+    this.conditionalFormattingMayChange = false,
+    List<int> unsupportedPropertyCodes = const [],
+  }) : unsupportedPropertyCodes = List.unmodifiable(unsupportedPropertyCodes);
+
+  final LegacyWordTableRowProperties? previousProperties;
+  final LegacyWordRevisionInfo revision;
+  final bool marked;
+
+  /// False for an incomplete prior row or unknown pre-wall table properties.
+  final bool previousPropertiesComplete;
+
+  /// A header instruction changes in a table with conditional cell or text
+  /// formatting. Rejecting it can also change later header-prefix/banding
+  /// results; the current flattened child properties are not prior history.
+  final bool conditionalFormattingMayChange;
+
+  /// Post-wall table/cell operations outside the supported row-layout subset.
+  /// These remain evidence; no partial native trPrChange is invented.
+  final List<int> unsupportedPropertyCodes;
 }
 
 class LegacyWordTableCell {

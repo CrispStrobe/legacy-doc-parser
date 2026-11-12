@@ -1,8 +1,10 @@
 # Fidelity corpus and independent oracles
 
-`tool/fidelity/corpus.json` pins ten authored Office XML fixtures from the MIT
-Quds fork at `ca9853b5b08784beac50df5680176cb4e5b3cb25`, plus the package's
-existing native DOC fixture. Source paths, feature tags, SHA-256 hashes, and
+`tool/fidelity/corpus.json` pins 22 source cases, including ten authored Office
+XML fixtures from the MIT Quds fork at
+`ca9853b5b08784beac50df5680176cb4e5b3cb25`, the package's existing native DOC,
+independent authored controls and public Word/Apache POI binaries.
+Source paths, feature tags, SHA-256 hashes, and
 license provenance travel with the corpus. The Quds expectations are retained
 under `test/fixtures/fidelity/quds-expectations`; they describe original OOXML,
 not a promise that a native DOC bridge can carry every newer OOXML feature.
@@ -135,7 +137,7 @@ Primary references:
 
 ## Recovered source goldens and RGB measurements
 
-The reconciled corpus contains 19 pinned source cases. `goldens.py` verifies
+The reconciled corpus contains 22 pinned source cases. `goldens.py` verifies
 two independent source-DOC page records and reviewable PNGs. It has no update
 mode. The compact and extended linked-textbox documents have separate paths
 and hashes; the extended document owns the recovered linked-box page golden.

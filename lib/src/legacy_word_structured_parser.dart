@@ -21,6 +21,7 @@ part 'legacy_word_stories.dart';
 part 'legacy_word_fields.dart';
 part 'legacy_word_lists.dart';
 part 'legacy_word_tables.dart';
+part 'legacy_word_table_revisions.dart';
 part 'legacy_word_table_operations.dart';
 part 'legacy_word_table_styles.dart';
 part 'legacy_word_table_text.dart';
@@ -340,10 +341,6 @@ class _StructuredWordParser {
     }
 
     for (final operation in operations) {
-      if ((operation.code == 0x3668 && operation.data.u8(0) != 0) ||
-          operation.code == 0xd667) {
-        warnings.add(LegacyWordWarning.revisionMetadataIncomplete);
-      }
       if (operation.code != 0x6646 &&
           operation.code != 0x646b &&
           operation.code != 0x6645) {
