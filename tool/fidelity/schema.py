@@ -91,6 +91,9 @@ EXPECTED_CASES = frozenset([
     *(f"textbox-boundary/textbox-{story}-{kind}" for story in ("main", "header")
       for kind in ("content", "empty", "leading-blank", "interior-blank",
                    "trailing-blank", "two-trailing-blanks", "two-content-paragraphs")),
+    *(f"textbox-tables/textbox-{story}-{margin}-{nesting}-{anchor}"
+      for story in ("main", "header") for margin in ("default", "zero", "wide")
+      for nesting in ("flat", "nested") for anchor in ("paragraph", "table")),
 ])
 PACKAGES = (
     ("DocumentFormat.OpenXml", "3.3.0",
