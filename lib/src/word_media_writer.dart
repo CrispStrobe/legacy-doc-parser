@@ -596,16 +596,24 @@ extension _WordMedia on _StructuredWordWriter {
   }
 
   void _mediaStart(LegacyWordMediaPresentation presentation) {
-    final metadata = LegacyWordRun(
-      startCp: 0,
-      endCp: 0,
-      text: '',
-      revisionAuthor: presentation.revisionAuthor,
-      revisionTime: presentation.revisionTime,
+    final fallback = LegacyWordRevisionInfo(
+      author: presentation.revisionAuthor,
+      time: presentation.revisionTime,
     );
-    if (presentation.inserted) _revisionStart('ins', metadata);
-    if (presentation.deleted) _revisionStart('del', metadata);
-    _xml.add('<w:r>');
+    if (presentation.inserted) {
+      _revisionElementStart('ins', presentation.insertionRevision ?? fallback);
+    }
+    if (presentation.deleted) {
+      _revisionElementStart('del', presentation.deletionRevision ?? fallback);
+    }
+    _xml.add('<w:r');
+    if (presentation.inserted) {
+      _revisionSaveAttribute('rsidR', presentation.insertionRevision?.saveId);
+    }
+    if (presentation.deleted) {
+      _revisionSaveAttribute('rsidDel', presentation.deletionRevision?.saveId);
+    }
+    _xml.add('>');
     if (presentation.hidden) _xml.add('<w:rPr><w:vanish/></w:rPr>');
   }
 
