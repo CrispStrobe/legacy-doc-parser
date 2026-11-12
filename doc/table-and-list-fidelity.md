@@ -211,6 +211,59 @@ different formatting.
 Reference: [Determining Level Number of a Paragraph](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/361e48e1-ae56-4b62-a950-01664b2cc006).
 Tests: `test/legacy_word_list_continuation_test.dart`.
 
+## Row height, page splitting and cell text layout
+
+`sprmTDyaRowHeight` retains its signed value: zero selects automatic height,
+positive values establish a minimum, and negative values specify an exact
+height. The native writer emits `w:trHeight` with the corresponding `auto`,
+`atLeast` or `exact` rule. Values outside the MS-DOC YAS range of
+-31680 to 31680 twips are rejected. `sprmTFCantSplit` takes precedence over
+`sprmTFCantSplit90` regardless of record order; a lone legacy flag is retained.
+Explicit false and absent flags remain distinct. These rules come from
+[MS-DOC table properties](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/b39a6648-501c-4361-8366-4f042f579469)
+and [YAS](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/cc683bcd-0c67-4002-9317-53e92a4d793d).
+
+TC80 cell descriptors now preserve the five legal text directions, `fitText`
+and `hideMark`. Invalid text-flow codes are rejected. These are editable native
+`w:textDirection`, `w:tcFitText` and `w:hideMark` properties, with explicit
+`on`/`off` reset values. The mapping follows
+[TCGRF](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/11bf5b1c-943f-421d-bbf3-39088cd1b8dd)
+and [TextFlow](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/91341630-00bb-4b5f-891e-0ea68a069d9a).
+Row properties inside table-style differences and separate range-update
+operators for text flow, fit text and hide mark remain outside this increment.
+
+`tool/fidelity/table_layout_fixture.dart OUTPUT_DIR` independently assembles
+five height fixtures, two page-boundary split fixtures, and a cell-layout
+fixture. Its inputs specify a font, exact line spacing and page dimensions;
+the expected row heights do not depend on the parser's own XML writer.
+`test/fixtures/word_native/table-layout-golden.json` records the reviewed
+source hashes, native row properties and text positions. Run:
+
+```sh
+dart run tool/fidelity/table_layout_fixture.dart build/table-layout-inputs
+python3 tool/fidelity/table_layout_probe.py \
+  --office /path/to/soffice \
+  --fixtures build/table-layout-inputs \
+  --output build/table-layout-measurements \
+  --golden test/fixtures/word_native/table-layout-golden.json
+```
+
+On LibreOfficeDev 26.8.0.0.alpha0
+`2c87e51eeaa2b413ff4ae097b2705eea1995d8e5`, all five measured row extents agreed
+to 0.0 points. An allowed split placed the first three lines of a six-line row
+on page 1 and the remaining three on page 2; `cantSplit` moved all six lines
+to page 2. Source DOC and converted DOCX matched these positions and page
+assignments. The SDK independently validated all eight generated packages.
+This renderer drops fit/hide properties and simplifies the East Asian rotated
+flow variants when exporting native DOCX, so those fields have structural
+preservation assertions rather than an exact-rendering claim. The probe checks
+both the current native source projection and the parser output against the
+reviewed golden and exits unsuccessfully on a mismatch.
+
+Tests: `test/legacy_word_table_layout_test.dart` and
+`tool/fidelity/test_table_layout_probe.py`. These bounded cases do not establish
+exact pagination for arbitrary tables, other fonts or other renderers.
+
 ## Residual scope
 
 Floating-table placement, additional conditional text operators, native relative

@@ -491,6 +491,16 @@ void _applyParagraph(
         output['inTable'] = depth != 0;
       case 0x3404:
         output['rowHeader'] = _boolean(value);
+      case 0x3403:
+        output['tableCantSplit90'] = _boolean(value);
+      case 0x3466:
+        output['tableCantSplit'] = _boolean(value);
+      case 0x9407:
+        final height = value.i16(0);
+        if (height < -31680 || height > 31680) {
+          throw const FormatException('Invalid Word table row height.');
+        }
+        output['tableRowHeight'] = height;
       case 0x563a:
         output['tableStyleId'] = value.u16(0);
       case 0x740a:
@@ -745,6 +755,14 @@ void _applyParagraph(
           if (alignment > 2) {
             throw const FormatException('Invalid Word cell alignment.');
           }
+          final direction = switch ((flag >> 2) & 7) {
+            0 => LegacyWordCellTextDirection.lrTb,
+            1 => LegacyWordCellTextDirection.tbRl,
+            3 => LegacyWordCellTextDirection.btLr,
+            4 => LegacyWordCellTextDirection.lrTbV,
+            5 => LegacyWordCellTextDirection.tbRlV,
+            _ => throw const FormatException('Invalid Word cell text flow.'),
+          };
           final borders = <LegacyWordTableBorderSide, LegacyWordBorder>{};
           for (var side = 0; side < 4; side++) {
             borders[LegacyWordTableBorderSide.values[side]] = i * 20 < available
@@ -759,6 +777,9 @@ void _applyParagraph(
               borders: Map.unmodifiable(borders),
               verticalAlignment: LegacyWordCellAlignment.values[alignment],
               noWrap: ((flag >> 9) & 7) != 3 && (flag & 0x2000) != 0,
+              textDirection: direction,
+              fitText: (flag & 0x1000) != 0,
+              hideMark: (flag & 0x4000) != 0,
             ),
           );
         }

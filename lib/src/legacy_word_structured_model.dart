@@ -442,6 +442,8 @@ class LegacyWordTableRow {
     this.tableStyleId,
     this.styleOptions = 0x600,
     this.halfGapTwips = 0,
+    this.heightTwips,
+    this.cantSplit,
   });
   final List<LegacyWordTableCell> cells;
   final bool isHeader;
@@ -457,6 +459,13 @@ class LegacyWordTableRow {
 
   /// Source origin offset; it is not a cell margin.
   final int halfGapTwips;
+
+  /// MS-DOC signed row height: positive is a minimum, negative is exact,
+  /// and zero explicitly selects automatic height. Null means unspecified.
+  final int? heightTwips;
+
+  /// Null leaves the default ability to split a row across pages unchanged.
+  final bool? cantSplit;
 }
 
 class LegacyWordTableCell {

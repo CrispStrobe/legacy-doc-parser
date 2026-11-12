@@ -64,6 +64,10 @@ extension _WordTables on _StructuredWordParser {
               ),
               styleOptions: properties['tableStyleOptions'] as int? ?? 0x600,
               halfGapTwips: properties['tableGapHalf'] as int? ?? 0,
+              heightTwips: properties['tableRowHeight'] as int?,
+              cantSplit:
+                  properties['tableCantSplit'] as bool? ??
+                  properties['tableCantSplit90'] as bool?,
               // Only leading, contiguous rows are repeating headers.
               isHeader:
                   properties['rowHeader'] == true &&

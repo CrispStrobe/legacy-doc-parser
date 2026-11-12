@@ -29,6 +29,9 @@ enum LegacyWordTableBorderSide {
 
 enum LegacyWordCellAlignment { top, center, bottom }
 
+/// The five text flow modes defined by MS-DOC TextFlow, using native XML names.
+enum LegacyWordCellTextDirection { lrTb, tbRl, btLr, lrTbV, tbRlV }
+
 /// A supported set of cell properties. Null and absent entries inherit.
 class LegacyWordTableCellFormat {
   const LegacyWordTableCellFormat({
@@ -37,11 +40,17 @@ class LegacyWordTableCellFormat {
     this.verticalAlignment,
     this.noWrap,
     this.margins = const {},
+    this.textDirection,
+    this.fitText,
+    this.hideMark,
   });
   final LegacyWordShading? shading;
   final Map<LegacyWordTableBorderSide, LegacyWordBorder> borders;
   final LegacyWordCellAlignment? verticalAlignment;
   final bool? noWrap;
+  final LegacyWordCellTextDirection? textDirection;
+  final bool? fitText;
+  final bool? hideMark;
 
   /// Missing sides inherit; a present null retains an explicit nil width.
   final Map<LegacyWordBorderSide, int?> margins;

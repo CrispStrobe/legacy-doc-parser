@@ -310,7 +310,11 @@ class _StructuredWordWriter {
           row.originTwips +
           row.cells.fold<int>(0, (sum, cell) => sum + (cell.widthTwips ?? 0));
       final after = canWriteGrid ? edges.length - 1 - edgeIndices[rowEnd]! : 0;
-      if (row.isHeader || before != 0 || after != 0) {
+      if (row.isHeader ||
+          before != 0 ||
+          after != 0 ||
+          row.heightTwips != null ||
+          row.cantSplit != null) {
         _xml.add('<w:trPr>');
         if (before != 0) {
           _xml.add(
@@ -323,6 +327,20 @@ class _StructuredWordWriter {
             '<w:gridAfter w:val="$after"/>'
             '<w:wAfter w:w="${edges.last - rowEnd}" w:type="dxa"/>',
           );
+        }
+        if (row.heightTwips case final height?) {
+          if (height < -31680 || height > 31680) {
+            throw const FormatException('Invalid Word table row height.');
+          }
+          final rule = height == 0
+              ? 'auto'
+              : height < 0
+              ? 'exact'
+              : 'atLeast';
+          _xml.add('<w:trHeight w:val="${height.abs()}" w:hRule="$rule"/>');
+        }
+        if (row.cantSplit case final value?) {
+          _xml.add('<w:cantSplit w:val="${value ? 'on' : 'off'}"/>');
         }
         if (row.isHeader) _xml.add('<w:tblHeader/>');
         _xml.add('</w:trPr>');

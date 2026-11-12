@@ -24,6 +24,8 @@ extension _WordTableStyles on _StructuredWordParser {
         tableStyleId: rows[r].tableStyleId,
         styleOptions: rows[r].styleOptions,
         halfGapTwips: rows[r].halfGapTwips,
+        heightTwips: rows[r].heightTwips,
+        cantSplit: rows[r].cantSplit,
         cells: List.unmodifiable([
           for (var c = 0; c < rows[r].cells.length; c++)
             _resolvedTableCell(rows[r], r, rows, c),
@@ -253,6 +255,9 @@ extension _WordTableStyles on _StructuredWordParser {
       shading: value.shading,
       verticalAlignment: value.verticalAlignment,
       noWrap: value.noWrap,
+      textDirection: value.textDirection,
+      fitText: value.fitText,
+      hideMark: value.hideMark,
       margins: value.margins,
       borders: Map.unmodifiable({
         if (baseBorders[rowIndex == 0
@@ -353,6 +358,9 @@ LegacyWordTableCellFormat _mergeTableCellFormat(
   borders: Map.unmodifiable({...base.borders, ...overlay.borders}),
   verticalAlignment: overlay.verticalAlignment ?? base.verticalAlignment,
   noWrap: overlay.noWrap ?? base.noWrap,
+  textDirection: overlay.textDirection ?? base.textDirection,
+  fitText: overlay.fitText ?? base.fitText,
+  hideMark: overlay.hideMark ?? base.hideMark,
   margins: Map.unmodifiable({...base.margins, ...overlay.margins}),
 );
 
