@@ -450,6 +450,7 @@ class LegacyWordTable extends LegacyWordBlock {
     this.autoFit = false,
     this.rightToLeft = false,
     this.alignment = LegacyWordAlignment.left,
+    this.position,
   });
   final List<LegacyWordTableRow> rows;
   final bool autoFit;
@@ -458,6 +459,10 @@ class LegacyWordTable extends LegacyWordBlock {
   /// Logical table alignment (left means its leading edge). Physical TJc90
   /// source values are resolved against the table direction during parsing.
   final LegacyWordAlignment alignment;
+
+  /// Absolute positioning from the table's own MS-DOC properties. The next
+  /// regular paragraph remains the anchor and remains editable content.
+  final LegacyWordTablePosition? position;
 }
 
 class LegacyWordTableRow {

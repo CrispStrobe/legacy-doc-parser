@@ -696,7 +696,12 @@ extension _WordStories on _StructuredWordWriter {
         }
         final story = _stories[reference.storyId]!;
         xml.add('<w:$singular w:id="${reference.id}">');
-        _withStory(story, path, xml, () => _blocks(story.blocks));
+        _withStory(
+          story,
+          path,
+          xml,
+          () => _blocks(story.blocks, paragraphAfterTable: false),
+        );
         xml.add('</w:$singular>');
         _count(plural);
       }
@@ -812,7 +817,10 @@ extension _WordStories on _StructuredWordWriter {
     }
   }
 
-  void _blocks(List<LegacyWordBlock> blocks) {
+  void _blocks(
+    List<LegacyWordBlock> blocks, {
+    bool paragraphAfterTable = true,
+  }) {
     for (final block in blocks) {
       switch (block) {
         case LegacyWordParagraph():
@@ -821,7 +829,11 @@ extension _WordStories on _StructuredWordWriter {
           _table(block);
       }
     }
-    if (blocks.isEmpty || blocks.last is LegacyWordTable) {
+    // Notes permit a final table. A synthesized paragraph is real layout
+    // content and becomes another native table anchor on each DOC round trip.
+    // Source paragraphs (including deliberately empty ones) stay in blocks.
+    if (blocks.isEmpty ||
+        (paragraphAfterTable && blocks.last is LegacyWordTable)) {
       _xml.add('<w:p');
       _commentParagraphAttribute();
       _xml.add('/>');
