@@ -82,6 +82,13 @@ DOCX writer; generated labels do not modify source `plainText`.
 
 ## Tabs, borders and shading
 
+Character runs retain every defined `Kul` underline style as an exact
+`underlineStyle` name, alongside the compatible `underline` boolean. This
+includes words-only, double, dotted, dashed and wavy variants and their heavy
+forms. Run coalescing, style inheritance and plain-format resets account for
+the underline kind. The DOCX writer preserves the exact value; HTML uses its
+closest supported decoration and marks approximations.
+
 Paragraph custom tab stops are resolved through the same style/direct-format
 cascade as other paragraph properties. Both tab-change operands are supported,
 including their deletion tolerance, separate close-distance array and extended
@@ -145,7 +152,9 @@ malformed definitions. `legacy_word_decorations_test.dart` covers tab inheritanc
 extended operands, descriptor/range limits, default tab intervals, border-side
 cascades, exact shading colors/patterns, all three cell-array ranges and malformed
 operands. The writer's independent binary fixture checks these properties through
-DOCX serialization. Existing bounds/cascade/revision tests remain active.
+DOCX serialization. `legacy_word_underlines_test.dart` covers the complete
+defined underline enumeration, invalid gaps, style reset and adjacent-run
+separation. Existing bounds/cascade/revision tests remain active.
 The media suite also parses the authored real `formatting.doc` fixture through
 this same structured parser.
 
@@ -169,3 +178,4 @@ its separate 0BSD provenance in the package notices.
 - [Modern borders](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/5d99e9e0-d7a4-488a-91fb-6c046277e076), [legacy borders and ignored flags](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/cfab8014-e477-4e33-b50f-a23b8476f6f3) and [border-type mappings](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/6d25d117-9fa4-42ed-af5b-672771a9d1be)
 - [Shading foreground/background](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/cee0b9de-272e-4898-994c-bae4627e5abb), [legacy shading](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/46589ef4-c686-4ff6-ad84-82c15d631491) and [pattern mappings](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/3f7d0bde-4e59-4395-a6d6-a1242c577e3f)
 - [Cell-shading array bounds and ranges](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/d415bdd8-63cb-44b9-941b-4999430d6ac9) and [table-property semantics](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/b39a6648-501c-4361-8366-4f042f579469)
+- [Kul underline styles](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/f6d2ad93-87cf-4e46-a992-a38ccf2ef295) and [WordprocessingML underline values](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.underlinevalues)
