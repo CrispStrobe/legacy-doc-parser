@@ -42,6 +42,60 @@ References: [TDefTableOperand](https://learn.microsoft.com/en-us/openspecs/offic
 and [Table Properties](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/b39a6648-501c-4361-8366-4f042f579469).
 Tests: `test/legacy_word_table_origin_test.dart`.
 
+## Cell formatting and conditional table styles
+
+The parser now reads `StkTableGRLPUPX` table styles and retains their names,
+identities, parent relationships, band sizes, and all twelve `CNFOperand`
+conditions. Supported cell properties include shading, table and cell borders,
+vertical alignment, no-wrap preference, and per-side cell margins. The native
+DOCX includes table style definitions, `w:basedOn`, `w:tblLook`, band sizes and
+`w:tblStylePr` conditional rules, as well as resolved cell properties.
+
+The condition cascade follows the binary specification: horizontal bands,
+vertical bands, edge columns, edge rows, then corner cells. Enabled header rows
+and the first column are excluded from their respective band counts. First-row
+and first-column rules take precedence over the corresponding last-row and
+last-column rules in one-row or one-column tables. Each condition retains its
+own inherited properties; style cycles and malformed or nested conditions are
+rejected within the existing limits.
+
+Modern `sprmTInsert` rows can inherit cell formatting from the table style.
+Direct `TC80` borders and alignment, ordered `sprmTSetBrc80` / `sprmTSetBrc`
+updates, and `CSSA` default and per-cell margins survive as editable cell
+properties. A nil border explicitly removes a border; it does not inherit.
+Raw nil shading inherits the style, whereas raw automatic shading clears the
+fill. These two nil meanings are deliberately separate.
+
+The source default cell margins are 108 twips at each horizontal side and zero
+at the top and bottom. Conversion emits them explicitly, instead of depending
+on a consumer's DOCX defaults. The source `halfGapTwips` remains a separate
+origin offset and is never reused as padding. Zero margins and explicit nil
+widths retain their distinct native representations.
+
+Conditional **paragraph and character** properties are still reported as
+unsupported. Applying those after already coalescing runs can lose source
+toggle boundaries, so this implementation does not guess those results.
+Differently styled rows retain their resolved cell formatting; the first row's
+style supplies the table-wide native style reference. Floating tables,
+cell-spacing geometry, and additional incremental row operators still require
+further work. This is not a claim of complete conditional-style equivalence.
+
+Primary references:
+
+- [StkTableGRLPUPX](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/1bf37486-85c7-469b-a817-6204bbb7ed32)
+- [Determining Formatting Properties](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/d8b66123-1a3d-4e06-94c5-5ab16e9b6417)
+- [CNFOperand](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/8c71d6a6-35dd-4462-9471-d376adebfe98)
+- [Fatl](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/c2b2c89f-4ba1-4013-a459-b66caa1171c2)
+- [TC80](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/9dd62a79-8c0b-4b11-99ee-05742ae7cf6d),
+  [Brc80MayBeNil](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/8458edbd-c81c-4ec7-b5ff-c99c50575301),
+  and [BrcMayBeNil](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/4e2ba2c9-8763-4b29-b81c-ce0123df689e)
+- [CSSA](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/6c5d3dfc-988d-4e2b-a9dd-72b62cb64356)
+- [TInsertOperand](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/082d49fd-8f96-4fd9-ac6e-61bd7c00b90d)
+
+Tests: `test/legacy_word_conditional_table_test.dart` and
+`test/legacy_word_table_format_test.dart`. The native Office fidelity runner
+remains the independent check for actual border pixels and cell text positions.
+
 ### Nonconforming exporter recovery
 
 A LibreOffice bridge fixture (`word-compatibility.doc`) contains a `cb=0`
@@ -82,6 +136,6 @@ Tests: `test/legacy_word_list_continuation_test.dart`.
 
 ## Residual scope
 
-Floating-table placement, table-style conditional formatting and list-instance
+Floating-table placement, table-style conditional text formatting and list-instance
 continuation with overrides need their own property-level interpretation. Retaining nested
 content alone does not establish page-layout equivalence to Microsoft Word.

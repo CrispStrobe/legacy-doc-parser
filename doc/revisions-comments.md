@@ -52,6 +52,57 @@ Header/footer references remain outside `sectPrChange`, as required by the
 native previous-section schema. The parser does not invent revision history for
 header/footer relationships that the section SPRMs do not encode.
 
+## Paragraph numbering revisions
+
+`sprmPNumRM` is decoded as its fixed 128-byte `NumRM` record. The public
+paragraph model exposes the previous-numbered state, insertion flag, author,
+source date, and a normalized native historical numbering string, with an
+immutable copy of the source record. All nine previous level values, formats
+and placeholder positions remain in that evidence. `sprmPFNumRMIns` works both
+through ordinary paragraph properties and PRM0; paragraph-style changes retain
+these review properties independently of the current list selection.
+
+Native DOCX stores representable prior labels in `w:numPr/w:numberingChange`
+and newly applied numbering as `w:numPr/w:ins`. These do not mark the paragraph
+text inserted. Removing a list retains its previous numbering beside an
+explicit `w:numId` reset. Native numbering history is a legacy value cache; it
+does not reconstruct an unavailable old abstract-list definition or invent a
+multi-step edit history. Current numbering keeps its independent list identity
+and continuation rules.
+
+Numbering history whose template has a literal prefix, an ambiguous percent
+separator, invalid XML controls, or an unrepresentable number-format code is
+retained with a specific revision limitation. Its native revision marker has
+no fabricated `original` label. Missing author metadata stays incomplete.
+Invalid record lengths, Boolean operands, text extents, Unicode and placeholder
+indices are rejected before conversion. Non-applicable template data in a
+record for a previously unnumbered paragraph is not interpreted.
+
+## LISTNUM display-field revisions
+
+`sprmCDispFldRMark` retains the previous literal result of a `LISTNUM` field,
+its author and source timestamp, independently of revisions to surrounding text
+or paragraph numbering. The fixed 39-byte source record remains immutable
+evidence. The source flag follows its documented nonzero semantics; zero clears
+the history. The parser validates text bounds and Unicode and rejects histories
+attached to a different field type or contradictory histories on one field.
+
+Representable history is native `w:fldChar/w:numberingChange` on the begin
+character. The field remains locked with its current cached result. The parser
+does not recalculate field instructions or accept the revision. Explicitly
+hidden history and history inside private fields remain inert evidence, as do
+previous results containing unsupported XML controls. An omitted native
+`original` value never implies a reconstructed previous result.
+
+The implementation follows [MS-DOC DispFldRmOperand](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/47381e7e-b79f-4069-9634-4f24fa8d8b2b)
+and the field-specific [NumberingChange semantics](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.numberingchange).
+`test/legacy_word_display_field_revisions_test.dart` independently assembles the
+binary records and projects accepted/rejected output XML into different literal
+results. It also checks field nesting, private ancestors, repeated records,
+false flags, immutable source evidence and malformed/conflicting records. These
+checks establish native structure and cached states, not a renderer's ability
+to recalculate LISTNUM or expose its full editing interface.
+
 ## Comment threads and ink evidence
 
 Validated `ATRDPost10` / `AtrdExtra` records map to native `comments.xml` and
@@ -72,9 +123,9 @@ thread part. A hidden/private parent keeps its reply branch inert as well.
 
 ## Remaining limits
 
-Table/row/cell formatting history, moves, list-numbering revision
-records, display-field revisions, and multi-step editing history are not
-reconstructed as native tracked changes. One binary wall contains one prior
+Table/row/cell formatting history, moves, and
+multi-step editing history are not reconstructed as native tracked changes.
+One binary wall contains one prior
 property snapshot, not an arbitrary revision log. Revision reasons are exposed
 as source codes; they are not converted into invented user-visible edits.
 No change is accepted automatically. Formatting histories for unsupported
@@ -89,6 +140,32 @@ records and applies accept/reject property rules to parsed XML to verify both
 states, including section-break ownership, unequal columns, conflicting authors,
 missing snapshots and malformed historical values. These are semantic tests;
 they do not certify Microsoft Word's pagination or its user-interface behavior.
+
+The opt-in `tool/fidelity/section_review_probe.py` creates an independently
+authored binary fixture and reports native source-DOC and converted-DOCX review
+loss separately. On LibreOfficeDev 26.8 build
+`2c87e51eeaa2b413ff4ae097b2705eea1995d8e5`, both native imports dropped the
+fixture's section revisions; our direct output retained two (including the
+break shifted onto the following section). That renderer is therefore not a
+positive oracle for retention of section review data. Reports keep the source
+hash, source expectations and all measured section states.
+The probe enforces the pinned fixture hash and the independently authored current
+and previous properties before accepting the parser result. Adversarial tests
+ensure that losing revisions in all three routes cannot become a passing golden.
+
+Numbering history follows [MS-DOC NumRM](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/3311b346-4291-419c-be53-34e98d809d76),
+[NumRMOperand](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/347cc059-c0cf-481e-847b-5130b7f215a9),
+the paragraph-property preservation rules, and the native
+[NumberingChange grammar](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.numberingchange).
+`test/legacy_word_numbering_revisions_test.dart` assembles independent binary
+records, evaluates old multilevel labels from the output grammar, and checks
+insertion versus ordinary paragraph text, list removal, style resets, PRM0,
+immutable source evidence and malformed extents.
+
+Full paired-move semantics must be tested on an OOXML source path: the
+[MS-DOC FibRgFcLcb2007 definition](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/f04ad697-5027-46c0-bf4c-52fc7843a2f6)
+requires the reserved MoveFrom/MoveTo lengths to be zero and their offsets to be
+ignored. Matching insertion/deletion text is not enough to invent a move pair.
 
 ## Specification and tests
 

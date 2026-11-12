@@ -45,6 +45,7 @@ class _StructuredWordWriter {
   final _storyParts = <String, String>{};
   final _numberingIds = <int>{};
   final _numberingReferences = <int, int>{};
+  final _tableStyleDefinitions = <int, LegacyWordTableStyle>{};
   var _tableDepth = 0;
   final _fields = <int, LegacyWordField>{};
   final _fieldChildren = <int, List<LegacyWordField>>{};
@@ -66,6 +67,7 @@ class _StructuredWordWriter {
   var _breaks = 0;
 
   Uint8List convert() {
+    _prepareTableStyleDefinitions();
     _prepareStories();
     _prepareMedia();
     _prepareSemantics();
@@ -188,16 +190,7 @@ class _StructuredWordWriter {
     _bool('keepLines', style.keepTogether);
     _bool('pageBreakBefore', style.pageBreakBefore);
     _bool('widowControl', style.layout.widowControl);
-    final listId = style.listId?.abs();
-    if (listId != null && listId != 0) {
-      if (_numberingIds.contains(listId)) {
-        _xml.add(
-          '<w:numPr><w:ilvl w:val="${style.listLevel ?? 0}"/><w:numId w:val="${_numberingReferences[listId]}"/></w:numPr>',
-        );
-      } else {
-        limitations.add(LegacyWordConversionLimitation.fieldsLists);
-      }
-    }
+    _paragraphNumbering(paragraph);
     _bool('suppressLineNumbers', style.layout.suppressLineNumbers);
     _paragraphDecorations(style, _xml, paragraph.startCp);
     _paragraphLayoutBeforeSpacing(style.layout);
@@ -257,10 +250,20 @@ class _StructuredWordWriter {
         : table.rows
               .map((row) => row.originTwips)
               .reduce((a, b) => a < b ? a : b);
+    _xml.add('<w:tbl><w:tblPr>');
+    final firstRow = table.rows.firstOrNull;
+    if (firstRow?.tableStyleId case final id?) {
+      if (!_tableStyleDefinitions.containsKey(id)) {
+        throw const FormatException('Unknown Word table style.');
+      }
+      _xml.add('<w:tblStyle w:val="LegacyTable$id"/>');
+    }
     _xml.add(
-      '<w:tbl><w:tblPr><w:tblW w:w="0" w:type="auto"/>'
-      '<w:tblInd w:w="$origin" w:type="dxa"/></w:tblPr>',
+      '<w:tblW w:w="0" w:type="auto"/>'
+      '<w:tblInd w:w="$origin" w:type="dxa"/>',
     );
+    _tableLook(firstRow?.styleOptions ?? 0x600, _xml);
+    _xml.add('</w:tblPr>');
     // Every row retains its logical origin. Include all absolute row edges in
     // the shared grid, including omitted leading/trailing cells.
     final grid = <int>{origin};
@@ -339,6 +342,7 @@ class _StructuredWordWriter {
             '<w:vMerge w:val="${cell.verticalMergeStart ? 'restart' : 'continue'}"/>',
           );
         }
+        _tableBorders(cell.formatting.borders, _xml, 'tcBorders');
         if (cell.shading != null) {
           _shading(
             cell.shading!,
@@ -347,6 +351,12 @@ class _StructuredWordWriter {
             cell.blocks.isEmpty ? null : cell.blocks.first.startCp,
           );
         }
+        _tableCellFormat(
+          cell.formatting,
+          _xml,
+          includeShading: false,
+          includeBorders: false,
+        );
         _xml.add('</w:tcPr>');
         for (final block in cell.blocks) {
           switch (block) {
@@ -497,6 +507,7 @@ class _StructuredWordWriter {
         );
       }
     }
+    _sectionNotes(section.layout);
     _xml.add(
       '<w:type w:val="${switch (breakBefore) {
         LegacyWordSectionBreak.continuous => 'continuous',
@@ -538,6 +549,7 @@ class _StructuredWordWriter {
     }
     _sectionNumbering(section.layout);
     _sectionColumns(section);
+    if (section.layout.suppressEndnotes) _xml.add('<w:noEndnote/>');
     if (section.titlePage) {
       _xml.add('<w:titlePg/>');
     }
@@ -580,6 +592,7 @@ class _StructuredWordWriter {
       // shared style that could affect other paragraphs with the same index.
       xml.add('</w:style>');
     }
+    _tableStyleXml(xml);
     xml.add('</w:styles>');
     return xml;
   }

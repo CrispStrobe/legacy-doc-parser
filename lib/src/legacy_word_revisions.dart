@@ -33,10 +33,223 @@ const _paragraphStylePreserved = {
   'cellShading',
   '_oldParagraph',
   'paragraphSaveId',
+  'numberingInserted',
+  'numberingRevisionRecord',
   '_unsupportedParagraph',
 };
 
+class _DisplayFieldRevisionData {
+  _DisplayFieldRevisionData(this.source, this.original, this.author, this.date);
+  final Uint8List source;
+  final String original;
+  final int author;
+  final int date;
+}
+
+class _DisplayFieldRevisionCapture {
+  _DisplayFieldRevisionCapture(this.data, this.hidden);
+  final _DisplayFieldRevisionData data;
+  bool hidden;
+}
+
+// DispFldRmOperand's cb prefix is already consumed by the SPRM reader. Its f
+// member is explicitly any nonzero value, unlike the format's Bool8 operands.
+_DisplayFieldRevisionData? _displayFieldRevisionRecord(_Bytes value) {
+  if (value.length != 39) {
+    throw const FormatException('Invalid Word display-field revision record.');
+  }
+  if (value.u8(0) == 0) return null;
+  final length = value.u16(7);
+  if (length > 15) {
+    throw const FormatException('Invalid Word display-field revision length.');
+  }
+  final units = [for (var i = 0; i < length; i++) value.u16(9 + i * 2)];
+  _validateUnicode(units);
+  return _DisplayFieldRevisionData(
+    Uint8List.fromList(value.bytes).asUnmodifiableView(),
+    String.fromCharCodes(units),
+    value.u16(1),
+    value.u32(3),
+  );
+}
+
+// MS-DOC NumRMOperand: the length prefix was consumed by the SPRM reader.
+Uint8List _numberingRevisionRecord(_Bytes value) {
+  if (value.length != 128) {
+    throw const FormatException('Invalid Word numbering revision record.');
+  }
+  final numbered = _boolean(value);
+  if (numbered) {
+    final length = value.u16(64);
+    if (length > 31) {
+      throw const FormatException(
+        'Invalid Word numbering revision text length.',
+      );
+    }
+    final units = [for (var i = 0; i < length; i++) value.u16(66 + i * 2)];
+    _validateUnicode(units);
+    final used = <int>{};
+    for (var level = 0; level < 9; level++) {
+      final position = value.u8(8 + level);
+      if (position == 0) continue;
+      if (position > length ||
+          !used.add(position) ||
+          units[position - 1] >= 0xd800 && units[position - 1] <= 0xdfff) {
+        throw const FormatException(
+          'Invalid Word numbering revision placeholder.',
+        );
+      }
+    }
+  }
+  return Uint8List.fromList(value.bytes).asUnmodifiableView();
+}
+
+String? _numberingRevisionOriginal(_Bytes value) {
+  if (value.u8(0) == 0) return null;
+  final length = value.u16(64);
+  final units = [for (var i = 0; i < length; i++) value.u16(66 + i * 2)];
+  final placeholders = <int, int>{
+    for (var level = 0; level < 9; level++)
+      if (value.u8(8 + level) != 0) value.u8(8 + level) - 1: level,
+  };
+  if (placeholders.isEmpty || !placeholders.containsKey(0)) return null;
+  final positions = placeholders.keys.toList()..sort();
+  final original = StringBuffer();
+  for (var i = 0; i < positions.length; i++) {
+    final position = positions[i], level = placeholders[position]!;
+    final format = value.u8(17 + level);
+    if (format == 40 || format >= 60) return null;
+    final end = i + 1 < positions.length ? positions[i + 1] : units.length;
+    final separator = units.sublist(position + 1, end);
+    // The native string grammar has no literal-percent escape. Neither emit a
+    // new placeholder nor copy invalid XML controls from a source separator.
+    if (separator.any(
+      (unit) => unit == 0x25 || unit < 0x20 || unit == 0xfffe || unit == 0xffff,
+    )) {
+      return null;
+    }
+    original.write('%${level + 1}:${value.u32(28 + level * 4)}:$format:');
+    original.write(String.fromCharCodes(separator));
+  }
+  return original.toString();
+}
+
 extension _WordRevisions on _StructuredWordParser {
+  void _prepareFieldRevisions(int firstField) {
+    _fieldIndicesByStart.clear();
+    _activeFieldIndices.clear();
+    _displayFieldRevisions.clear();
+    for (var index = firstField; index < fields.length; index++) {
+      _fieldIndicesByStart[fields[index].startCp] = index;
+    }
+  }
+
+  void _captureFieldRevision(int cp, int unit, _Props properties, bool hidden) {
+    if (unit == 19) {
+      final index = _fieldIndicesByStart[cp];
+      if (index == null || _activeFieldIndices.length >= 64) {
+        throw const FormatException('Invalid Word revision field boundary.');
+      }
+      _activeFieldIndices.add(index);
+    }
+    final data =
+        properties['displayFieldRevision'] as _DisplayFieldRevisionData?;
+    if (data != null) {
+      if (_activeFieldIndices.isEmpty ||
+          fields[_activeFieldIndices.last].type != 'LISTNUM') {
+        throw const FormatException(
+          'Word display-field revision is not attached to a LISTNUM field.',
+        );
+      }
+      final index = _activeFieldIndices.last;
+      final private = _activeFieldIndices.any(
+        (index) => fields[index].privateResult,
+      );
+      final capture = _displayFieldRevisions[index];
+      if (capture == null) {
+        _displayFieldRevisions[index] = _DisplayFieldRevisionCapture(
+          data,
+          hidden || private,
+        );
+      } else {
+        final previous = capture.data;
+        if (!identical(previous, data) &&
+            (previous.original != data.original ||
+                previous.author != data.author ||
+                previous.date != data.date)) {
+          throw const FormatException(
+            'Conflicting Word display-field revisions.',
+          );
+        }
+        capture.hidden |= hidden || private;
+      }
+    }
+    if (unit == 21) {
+      if (_activeFieldIndices.isEmpty) {
+        throw const FormatException('Unmatched Word revision field boundary.');
+      }
+      _activeFieldIndices.removeLast();
+    }
+  }
+
+  void _finishFieldRevisions() {
+    if (_activeFieldIndices.isNotEmpty) {
+      throw const FormatException('Unclosed Word revision field.');
+    }
+    for (final entry in _displayFieldRevisions.entries) {
+      final field = fields[entry.key],
+          capture = entry.value,
+          data = capture.data;
+      fields[entry.key] = LegacyWordField(
+        id: field.id,
+        storyId: field.storyId,
+        startCp: field.startCp,
+        endCp: field.endCp,
+        instruction: field.instruction,
+        storedResult: field.storedResult,
+        type: field.type,
+        separatorCp: field.separatorCp,
+        parentId: field.parentId,
+        locked: field.locked,
+        dirty: field.dirty,
+        privateResult: field.privateResult,
+        displayRevision: LegacyWordDisplayFieldRevision(
+          original: data.original,
+          revision: _revisionInfo({
+            'displayAuthor': data.author,
+            'displayDate': data.date,
+          }, 'display'),
+          hidden: capture.hidden,
+          sourceRecord: data.source,
+        ),
+      );
+    }
+  }
+
+  LegacyWordNumberingRevision? _numberingRevision(_Props properties) {
+    final record = properties['numberingRevisionRecord'] as Uint8List?;
+    final inserted = properties['numberingInserted'] == true;
+    if (record == null && !inserted) return null;
+    final value = record == null ? null : _Bytes(record);
+    final numbered = value == null ? null : value.u8(0) != 0;
+    final original = value == null ? null : _numberingRevisionOriginal(value);
+    if (numbered == true && original == null || value == null) {
+      warnings.add(LegacyWordWarning.revisionMetadataIncomplete);
+    }
+    return LegacyWordNumberingRevision(
+      previouslyNumbered: numbered,
+      original: original,
+      inserted: inserted,
+      sourceRecord: record,
+      revision: _revisionInfo({
+        if (value != null) ...{
+          'numberingAuthor': value.u16(2),
+          'numberingDate': value.u32(4),
+        },
+      }, 'numbering'),
+    );
+  }
+
   LegacyWordSection _sectionFromProperties(
     _Props properties,
     int start,

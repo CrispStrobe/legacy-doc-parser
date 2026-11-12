@@ -120,6 +120,13 @@ class _OfficeArtShapeReader {
       if (id >= 0x0140 && id <= 0x02ff && !mapped.contains(id)) {
         unsupported.add(id);
       }
+      // WordArt and unmodeled shape/group properties can
+      // change appearance or placement. Plain name/description metadata does
+      // not. Do not turn such a shape into an apparently complete plain path.
+      if ((id >= 0x00c0 && id <= 0x00ff) ||
+          (id >= 0x0300 && id <= 0x07ff && id != 0x0380 && id != 0x0381)) {
+        unsupported.add(id);
+      }
     }
     // Fill rectangles, recoloring, and inset/background-line styles alter
     // appearance beyond the direct solid-color subset.
@@ -131,6 +138,7 @@ class _OfficeArtShapeReader {
     }
     return LegacyWordOfficeArtShape(
       type: type,
+      sourceFlags: flags,
       rotationFixed16: (p[0x0004] ?? 0).toSigned(32),
       flipHorizontal: (flags & 0x40) != 0,
       flipVertical: (flags & 0x80) != 0,

@@ -19,6 +19,7 @@ part 'legacy_word_stories.dart';
 part 'legacy_word_fields.dart';
 part 'legacy_word_lists.dart';
 part 'legacy_word_tables.dart';
+part 'legacy_word_table_styles.dart';
 part 'legacy_word_media_parser.dart';
 part 'legacy_word_officeart_parser.dart';
 
@@ -50,6 +51,9 @@ class _StructuredWordParser {
   int fieldTextUnits = 0;
   int renderedHtmlBytes = 0;
   final _fieldResults = <bool>[];
+  final _fieldIndicesByStart = <int, int>{};
+  final _activeFieldIndices = <int>[];
+  final _displayFieldRevisions = <int, _DisplayFieldRevisionCapture>{};
   final _privateFieldSeparators = <int>{};
   final _fieldFlags = <int, int>{};
   List<(int, int)> _invisibleMediaRanges = const [];
@@ -68,6 +72,7 @@ class _StructuredWordParser {
   final numbering = <LegacyWordNumberingDefinition>[];
   final _numberingById = <int, LegacyWordNumberingDefinition>{};
   final _listLevels = <(int, int), _ListLevelData>{};
+  final _tableStyles = <int, LegacyWordTableStyle>{};
   late final Uint16List body;
   late final List<LegacyWordSection> sections;
   late final Set<int> sectionEnds;
@@ -110,6 +115,7 @@ class _StructuredWordParser {
     _validateUnicode(body);
     _readFonts();
     _readStyles();
+    _readTableStyles();
     _readAuthors();
     characterFormatting = _readFkp(paragraph: false);
     paragraphFormatting = _readFkp(paragraph: true);
@@ -144,6 +150,7 @@ class _StructuredWordParser {
       bookmarks: List.unmodifiable(bookmarks),
       fields: List.unmodifiable(fields),
       numbering: List.unmodifiable(numbering),
+      tableStyles: List.unmodifiable(_tableStyles.values),
       media: media,
       evenAndOddHeaders: source.evenAndOddHeaders,
       defaultTabStopTwips: source.defaultTabStopTwips,
@@ -155,6 +162,7 @@ class _StructuredWordParser {
     if (first == limit) return const [];
     final priorFields = fields.length;
     _collectFields(first, limit, storyId);
+    _prepareFieldRevisions(priorFields);
     _invisibleMediaRanges = _fieldHiddenMediaRanges(priorFields);
     _fieldResults.clear();
     final paragraphs = <_Paragraph>[];
@@ -184,6 +192,7 @@ class _StructuredWordParser {
     if (_fieldResults.isNotEmpty) {
       throw const FormatException('Unclosed Word field.');
     }
+    _finishFieldRevisions();
     return _assembleTables(paragraphs);
   }
 
@@ -467,6 +476,7 @@ class _StructuredWordParser {
 
       while (cp < spanEnd) {
         final unit = body[cp];
+        _captureFieldRevision(cp, unit, character, runStyle.hidden);
         if (_referenceAnchors.contains(cp)) {
           _referenceCharacterStyles[cp] = runStyle;
           _referencePresentations[cp] = LegacyWordMediaPresentation(
@@ -562,6 +572,7 @@ class _StructuredWordParser {
         runs: List.unmodifiable(runs),
         style: style,
         formattingRevision: formattingRevision,
+        numberingRevision: _numberingRevision(properties),
         mark: mark,
         revisionSaveId: properties['paragraphSaveId'] as int?,
       ),

@@ -431,6 +431,7 @@ extension _WordStories on _StructuredWordWriter {
         throw const FormatException('Invalid Word field identity or extent.');
       }
       _fields[field.id] = field;
+      _displayFieldRevisionEvidence(field);
       if (field.parentId != null) {
         _fieldChildren.putIfAbsent(field.parentId!, () => []).add(field);
       }
@@ -497,6 +498,7 @@ extension _WordStories on _StructuredWordWriter {
         'SECTION',
         'SECTIONPAGES',
         'SEQ',
+        'LISTNUM',
         'TC',
         'XE',
         'INDEX',
@@ -534,8 +536,10 @@ extension _WordStories on _StructuredWordWriter {
   void _fieldBegin(LegacyWordField field, [int depth = 0]) {
     if (depth > 64) _tooComplex();
     _xml.add(
-      '<w:r><w:fldChar w:fldCharType="begin" w:fldLock="1" w:dirty="0"/></w:r>',
+      '<w:r><w:fldChar w:fldCharType="begin" w:fldLock="1" w:dirty="0">',
     );
+    _displayFieldRevision(field);
+    _xml.add('</w:fldChar></w:r>');
     final instructionStart = field.startCp + 1;
     final instructionEnd = field.separatorCp ?? field.endCp - 1;
     final children = (_fieldChildren[field.id] ?? const <LegacyWordField>[])

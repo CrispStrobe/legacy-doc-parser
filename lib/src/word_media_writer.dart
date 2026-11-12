@@ -83,6 +83,16 @@ extension _WordMedia on _StructuredWordWriter {
             ..['reason'] = 'textbox drawing has no resolved text story',
         );
       }
+      if (owner != null &&
+          _displayPosition(drawing.anchorCp) &&
+          drawing.imageId == null &&
+          drawing.textboxId == null &&
+          !drawing.shapeDeleted &&
+          _validDrawing(drawing) &&
+          _canWriteShape(drawing.shape)) {
+        _event(owner, drawing.anchorCp, 50, () => _shapeDrawing(drawing));
+        continue;
+      }
       if (owner == null ||
           !_displayPosition(drawing.anchorCp) ||
           asset == null ||

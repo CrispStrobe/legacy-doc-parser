@@ -46,6 +46,7 @@ class _Style {
     this.kind,
     this.paragraph,
     this.character,
+    this.table,
   );
   final String name;
   final int builtinId;
@@ -53,6 +54,7 @@ class _Style {
   final int kind;
   final List<_Sprm> paragraph;
   final List<_Sprm> character;
+  final List<_Sprm> table;
 }
 
 class _ResolvedStyle {
@@ -252,18 +254,23 @@ extension _WordFormattingTables on _StructuredWordParser {
       var upx = baseLength + 4 + nameLength * 2;
       var paragraph = const <_Sprm>[];
       var character = const <_Sprm>[];
+      var table = const <_Sprm>[];
       for (var u = 0; u < upxCount; u++) {
         final bytes = record.u16(upx);
         upx += 2;
         final data = record.slice(upx, bytes);
-        if (kind == 1 && u == 0) {
+        if (kind == 3 && u == 0) {
+          table = _readProperties(data);
+        } else if ((kind == 1 && u == 0) || (kind == 3 && u == 1)) {
           if (bytes < 2) {
             throw const FormatException(
               'Invalid Word style paragraph properties.',
             );
           }
           paragraph = _readProperties(Uint8List.sublistView(data, 2));
-        } else if ((kind == 1 && u == 1) || (kind == 2 && u == 0)) {
+        } else if ((kind == 1 && u == 1) ||
+            (kind == 2 && u == 0) ||
+            (kind == 3 && u == 2)) {
           character = _readProperties(data);
         } else if (bytes != 0) {
           warnings.add(LegacyWordWarning.unsupportedFormatting);
@@ -272,7 +279,7 @@ extension _WordFormattingTables on _StructuredWordParser {
         if (upx.isOdd) upx++;
         record.require(0, upx);
       }
-      if (kind != 1 && kind != 2) {
+      if (kind != 1 && kind != 2 && kind != 3) {
         warnings.add(LegacyWordWarning.unsupportedFormatting);
       }
       styles[index] = _Style(
@@ -282,6 +289,7 @@ extension _WordFormattingTables on _StructuredWordParser {
         kind,
         paragraph,
         character,
+        table,
       );
     }
     // Newer STSH records can carry documented post-STD structures. They are
@@ -368,8 +376,11 @@ extension _WordFormattingTables on _StructuredWordParser {
   List<LegacyWordSection> _readSections() {
     final mainLength = source.bodyLength;
     if (mainLength == 0) return const [];
+    final noteDefaults = _documentNoteProperties();
     final (offset, length) = source.pair(6);
-    if (length == 0) return [LegacyWordSection(startCp: 0, endCp: mainLength)];
+    if (length == 0) {
+      return [_sectionFromProperties(noteDefaults, 0, mainLength)];
+    }
     if (length < 20 || (length - 4) % 16 != 0) {
       throw const FormatException('Invalid Word section table.');
     }
@@ -416,6 +427,7 @@ extension _WordFormattingTables on _StructuredWordParser {
         ],
         budget,
         warnings,
+        initial: noteDefaults,
       );
       if (emptyInitial) warnings.add(LegacyWordWarning.recoveredEmptySection);
       result.add(_sectionFromProperties(properties, start, end));

@@ -160,6 +160,9 @@ void _applyCellShading(
   final values = <int, LegacyWordShading>{
     ...?output['cellShading'] as Map<int, LegacyWordShading>?,
   };
+  final rawValues = <int, LegacyWordShading>{
+    ...?output['cellShadingRaw'] as Map<int, LegacyWordShading>?,
+  };
   for (var i = 0; i < value.length ~/ width; i++) {
     budget.apply();
     final shading = _readShading(
@@ -173,13 +176,20 @@ void _applyCellShading(
       warnings.add(LegacyWordWarning.unsupportedFormatting);
     }
     values[first + i] = shading;
+    if (raw) rawValues[first + i] = shading;
   }
   // A later operand replaces this whole range, including omitted trailing
   // cells whose shading is default, rather than inheriting stale entries.
   for (var i = value.length ~/ width; i < limit; i++) {
     values.remove(first + i);
+    if (raw) rawValues.remove(first + i);
   }
   output['cellShading'] = Map<int, LegacyWordShading>.unmodifiable(values);
+  if (raw) {
+    output['cellShadingRaw'] = Map<int, LegacyWordShading>.unmodifiable(
+      rawValues,
+    );
+  }
 }
 
 const _borderStyles = <int, String>{

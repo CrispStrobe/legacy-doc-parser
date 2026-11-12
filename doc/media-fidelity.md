@@ -83,12 +83,95 @@ gradients, pattern fills, perspective/3-D settings and unmapped appearance
 properties remain explicit `unsupportedProperties`, never relabeled as a
 plain RGB style. Parsed data and native rendering support are separate.
 
+### Editable native shape output
+
+Resolved rectangles, ellipses, lines, and custom move/line/cubic/close paths
+can now become editable VML in the converted DOCX. Direct solid RGB paint,
+fill/line opacity, line width, dash/join/cap styles, simple offset shadows,
+rotation and flips are emitted from the source model. Source defaults are
+explicit where VML differs: the default line is 0.75 pt with round joins and
+flat caps. Negative geometry origins are retained independently of page
+placement. Original OfficeArt remains available as evidence.
+
+This path requires a completely resolved supported shape. Group/child/master
+contexts, WordArt, unmapped shape/group properties, unknown effects, adjusted
+presets, and rounded-rectangle presets without a resolved path are not
+simplified into active drawings. The `editableShapes` counter measures native
+shape emission, not raster equivalence or arbitrary OfficeArt coverage.
+
+`tool/fidelity/shape_render.py` builds authored binary fixtures and examines
+their converted DOCX's native PDF vectors. It checks rectangle corners, line
+endpoints, cubic control points, fill color and line width against independent
+source expectations. Matching outer bounds alone is insufficient: the probe
+caught a host VML parsing difference that turned a rectangle into a trapezoid
+when spaces followed command letters. The writer emits compact numeric paths.
+The probe requires installed LibreOffice, Poppler and PyMuPDF; it does not
+download a renderer or create expected coordinates from its own output.
+
+```
+python3 tool/fidelity/shape_render.py --office /path/to/soffice \
+  --dart /path/to/dart --output build/shape-render
+```
+
 `shape.text` records signed EMU insets, text anchor/wrap/flow/font-direction
 enum values and explicitly used auto-margin/fit-shape-to-text flags. Absent
 properties remain null, distinct from an explicit zero. MS-ODRAW marks the
 adjacent text Boolean bit as unused, so it is not interpreted as shrink-to-fit.
 Text-box text and chain ownership still come from the validated story and
 shape references; geometry does not invent line breaks or CP reflow.
+
+## Linked textbox native probe
+
+`tool/fidelity/textbox_reflow.py` generates two versions of an authored
+two-frame story. The second version changes only the first frame's height.
+The independent PDF word-position check requires all eight unique markers
+exactly once, in order, within both frames, and requires text to flow back
+into the enlarged first frame. It runs the check on generated DOCX, its
+native binary DOC bridge, and the parser's converted DOCX separately.
+It does not infer correct flow from XML links or page count alone.
+
+```
+python3 tool/fidelity/textbox_reflow.py --office /path/to/soffice \
+  --dart /path/to/dart --output build/textbox-reflow
+```
+
+The native DOC fixture exposed a contradictory declared chain count:
+`FTXBXS.cTxbx=1` while OfficeArt indices and `hspNext` identify two frames.
+Only this declared-one case can be recovered, with a complete, bounded,
+unique, contiguous chain whose first shape and every next-shape link agree.
+Other count disagreements, gaps, cycles, missing corroborating links and
+conflicting ClientTextbox/lTxid identifiers remain errors. The original
+count is retained as `declaredChainLength`; conversion evidence includes
+both declared and resolved lengths. `recoveredTextboxChainLength` explicitly
+marks this interoperability recovery.
+
+Actual positioning is checked independently: the first run also exposed a
+page-origin discrepancy in the native bridge. A successful chain recovery
+does not by itself claim correct positions or an exact raster match.
+The report separates resize reflow from absolute authored placement. For
+the reflow metric only, it may subtract one disclosed common translation
+anchored to the first marker in the authored DOCX; it cannot reposition
+frames or variants independently. Absolute placement and the overall probe
+still fail when that translation places markers outside the authored frames.
+
+With LibreOfficeDev `26.8.0.0.alpha0` commit
+`2c87e51eeaa2b413ff4ae097b2705eea1995d8e5`, both direct DOCX and binary DOC
+put two markers in the small first frame and four in the enlarged frame.
+The parser DOCX has the same actual reflow but is shifted 72 pt right/down.
+The native DOC records explicit OfficeArt `posh=0`, `posv=0`,
+`posrelh=1`, `posrelv=1`. Microsoft documents value 1 of those relative
+position properties as margin-relative, while this producer's page-based
+fixture is interpreted differently by its native renderer. The raw records
+remain retained; this single interoperability result does not justify
+globally reinterpreting the MS-DOC/FSPA origin enums.
+
+Primary references:
+
+- [MS-DOC OfficeArtClientTextbox](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/3ea806f3-8ff6-4ce4-8cb2-3ba732af4ec4)
+- [MS-DOC FTXBXNonReusable](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/5aaa54b6-f38c-440a-82b1-8d61beb95b31)
+- [Word VML textbox behavior](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oe376/da04f6ea-a025-4e81-92c4-adfa5ab603fb)
+- [MS-ODRAW horizontal relative position](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/e6d6737b-189d-4ce9-ada1-3fff4c4e7512)
+- [MS-ODRAW vertical relative position](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/e8351af1-c736-4e34-8bf1-1a7497b6cd41)
 
 ## Bounds and verification
 
@@ -138,3 +221,8 @@ are capped at 16,384 elements, with 100,000 aggregate geometry points.
 - [MS-ODRAW fill Boolean properties](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/baf2613d-c676-43c8-8077-828bdcc70dca)
 - [MS-ODRAW line Boolean properties](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/b359a9d1-941b-49ad-8462-7c0bb894d125)
 - [MS-ODRAW shadow Boolean properties](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/802363c2-7656-486d-84d3-9eab26fb36cc)
+- [VML path syntax](https://learn.microsoft.com/en-us/windows/win32/vml/msdn-online-vml-path-attribute)
+- [MS-ODRAW line-width default](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/fb88b56e-2c2d-41c2-a0c8-98129e913b89)
+- [MS-ODRAW line-join default](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/bd76cb1d-aac3-4913-a053-f3bf4a9ee52b)
+- [MS-ODRAW line-cap default](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/7bc33ac1-15bf-4bbc-8348-34371449faf1)
+- [MS-ODRAW horizontal shadow offset](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/364ecedd-9a50-4f78-bc9c-20718d2e621b)

@@ -117,6 +117,7 @@ class LegacyWordOfficeArtText {
 class LegacyWordOfficeArtShape {
   LegacyWordOfficeArtShape({
     required this.type,
+    this.sourceFlags = 0,
     this.rotationFixed16 = 0,
     this.flipHorizontal = false,
     this.flipVertical = false,
@@ -130,6 +131,10 @@ class LegacyWordOfficeArtShape {
 
   /// MSOSPT from OfficeArtFSP.recInstance, never inferred from image bytes.
   final int type;
+
+  /// Original FSP flags. Group, child, OLE and master contexts need resolution
+  /// before isolated geometry can be emitted as an active native shape.
+  final int sourceFlags;
   final int rotationFixed16;
   final bool flipHorizontal, flipVertical;
   final LegacyWordOfficeArtGeometry? geometry;
