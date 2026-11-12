@@ -178,6 +178,8 @@ class SchemaGateTest(unittest.TestCase):
             self.assertEqual(schema.run_gate(args), 1)
         receipt = json.loads((output / "report.json").read_text())
         self.assertFalse(receipt["passed"])
+        self.assertTrue(receipt["gitWorktreeDirty"])
+        self.assertIn("Uncommitted source state", receipt["sourceIdentity"])
         self.assertIn("negative validator control was accepted", receipt["error"])
         self.assertFalse((output / "corpus").exists())
 

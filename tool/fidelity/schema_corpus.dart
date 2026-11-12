@@ -9,6 +9,7 @@ import 'metafile_probe.dart' as metafiles;
 import 'review_schema_fixture.dart' as reviews;
 import 'section_review_fixture.dart' as sections;
 import 'shape_probe.dart' as shapes;
+import 'table_layout_fixture.dart' as table_layout;
 import 'table_origin_fixture.dart' as origins;
 import 'table_text_fixture.dart' as table_text;
 
@@ -61,6 +62,24 @@ void main(List<String> arguments) {
       'table-text/$name.doc',
       'table-text/$name.docx',
       'tool/fidelity/table_text_fixture.dart',
+    );
+  }
+  table_layout.main(['${root.path}/table-layout']);
+  for (final name in [
+    'auto',
+    'minimum-short',
+    'minimum-content',
+    'exact-short',
+    'exact-content',
+    'keep-row',
+    'split-row',
+    'cell-layout',
+  ]) {
+    record(
+      'table-layout/$name',
+      'table-layout/$name.doc',
+      'table-layout/$name-converted.docx',
+      'tool/fidelity/table_layout_fixture.dart',
     );
   }
   shapes.main(['${root.path}/shapes']);

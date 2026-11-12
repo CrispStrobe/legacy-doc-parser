@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: MPL-2.0
 """Measure real DOC imports against an already installed LibreOffice.
 
-The original OOXML, its native DOC bridge, our conversion, native conversion,
-and successive binary imports are kept separately. A bridge loss is never
-attributed to our parser; a native DOCX round trip is not an exact-pagination
-oracle. Completed stages remain inspectable if a later stage fails.
+The original OOXML render, its native DOC bridge, our conversion, native
+conversion, and successive binary imports are kept separately. Visual changes
+on the original-to-binary bridge are measured before parser conversion. A native
+DOCX interpretation is not a complete fidelity oracle. Completed stages remain
+inspectable if a later stage fails.
 """
 import argparse
 import hashlib
@@ -159,6 +160,13 @@ def case_has_errors(case):
     requested = case.get('roundtripCyclesRequested')
     return (case.get('status') != 'measured' or case.get('sourceUnchanged') is not True
             or case.get('binaryDocUnchanged') is not True
+            or case.get('sourceFormat') not in ('doc', 'docx')
+            or (case.get('sourceFormat') == 'docx'
+                and (not isinstance(case.get('bridgePagination'), dict)
+                     or not isinstance(case.get('bridgeChanges'), list)
+                     or not case.get('renders', {}).get('original')))
+            or (case.get('sourceFormat') == 'doc'
+                and (case.get('bridgePagination') is not None or case.get('bridgeChanges') is not None))
             or not isinstance(requested, int) or requested < 0 or requested > 10
             or [cycle.get('index') for cycle in cycles] != list(range(1, requested + 1))
             or any(stage.get('status') != 'complete' for stage in case.get('stages', []))
@@ -172,6 +180,8 @@ def case_is_exact(case):
         return False
     if (case.get('semanticDifferencesFromNativeDoc') != []
             or case.get('bridgeChanges') not in (None, [])
+            or (case.get('sourceFormat') == 'docx'
+                and case.get('bridgePagination', {}).get('exactOnThisRenderer') is not True)
             or case.get('pagination', {}).get('exactOnThisRenderer') is not True
             or case.get('nativeConversionPagination', {}).get('exactOnThisRenderer') is not True):
         return False
@@ -185,10 +195,33 @@ def case_is_exact(case):
 
 def measure_case(case, args, executable, output):
     source = ROOT / case['path']
+    source_format = source.suffix.lower().lstrip('.')
     original_hash = None
     result = {'id': case['id'], 'features': case['features'], 'sourceSha256': None,
+              'sourceFormat': source_format,
               'status': 'running', 'roundtripCyclesRequested': requested_roundtrips(args),
               'roundtripCycles': [], 'snapshots': {}, 'renders': {}}
+    result['comparisonAttribution'] = {
+        'bridgePagination': ({'referenceRender': 'original', 'actualRender': 'binary',
+                              'path': 'Original DOCX -> native DOC bridge, rendered before parser import',
+                              'parserInvolved': False}
+                             if source_format == 'docx' else None),
+        'bridgeChanges': ({'referenceSnapshot': 'original', 'actualSnapshot': 'native',
+                           'path': 'Original DOCX -> native DOC -> native DOCX; includes native DOCX export interpretation',
+                           'parserInvolved': False}
+                          if source_format == 'docx' else None),
+        'pagination': {'referenceRender': 'binary', 'actualRender': 'converted',
+                       'path': 'Same binary DOC -> parser DOCX, opened by the same native renderer',
+                       'parserInvolved': True},
+        'nativeConversionPagination': {'referenceRender': 'binary', 'actualRender': 'native',
+                                       'path': 'Same binary DOC -> native DOCX export',
+                                       'parserInvolved': False},
+        'semanticDifferencesFromNativeDoc': {
+            'referenceSnapshot': 'native', 'actualSnapshot': 'converted',
+            'path': 'Native DOCX and parser DOCX interpretations of the same binary DOC',
+            'caveat': 'A difference does not by itself establish parser loss; native DOCX export may discard retained DOC data.',
+            'parserInvolved': True},
+    }
     started = time.monotonic()
     output.mkdir()
     stage = StageRecorder(result, output / 'result.json')
@@ -215,14 +248,19 @@ def measure_case(case, args, executable, output):
         result['sourceSha256'] = original_hash
         if original_hash != case['sha256']:
             raise ValueError('Source no longer matches the corpus receipt.')
-        if source.suffix == '.docx':
+        if source_format == 'docx':
             original_snapshot = stage('original-semantics', lambda: semantic_snapshot('original', source))
+            original_render = stage('original-render', lambda: render_snapshot('original', source))
             bridge = stage('binary-bridge', lambda: office_convert(args.office, source, output / 'bridge', 'doc'))
         else:
             bridge = output / 'source.doc'
             stage('copy-binary-source', lambda: Path(shutil.copyfile(source, bridge)))
             original_snapshot = None
+            original_render = None
         result['binaryDocSha256'] = digest(bridge)
+        binary_render = stage('binary-render', lambda: render_snapshot('binary', bridge))
+        result['bridgePagination'] = (render_comparison(original_render, binary_render)
+                                      if original_render is not None else None)
         native = stage('native-docx', lambda: office_convert(args.office, bridge, output / 'native-docx', 'docx'))
         native_snapshot = stage('native-semantics', lambda: semantic_snapshot('native', native))
         result['bridgeChanges'] = (compare_semantics(original_snapshot, native_snapshot)
@@ -233,7 +271,6 @@ def measure_case(case, args, executable, output):
         ours_snapshot = stage('converted-semantics', lambda: semantic_snapshot('converted', converted))
         result['semanticDifferencesFromNativeDoc'] = compare_semantics(native_snapshot, ours_snapshot)
         result['convertedSha256'] = digest(converted)
-        binary_render = stage('binary-render', lambda: render_snapshot('binary', bridge))
         converted_render = stage('converted-render', lambda: render_snapshot('converted', converted))
         native_render = stage('native-render', lambda: render_snapshot('native', native))
         result['pagination'] = render_comparison(binary_render, converted_render)
@@ -326,11 +363,11 @@ def main():
         dirty = bool(command(['git', 'status', '--porcelain'], cwd=ROOT).strip())
     except (OSError, RuntimeError, subprocess.TimeoutExpired):
         git_head, dirty = None, None
-    report = {'schema': 'legacy-doc-parser/fidelity-report', 'version': 2,
+    report = {'schema': 'legacy-doc-parser/fidelity-report', 'version': 3,
               'status': 'running', 'roundtripCyclesRequested': requested_roundtrips(args),
               'parserCommit': git_head, 'parserWorktreeDirty': dirty,
               'corpusSha256': digest(ROOT / 'tool/fidelity/corpus.json'),
-              'method': 'Independent DOC render + native DOCX + parser DOCX + successive binary imports. Each stage retained; no automatic golden update.',
+              'method': 'Original DOCX render -> independent native DOC bridge render -> native DOCX and parser DOCX -> successive binary imports. Original-to-binary visual changes measured before parser import; each stage retained; no automatic golden update.',
               'cases': []}
     stage = StageRecorder(report, args.output / 'report.json')
     try:
@@ -369,7 +406,11 @@ def main():
         report['cases'].append(result)
         write_json(args.output / 'report.json', report)
         pagination = result.get('pagination', {})
-        print(f"{case['id']}: {result['status']}; pages {pagination.get('referencePages', '?')} -> {pagination.get('actualPages', '?')}; exact={pagination.get('exactOnThisRenderer', False)}", flush=True)
+        bridge_pagination = result.get('bridgePagination')
+        bridge_exact = (bridge_pagination.get('exactOnThisRenderer', False)
+                        if bridge_pagination is not None else
+                        'not-measured' if result.get('sourceFormat') == 'docx' else 'not-applicable')
+        print(f"{case['id']}: {result['status']}; original-to-binary exact={bridge_exact}; parser pages {pagination.get('referencePages', '?')} -> {pagination.get('actualPages', '?')}; parser exact={pagination.get('exactOnThisRenderer', False)}", flush=True)
         if result.get('error'):
             print(result['error'], flush=True)
     errors = any(case_has_errors(case) for case in report['cases'])

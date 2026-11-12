@@ -22,6 +22,9 @@ EXPECTED_CASES = frozenset([
         "default", "zero-margin", "wide-margin", "negative-origin",
         "positive-origin", "independent-gap", "cell-margin", "nested", "nested-wide")),
     "table-text-conditions", "table-text-relative-toggles",
+    *(f"table-layout/{name}" for name in (
+        "auto", "minimum-short", "minimum-content", "exact-short", "exact-content",
+        "keep-row", "split-row", "cell-layout")),
     *(f"shapes/{name}" for name in ("rect", "ellipse", "line", "custom")),
     *(f"shapes/line-{axis}-{flip}" for axis in ("h", "v") for flip in ("none", "x", "y", "xy")),
     *(f"metafiles/{kind}-{mode}" for kind in ("emf32", "emf16", "wmf")
@@ -251,6 +254,7 @@ def build_validator(gate: Gate, dotnet: str, package_cache: Path | None) -> Path
         gate.command("validator-build", [dotnet, "publish", str(VALIDATOR / "OfficeValidation.csproj"),
                      "--configuration", "Release", "--output", str(output), "--self-contained", "false",
                      "-p:UseAppHost=false", f"-p:BaseIntermediateOutputPath={gate.output / 'obj'}/",
+                     f"-p:BaseOutputPath={gate.output / 'bin'}/",
                      f"-p:RestorePackagesPath={gate.output / 'nuget'}"], cwd=gate.output)
         receipt["mode"] = "dotnet-publish"
         assets = gate.output / "obj/project.assets.json"
@@ -343,6 +347,10 @@ def run_gate(args) -> int:
         gate.report["source"] = before
         gate.report["scope"] = "Open XML SDK Office2019 schema/semantic validation; no layout or review-rendering claim"
         gate.report["gitHead"] = gate.command("git-head", ["git", "rev-parse", "HEAD"]).stdout.strip()
+        status = gate.command("git-status", ["git", "status", "--porcelain"]).stdout
+        gate.report["gitWorktreeDirty"] = bool(status.strip())
+        gate.report["sourceIdentity"] = ("Uncommitted source state; the recorded file hashes identify this run."
+                                          if status.strip() else "Clean worktree at the recorded gitHead, with file hashes retained.")
         dart_version = gate.command("dart-version", [dart, "--version"])
         gate.report["dart"] = {"executableSha256": sha(Path(dart)),
                                "version": (dart_version.stdout + dart_version.stderr).strip()}

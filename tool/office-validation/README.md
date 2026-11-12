@@ -17,8 +17,9 @@ be selected with `--dart` and `--dotnet`. The default path builds the copied
 project with `dotnet publish`. The separate GitHub Actions job runs this gate
 without LibreOffice, Word, or Quds installed.
 
-The corpus contains 35 required DOC-to-DOCX conversions: nine authored table
-origins/nesting cases, two full conditional table text/style cases, twelve shape
+The corpus contains 43 required DOC-to-DOCX conversions: nine authored table
+origins/nesting cases, two full conditional table text/style cases, eight row
+height/splitting and cell-layout cases, twelve shape
 cases, six EMF/WMF compound-fill cases, section formatting history, paragraph
 numbering change/insertion, LISTNUM result history, and the retained native
 formatting and linked-textbox DOCs. The generator calls the existing fixture
@@ -42,7 +43,9 @@ control fails the gate. Inputs and validator artifacts must remain unchanged.
 native DOC inputs, dependency declarations, and validator; compiler/runtime
 identity and hashes; per-case binary/output hashes; all stage results; and the
 hash of the complete SDK report. The SDK report preserves every error, part,
-and XPath. Failed stages leave their completed artifacts and receipts in place.
+and XPath. Git HEAD and dirty-worktree status are separate fields; an uncommitted
+run is identified by its source hashes rather than assigned to a clean commit.
+Failed stages leave their completed artifacts and receipts in place.
 Use a new output directory for each run; passing receipts are never reused.
 
 For a restricted host where MSBuild cannot create its named mutexes,
