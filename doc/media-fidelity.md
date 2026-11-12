@@ -48,8 +48,8 @@ SVG arc segments; ordinary pie wedges close through the ellipse center.
 Coincident pie radials, unequal collinear radials, center-point radials and
 degenerate/reversed ellipse boxes remain unavailable previews because their
 zero/full-sweep or outline behavior is not asserted by this subset. The exact
-native metafile is still preserved. Independent binary tests cover these
-contracts; the native arc comparison is a separate follow-up checkpoint.
+native metafile is still preserved. Independent binary tests and the native
+arc probe described below cover these contracts.
 It follows object handles, saved device
 contexts, window/viewport transforms, and EMF affine world transforms.
 Compound `EMR_POLYPOLYGON` / `EMR_POLYPOLYGON16`,
@@ -99,6 +99,28 @@ The command requires installed LibreOffice, Poppler and PyMuPDF.
 ```
 python3 tool/fidelity/metafile_render.py --office /path/to/soffice \
   --dart /path/to/dart --output build/metafile-render
+```
+
+`metafile_arcs_render.py` checks fifteen independently authored EMF/WMF arc,
+chord, pie and ArcTo controls. Each metafile includes a distinct reference
+rectangle: geometry is measured relative to that frame, not fitted to the
+observed arc. Fixed interior and outline samples distinguish sweep direction,
+the chord's secant from the pie's radial closure, and unfilled arcs from filled
+regions. The two ArcTo cases additionally require the following line to begin
+at the projected ellipse endpoint, rather than the original radial input.
+All fifteen native and SVG controls pass on the recorded LibreOffice build.
+The geometric tolerance is 2.1 source units on a 200 by 100 canvas, accounting
+for native inclusive-edge/device quantization; these are not pixel goldens.
+The probe retains exact input/output hashes, native PDF/text/raster evidence,
+and checks all generated input bytes remain unchanged. Its portable adversarial
+tests reject reversed sweeps, lost/invented fills, incorrect current points,
+missing samples and geometry that uses the radial endpoint as the arc endpoint.
+The VM/JavaScript acceptance path checks oblique radial projection, clockwise
+ArcTo and WMF pie coordinates separately.
+
+```
+python3 tool/fidelity/metafile_arcs_render.py --office /path/to/soffice \
+  --dart /path/to/dart --output build/metafile-arcs
 ```
 
 ## OfficeArt shape and text-box model
