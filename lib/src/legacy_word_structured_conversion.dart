@@ -314,6 +314,7 @@ class _StructuredWordWriter {
     _BoundedWordXml xml, {
     bool Function(String)? include,
   }) {
+    _validateCharacterScalarProperties(style);
     final scripts = style.scriptFonts;
     final entries = [
       ('fontIndex', 'ascii', style.fontName),
@@ -337,6 +338,50 @@ class _StructuredWordWriter {
       xml.add('"');
     }
     xml.add('/>');
+  }
+
+  static void _validateCharacterScalarProperties(
+    LegacyWordCharacterStyle style,
+  ) {
+    // These are the same domains accepted by the binary SPRM decoder. A
+    // caller-built public style must not bypass them at a different writer
+    // entry point (list marker, paragraph mark, history, note or line style).
+    final size = style.fontSizeHalfPoints;
+    if (size != null && (size < 2 || size > 3276)) {
+      throw const FormatException('Invalid Word font size.');
+    }
+    final position = style.positionHalfPoints;
+    if (position != null && (position < -3168 || position > 3168)) {
+      throw const FormatException('Invalid Word text position.');
+    }
+    final spacing = style.spacingTwips;
+    if (spacing != null && (spacing < -32768 || spacing > 32767)) {
+      throw const FormatException('Invalid Word character spacing.');
+    }
+  }
+
+  static void _validateParagraphScalarProperties(
+    LegacyWordParagraphStyle style,
+  ) {
+    final heading = style.headingLevel;
+    if (heading != null && (heading < 1 || heading > 9)) {
+      throw const FormatException('Invalid Word heading level.');
+    }
+    for (final value in [style.spaceBeforeTwips, style.spaceAfterTwips]) {
+      if (value < 0 || value > 65535) {
+        throw const FormatException('Invalid Word paragraph spacing.');
+      }
+    }
+    for (final value in [
+      style.leftIndentTwips,
+      style.rightIndentTwips,
+      style.firstLineIndentTwips,
+      style.lineSpacingValue ?? 0,
+    ]) {
+      if (value < -32768 || value > 32767) {
+        throw const FormatException('Invalid Word paragraph measurement.');
+      }
+    }
   }
 
   static int _kerningThreshold(LegacyWordCharacterStyle style) {
