@@ -177,8 +177,9 @@ retain exact relative table geometry and the remaining 0.35 pt absolute
 placement differences. A proposed textbox table-depth reset passed schema
 validation but caused a 12 pt native-source regression; it was
 [retracted with its counterexample retained](evidence/textbox-table-context-20261112/README.md).
-The [current continuation handoff](continuation-20261113.md) records the exact app/parser
-pins, integration results and remaining priorities.
+The [current continuation handoff](continuation-20261113-followup.md) records the exact
+app/parser pins, integration results and remaining priorities; the
+[first-pass handoff](continuation-20261113.md) retains its historical measurements.
 
 The [solid-shape context control](officeart-context.md) now retains all three
 editable shapes in its native DOC. Ordered geometry agrees within 0.1 pt, while

@@ -12,9 +12,10 @@ app integration are saved in separate remote checkpoints.
 
 The integrated parser runtime is
 [`c5ff75e76163d9abbdd44a9f2a7c5ad210929289`](https://github.com/CrispStrobe/legacy-doc-parser/commit/c5ff75e76163d9abbdd44a9f2a7c5ad210929289),
-Git tree `25bd05c12fa2272a32ec2aaba2cc0117be5bed96`. The original and isolated
-parser checkouts both match this clean remote checkpoint. No source or reviewed
-golden changed during its acceptance runs.
+Git tree `25bd05c12fa2272a32ec2aaba2cc0117be5bed96`. The isolated acceptance
+checkout remains clean at this exact runtime. Later feature-branch checkpoints
+add documentation and evidence without changing the measured runtime bytes.
+No source or reviewed golden changed during acceptance.
 
 | Gate at the combined runtime | Result |
 | --- | --- |
