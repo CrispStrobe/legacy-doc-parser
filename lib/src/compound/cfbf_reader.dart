@@ -543,7 +543,11 @@ class CfbfFile {
     List<int> fat,
     Set<int> metadataSectors,
   ) {
-    final List<int> chain = _followChain(fat, header.firstDirectorySector);
+    final List<int> chain = _followChain(
+      fat,
+      header.firstDirectorySector,
+      source.length ~/ header.sectorSize - 1,
+    );
     if (header.majorVersion == 4 &&
         chain.length != header.directorySectorCount) {
       throw const CfbfException('Inconsistent directory sector count');
@@ -576,7 +580,11 @@ class CfbfFile {
     if (header.miniFatSectorCount == 0) {
       return <int>[];
     }
-    final List<int> chain = _followChain(fat, header.firstMiniFatSector);
+    final List<int> chain = _followChain(
+      fat,
+      header.firstMiniFatSector,
+      source.length ~/ header.sectorSize - 1,
+    );
     if (chain.length != header.miniFatSectorCount) {
       throw const CfbfException('Inconsistent mini FAT sector count');
     }
@@ -604,18 +612,24 @@ class CfbfFile {
     }
   }
 
-  static List<int> _followChain(List<int> fat, int start) {
+  static List<int> _followChain(
+    List<int> fat,
+    int start,
+    int physicalSectorCount,
+  ) {
     final List<int> chain = <int>[];
     final Set<int> seen = <int>{};
     int sector = start;
     while (sector != cfbfEndOfChain) {
+      // FAT padding can contain entries for sectors beyond the physical
+      // file. Validate both namespaces before requesting any source bytes.
+      if (sector < 0 || sector >= physicalSectorCount || sector >= fat.length) {
+        throw CfbfException('Sector $sector outside compound allocation');
+      }
       if (!seen.add(sector)) {
         throw const CfbfException('Sector chain cycle detected');
       }
       chain.add(sector);
-      if (sector >= fat.length) {
-        throw CfbfException('Sector $sector missing from FAT');
-      }
       sector = fat[sector];
     }
     return chain;
@@ -812,8 +826,14 @@ class CfbfHeader {
     for (int i = 0; i < 109; i++) {
       headerDifat.add(cursor.u32le());
     }
-    if (sectorShift != 9 && sectorShift != 12) {
-      throw CfbfException('Unsupported sector shift $sectorShift');
+    // MS-CFB 2.2 fixes both allocation geometries. Applying unchecked mini
+    // shifts can reinterpret another stream's padding as payload, or behave
+    // differently under JavaScript's narrower bitwise operations.
+    if (!((major == 3 && sectorShift == 9) ||
+            (major == 4 && sectorShift == 12)) ||
+        miniShift != 6 ||
+        cutoff != 4096) {
+      throw const CfbfException('Unsupported compound-file geometry');
     }
     return CfbfHeader(
       majorVersion: major,
@@ -822,7 +842,7 @@ class CfbfHeader {
       directorySectorCount: dirCount,
       fatSectorCount: fatCount,
       firstDirectorySector: firstDir,
-      miniStreamCutoff: cutoff == 0 ? 4096 : cutoff,
+      miniStreamCutoff: cutoff,
       firstMiniFatSector: firstMini,
       miniFatSectorCount: miniCount,
       firstDifatSector: firstDifat,
