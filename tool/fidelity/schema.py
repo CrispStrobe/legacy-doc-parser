@@ -19,6 +19,10 @@ VALIDATOR = ROOT / "tool/office-validation"
 OFFICE_SUFFIXES = {".docx", ".docm", ".dotx", ".dotm", ".xlsx", ".pptx"}
 EXPECTED_CASES = frozenset([
     "ink-budget/aggregate",
+    *(f"list-metadata/{name}" for name in (
+        "bullet-ignored-restart", "none-ignored-restart", "none-literal",
+        "none-empty-placeholder", "none-ancestor-placeholder", "literal-percent-text",
+        "percent-before-placeholder", "numbered-valid-restart", "numbered-inactive-restart")),
     *(f"nested-fields/{name}" for name in (
         "nested-results", "private-result", "private-instruction-result", "unsupported-result", "formula",
         "instruction-whitespace", "nested-instruction-whitespace", "cached-controls",

@@ -10,6 +10,7 @@ import 'image_appearance_probe.dart' as image_appearance;
 import 'ink_budget_fixture.dart' as ink_budget;
 import 'ink_schema_fixture.dart' as ink_strokes;
 import 'list_sequence_fixture.dart' as list_sequences;
+import 'list_metadata_fixture.dart' as list_metadata;
 import 'metafile_probe.dart' as metafiles;
 import 'media_review_fixture.dart' as media_reviews;
 import 'nested_field_fixture.dart' as nested_fields;
@@ -69,6 +70,16 @@ void main(List<String> arguments) {
       'nested-fields/$name.doc',
       'nested-fields/$name.docx',
       'tool/fidelity/nested_field_fixture.dart',
+    );
+  }
+
+  list_metadata.main(['${root.path}/list-metadata']);
+  for (final name in list_metadata.listMetadataCases) {
+    record(
+      'list-metadata/$name',
+      'list-metadata/$name.doc',
+      'list-metadata/$name.docx',
+      'tool/fidelity/list_metadata_fixture.dart',
     );
   }
 
