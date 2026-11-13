@@ -120,7 +120,7 @@ extension _WordFields on _StructuredWordParser {
           );
           final type =
               RegExp(
-                r'^\s*([A-Za-z][A-Za-z0-9_]*)',
+                r'^\s*([A-Za-z][A-Za-z0-9_]*|=)',
               ).firstMatch(instruction)?.group(1)?.toUpperCase() ??
               '';
           fields.add(

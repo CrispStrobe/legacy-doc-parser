@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'story_word_fixture.dart';
 
 const _sources = {
+  // Deliberately stale cached value: conversion must never evaluate 1 + 1.
+  'formula': 'A\x13 = 1 + 1 \x14999\x15Z\r',
   'nested-results':
       'A\x13 IF \x13 REF Name \x14pre\x13 PAGE \x142\x15post\x15 '
       '= "pre2post" "yes" "no" \x14Visible\x15Z\r',
@@ -21,6 +23,7 @@ const _sources = {
 };
 
 const nestedFieldCases = [
+  'formula',
   'nested-results',
   'private-result',
   'private-instruction-result',
