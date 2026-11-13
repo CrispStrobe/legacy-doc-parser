@@ -1,5 +1,15 @@
 # Independent WPF transform and pressure-metric controls
 
+**Measured interpretation update:** the
+[retained Windows results](../../doc/evidence/wpf-isf-metrics-20261113/README.md)
+show that compact tag 20 collapses the points to its offset. The subsequently
+checked Microsoft 2007 ISF specification explicitly gives that tag zero linear
+matrix coefficients, consistent with WPF. The conventional translation in the
+table below is the unchanged pre-run hypothesis, not the specification's tag-20
+contract. Full affine tag 16 is the demonstrated encoding for a conventional
+translation. The original helper README bytes are retained with the measured
+source receipt; this interpretation note does not rewrite the experiment.
+
 This isolated author/runner keeps the existing Windows WPF oracle and every
 original fixture byte unchanged. It modifies only documented ISF transform
 records, pressure-metric records and their enclosing lengths in two exact
