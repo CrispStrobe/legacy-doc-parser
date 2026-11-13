@@ -555,7 +555,7 @@ extension _WordStories on _StructuredWordWriter {
         'instruction': field.instruction,
         'emittedInstruction': instruction,
         'reason':
-            'A referenced HFD internal location agrees with the literal field '
+            'A referenced HFD target agrees with the literal field '
             'target; its binary metadata marker is not instruction text. '
             'The original data is retained and no link is traversed.',
       });
