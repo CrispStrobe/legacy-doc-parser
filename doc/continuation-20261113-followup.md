@@ -135,7 +135,7 @@ do not certify every document or preserve a complete set of page rasters.
 Hosted provider [run 43388810612](https://github.com/CrispStrobe/CrispCloud/actions/runs/43388810612)
 succeeds at exact runtime `86d5a218`. The separate provider
 [run 43390627091](https://github.com/CrispStrobe/CrispCloud/actions/runs/43390627091)
-also succeeds at official app head `fb81b2ac`. Its
+also succeeds at official-branch source `fb81b2ac`. Its
 [complete output and queue receipt](https://github.com/CrispStrobe/CrispCloud/blob/9f924ff12321019c0f03a8483727af61fb3aef70/docs/evidence/provider-fb81b2ac-20261113/README.md)
 is saved on `checkpoint/app-final-next-20261113`; all 25 retained result/lock
 files agree with the downloaded artifact. The report checks 131 cases and
@@ -153,7 +153,8 @@ observation remains unchanged. The same run subsequently completed successfully
 at the exact `fb81b2ac` head: both `host-roundtrip` and `external-schema`, including
 every required step, succeeded.
 
-The hosted artifacts retain all 122 required app exports, 468 schema-valid
+The [complete hosted Office proof](https://github.com/CrispStrobe/CrispCloud/blob/12087dc89fa7f2d417e32042626c27a0656865cc/docs/evidence/office-hosted-fb81b2ac-20261113/README.md)
+retains all 122 required app exports, 468 schema-valid
 Office outputs, 122 rendered PDFs and 158 decoded RGB pages. All 122 native
 conversions succeed on their first attempt. The repeated-save gate renders the
 app/engine's save-one, save-two and save-three exports and verifies 66 comparisons
@@ -169,6 +170,10 @@ The root lockfile remains unchanged. The 2,624/4,138 instrumented-line result
 applies to 12 scoped Office source files. Earlier successful
 Office CI remains attributed to its earlier checkpoint; later evidence-only
 commits do not change the runtime or hosted head these measurements describe.
+Both original artifact ZIPs, complete decoded logs and source receipts are
+retained. Independent review verifies the complete bundle and all 33 semantic
+corruption controls under normal and optimized Python. Those controls now
+reject contradictory SDK exception records and substituted CI step names.
 
 General Word14 grouped/relative-size metadata, unsupported OfficeArt effects,
 arbitrary GDI behavior, broader review topology and native Word ink are not
