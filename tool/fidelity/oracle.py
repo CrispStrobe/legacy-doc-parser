@@ -26,7 +26,8 @@ import re
 import zipfile
 import xml.etree.ElementTree as ET
 
-from structure import StructureOracle, content_nodes, run_text
+from structure import (PROPERTY_QNAMES, RUN_QNAMES, StructureOracle,
+                       content_nodes, review_text, run_text)
 
 ROOT = Path(__file__).resolve().parents[2]
 W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
@@ -198,10 +199,31 @@ class _Context:
         self.style_cache, self.level_cache = {}, {}
         self.level_active, self.comment_extras = set(), {}
         self.comment_ids, self.default_styles = {}, {}
+        self.note_targets = {}
         self.document_defaults = None
         for rel in self.relationships(main):
             if rel['external']:
                 continue
+            if rel['type'] in ('footnotes', 'endnotes'):
+                kind = rel['type'][:-1]
+                if kind in self.note_targets:
+                    raise ValueError('Duplicate note relationship')
+                tree, _ = self.tree(rel['target'])
+                if tree.tag != '{' + W + '}' + rel['type']:
+                    raise ValueError('Invalid note story root')
+                targets = {}
+                for node in tree.findall('w:' + kind, NS):
+                    identifier = _integer(node.get('{' + W + '}id'))
+                    if identifier is None or identifier in targets:
+                        raise ValueError('Missing or duplicate note identity')
+                    targets[identifier] = {
+                        'identity': len(targets),
+                        'type': node.get('{' + W + '}type', 'normal'),
+                        'text': _text_marker(text_content(node, deleted=True)),
+                        'acceptedText': _text_marker(review_text(node, 'accepted')),
+                        'rejectedText': _text_marker(review_text(node, 'rejected')),
+                    }
+                self.note_targets[kind] = targets
             if rel['type'] == 'commentsExtended':
                 tree, _ = self.tree(rel['target'])
                 for node in tree.findall('w15:commentEx', NS):
@@ -823,7 +845,145 @@ def _comment_snapshot(tree, context):
     return result
 
 
-def _story_semantics(tree, context):
+def _inline_snapshot(tree, context, parents, paragraph_ids, owner):
+    """Measure field/glyph/anchor operands independently of visible text.
+
+    Text offsets count Unicode scalars, with one opaque position per symbol.
+    They are oracle positions, not binary DOC CPs. Field instruction whitespace
+    and quotes remain literal; splitting an instruction across runs is harmless.
+    Note IDs and relationship IDs are resolved, never used as semantic identity.
+    """
+    events, flows, offsets, stacks, bookmarks = [], {}, {}, {}, {}
+    field_count = 0
+    relations = {rel['id']: rel for rel in context.relationships(owner)}
+
+    def location(node):
+        paragraph = _nearest(node, parents, '{' + W + '}p')
+        if paragraph is not None and paragraph not in offsets:
+            offsets[paragraph] = _inline_offsets(paragraph)
+        return {'flow': _flow(node, parents, flows),
+                'paragraph': paragraph_ids.get(paragraph),
+                'offset': offsets[paragraph].get(node) if paragraph is not None else None}
+
+    def append(parts, value):
+        if isinstance(value, str) and parts and isinstance(parts[-1], str):
+            parts[-1] += value
+        elif value != '':
+            parts.append(value)
+
+    def begin(node, simple=False):
+        nonlocal field_count
+        at = location(node)
+        stack = stacks.setdefault(at['flow'], [])
+        field = {'kind': 'field', 'identity': field_count, 'start': at,
+                 'syntax': 'simple' if simple else 'complex',
+                 'locked': _on_off(node.get('{' + W + '}fldLock'), None),
+                 'dirty': _on_off(node.get('{' + W + '}dirty'), None),
+                 'instruction': [], 'result': [], 'separated': simple,
+                 'end': None}
+        if len(stack) >= 64:
+            raise ValueError('Excessive field nesting in oracle')
+        if stack:
+            parent = stack[-1]
+            append(parent['result' if parent['separated'] else 'instruction'],
+                   {'field': field_count})
+        if simple:
+            append(field['instruction'], node.get('{' + W + '}instr', ''))
+        elif len(node):
+            field['beginMetadata'] = [context.property(child) for child in node]
+        field_count += 1
+        events.append(field)
+        stack.append(field)
+        return field
+
+    def end(node, expected=None):
+        at = location(node)
+        stack = stacks.setdefault(at['flow'], [])
+        if not stack or (expected is not None and stack[-1] is not expected):
+            events.append({'kind': 'unmatchedFieldEnd', 'at': at})
+            return
+        stack.pop()['end'] = at
+
+    def visit(node, parent=None):
+        if node.tag in PROPERTY_QNAMES:
+            return
+        at = location(node)
+        stack = stacks.setdefault(at['flow'], [])
+        simple = node.tag == '{' + W + '}fldSimple'
+        simple_field = begin(node, True) if simple else None
+        in_run = parent is not None and parent.tag in RUN_QNAMES
+        if in_run and node.tag == '{' + W + '}fldChar':
+            marker = node.get('{' + W + '}fldCharType')
+            if marker == 'begin':
+                begin(node)
+            elif marker == 'end':
+                end(node)
+            elif marker == 'separate' and stack and not stack[-1]['separated']:
+                stack[-1]['separated'] = True
+                stack[-1]['separator'] = at
+            else:
+                events.append({'kind': 'unmatchedFieldMarker', 'marker': marker, 'at': at})
+            return
+        if in_run and node.tag in ('{' + W + '}instrText', '{' + W + '}delInstrText'):
+            value = node.text or ''
+            if node.tag == '{' + W + '}delInstrText':
+                value = {'deletedInstruction': value}
+            if stack:
+                append(stack[-1]['result' if stack[-1]['separated'] else 'instruction'], value)
+            else:
+                events.append({'kind': 'orphanFieldInstruction', 'at': at, 'value': value})
+        value = run_text(node, parent)
+        if value is not None and stack:
+            append(stack[-1]['result' if stack[-1]['separated'] else 'instruction'], value)
+        if in_run and node.tag == '{' + W + '}sym':
+            code = node.get('{' + W + '}char')
+            # ST_ShortHexNumber is exactly two bytes; case is immaterial.
+            if code is None or not re.fullmatch(r'[0-9A-Fa-f]{4}', code):
+                raise ValueError('Invalid symbol character operand')
+            events.append({'kind': 'symbol', 'at': at,
+                           'font': node.get('{' + W + '}font'), 'char': code.upper()})
+        if in_run and node.tag in ('{' + W + '}footnoteReference', '{' + W + '}endnoteReference'):
+            kind = _local(node.tag).removesuffix('Reference')
+            identifier = _integer(node.get('{' + W + '}id'))
+            target = context.note_targets.get(kind, {}).get(identifier)
+            events.append({'kind': kind + 'Reference', 'at': at,
+                           'customMarkFollows': _on_off(node.get('{' + W + '}customMarkFollows'), False),
+                           'target': target, 'unresolved': target is None})
+        if node.tag in ('{' + W + '}bookmarkStart', '{' + W + '}bookmarkEnd'):
+            identifier = node.get('{' + W + '}id')
+            if identifier not in bookmarks:
+                bookmarks[identifier] = len(bookmarks)
+            event = {'kind': _local(node.tag), 'at': at, 'identity': bookmarks[identifier]}
+            if node.tag == '{' + W + '}bookmarkStart':
+                event.update(name=node.get('{' + W + '}name'),
+                             columnFirst=node.get('{' + W + '}colFirst'),
+                             columnLast=node.get('{' + W + '}colLast'))
+            events.append(event)
+        if node.tag == '{' + W + '}hyperlink':
+            identifier = node.get('{' + R + '}id')
+            relation = relations.get(identifier)
+            target = None
+            if relation is not None:
+                target = {'type': relation['type'], 'external': relation['external'],
+                          'target': relation['target'] if relation['external'] else
+                          hashlib.sha256(context.parts[relation['target']]).hexdigest()}
+            events.append({'kind': 'hyperlink', 'at': at, 'target': target,
+                           'unresolved': identifier is not None and relation is None,
+                           'anchor': node.get('{' + W + '}anchor'),
+                           'documentLocation': node.get('{' + W + '}docLocation'),
+                           'tooltip': node.get('{' + W + '}tooltip'),
+                           'targetFrame': node.get('{' + W + '}tgtFrame'),
+                           'text': _inline_text(node)})
+        for child in node:
+            visit(child, node)
+        if simple:
+            end(node, simple_field)
+
+    visit(tree)
+    return events
+
+
+def _story_semantics(tree, context, owner):
     parents = {child: parent for parent in tree.iter() for child in parent}
     paragraphs = {node: index for index, node in enumerate(tree.iter('{' + W + '}p'))}
     return {'paragraphs': _paragraph_snapshot(paragraphs, context, parents),
@@ -832,7 +992,8 @@ def _story_semantics(tree, context):
             'numbering': _numbering_snapshot(tree, context, parents, paragraphs),
             'textboxes': _textbox_snapshot(tree, context, parents),
             'comments': _comment_snapshot(tree, context),
-            'commentAnchors': _comment_anchor_snapshot(tree, context, parents, paragraphs)}
+            'commentAnchors': _comment_anchor_snapshot(tree, context, parents, paragraphs),
+            'inlineContent': _inline_snapshot(tree, context, parents, paragraphs, owner)}
 
 
 def _section_story_snapshot(tree, context, parents, story_facts):
@@ -893,7 +1054,7 @@ def snapshot(path):
     counts = Counter()
     media, alternatives, compatibility = [], [], []
     semantic = {name: [] for name in ('paragraphs', 'revisions', 'tables', 'numbering', 'textboxes',
-                                     'comments', 'commentAnchors')}
+                                     'comments', 'commentAnchors', 'inlineContent')}
     while queue:
         owner, kind = queue.popleft()
         if owner in seen:
@@ -906,7 +1067,7 @@ def snapshot(path):
         story_marker = _text_marker(stories[-1]['text'])
         if choices:
             alternatives.append({'story': kind, 'text': story_marker, 'availability': choices})
-        features = _story_semantics(tree, context)
+        features = _story_semantics(tree, context, owner)
         story_facts[owner] = {**stories[-1], 'features': features, 'alternatives': choices,
                               'images': [], 'externalLinks': []}
         for feature, entries in features.items():
@@ -961,7 +1122,7 @@ def snapshot(path):
             continue
         sections.append({child.tag.rsplit('}', 1)[-1]: local_attrs(child)
                          for child in section if child.tag.rsplit('}', 1)[-1] not in ('headerReference', 'footerReference')})
-    result = {'oracleSchemaVersion': 4,
+    result = {'oracleSchemaVersion': 5,
             'stories': sorted(stories, key=lambda item: (item['kind'], item['text'])),
             'counts': dict(sorted(counts.items())), 'sections': sections,
             'imageDigests': sorted(media), 'externalLinks': sorted(links, key=str),
@@ -983,7 +1144,7 @@ def compare_semantics(reference, actual):
     """Report losses and changes, including a loss to zero. No tolerant pass."""
     differences = []
     for key in ('oracleSchemaVersion', 'stories', 'sections', 'imageDigests', 'externalLinks',
-                'paragraphs', 'revisions', 'tables', 'numbering', 'textboxes', 'comments', 'commentAnchors',
+                'paragraphs', 'revisions', 'tables', 'numbering', 'textboxes', 'comments', 'commentAnchors', 'inlineContent',
                 'alternatives', 'compatibility', 'sectionStories', 'styleDefaults',
                 'structure'):
         if reference.get(key) != actual.get(key):
