@@ -75,3 +75,9 @@ Upstream source is AGPL-3.0-or-later. The exact head adds a Section 7 app-market
 No real DOCX fixture is committed by crisp-docx; its external Vielfalt fixture is not available and was neither fetched nor copied. Its inline Rust fixture builders are upstream code and were not copied into our generator. Existing paired corpus provenance remains MIT (Quds), MPL-2.0 (LibreOffice), Apache-2.0 (POI), or independently authored as declared in the pinned corpus manifest. See the retained source/manifest identities.
 
 `records.tar.xz` contains the complete small authored inputs and outputs, raw command records, diagnostics and observations. Downloaded Rust archives, build caches and executable binaries are reproducible and omitted; official URLs, hashes, exact source hashes, lock files, build commands and executable identities are retained. The original lock rejection and later successful narrowed build remain distinct. `verify.py` checks retained bytes and the principal semantic/source bindings without rerunning Rust, Pandoc, SDK or native workflows.
+
+### Derived-result receipt controls
+
+The evidence-only follow-up recomputes every authored rewrite's part-byte and semantic equality from its bound projections. It also binds all retained pair text, diagnostic, Pandoc digest and comparison claims to the individual raw tool outputs and projections. Fourteen in-memory corruption controls exercise these guards, including the previously accepted false claim that the lossy note/link rewrite was semantically equal. Both ordinary and optimized Python execute the same explicit guards. The original 373-record archive and its manifest remain byte-identical; no document producer or runtime test was rerun for this correction.
+
+Run the controls with `python3 test_verifier.py` (or `python3 -O test_verifier.py`) from this directory. They first verify the original envelope, then test semantic contradictions independently of outer hashes.

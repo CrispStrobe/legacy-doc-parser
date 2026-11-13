@@ -14,6 +14,17 @@ def js(records,name): return json.loads(records[name])
 def local_name(path):
     require(path.startswith(ORIGINAL_BASE),'unexpected recorded audit root')
     return path[len(ORIGINAL_BASE):]
+def semantic_projection(snapshot):
+    return [{key:value for key,value in story.items() if key!='expandedXmlSha256'}
+            for story in snapshot['stories']]
+def projection_summary(snapshot):
+    return {'parseErrorCount':len(snapshot['parseErrors']),
+            'issueCount':len(snapshot['issues']),
+            'stories':{story['part']:{
+                'paragraphs':len(story['paragraphs']),
+                'acceptedTexts':[p['acceptedText'] for p in story['paragraphs']],
+                'tableCells':[[len(row) for row in table['rows']] for table in story['tables']],
+                'revisions':story['revisions']} for story in snapshot['stories']}}
 def verify_records(records,temporary_root):
     source=js(records,'source-and-tools.json')
     require(source['commit']==HEAD and source['tree']==TREE and source['checkoutClean'] is True,'source identity')
@@ -94,7 +105,14 @@ def verify_records(records,temporary_root):
         require(js(records,'results/'+name+'.inspect.stdout')==c['crisp'],'crisp report binding')
         for mode in ['runs','text','save']:
             key='results/'+name+'.'+mode+'.docx'
-            require(projection(key)==c['rewrites'][mode]['projection'],'rewrite projection: '+name+' '+mode)
+            rewritten=projection(key)
+            require(rewritten==c['rewrites'][mode]['projection'],'rewrite projection: '+name+' '+mode)
+            require(c['rewrites'][mode]['allPartBytesEqual'] is
+                    (c['input']['parts']==rewritten['parts']),
+                    'derived part equality: '+name+' '+mode)
+            require(c['rewrites'][mode]['semanticProjectionEqual'] is
+                    (semantic_projection(c['input'])==semantic_projection(rewritten)),
+                    'derived semantic equality: '+name+' '+mode)
         require(c['rewrites']['save']['allPartBytesEqual'] is True,'raw part transport')
     def body(p): return next(s for s in p['stories'] if s['part']=='word/document.xml')
     def offsets(p,kind): return [e['offset'] for para in body(p)['paragraphs'] for e in para['events'] if e['type']==kind]
@@ -144,11 +162,14 @@ def verify_records(records,temporary_root):
     pairs=js(records,'retained-pair-report.json')
     require(pairs['parserRuntime']=='c5ff75e76163d9abbdd44a9f2a7c5ad210929289' and pairs['crispDocxCommit']==HEAD and len(pairs['cases'])==9,'retained corpus identity')
     for case,row in pairs['cases'].items():
+        require(set(row['inputs'])=={'native','parser'},'retained pair roles')
         for role,input_ in row['inputs'].items():
             key='retained-pairs/'+input_['record'];raw=records[key];detail=json.loads(raw)
             require(sha(raw)==input_['recordSha256'],'retained pair observation binding')
             require(detail['sha256']==detail['projection']['sha256'],'retained input identity')
-            require(detail['summary']==input_['summary'] and detail['crisp']['check']['clean'] is True,'retained observation facts')
+            require(projection_summary(detail['projection'])==detail['summary']==input_['summary'],
+                    'retained projection summary')
+            require(detail['crisp']['check']['clean'] is True,'retained clean observation')
             for stem,command in [('crisp',detail['crispCommand']),('pandoc',detail['pandocCommand'])]:
                 absolute='/workspace/scratch/c1ca2a1344e9/final-native-c5ff75e7/'+detail['inputPath']
                 expected=[adapter,'inspect',absolute] if stem=='crisp' else ['pandoc','-f','docx','-t','json','--track-changes=all',absolute]
@@ -156,9 +177,29 @@ def verify_records(records,temporary_root):
                 for stream in ['stdout','stderr']:
                     require(sha(records['retained-pairs/'+case+'.'+role+'.'+stem+'.'+stream])==command[stream+'Sha256'],'retained command output')
             require(detail['crisp']==js(records,'retained-pairs/'+case+'.'+role+'.crisp.stdout'),'retained Rust result binding')
+            require(detail['pandoc']==js(records,'retained-pairs/'+case+'.'+role+'.pandoc.stdout'),
+                    'retained Pandoc result binding')
+            crisp=detail['crisp'];paragraph_runs=crisp['publicBodyProjection']['paragraphRuns']
+            derived={'crispClean':crisp['check'].get('clean'),
+                     'crispIssues':crisp['check'].get('issues'),
+                     'crispTexts':crisp['publicBodyProjection']['texts'],
+                     'crispRunText':[p['text'] for p in paragraph_runs] if isinstance(paragraph_runs,list) else None,
+                     'pandocExitCode':detail['pandocCommand']['exitCode'],
+                     'pandocCanonicalSha256':sha(json.dumps(detail['pandoc'],sort_keys=True,separators=(',',':')).encode()) if detail['pandoc'] else None}
+            for name,expected in derived.items():
+                require(input_[name]==expected,'retained derived observation: '+name)
+        a=row['inputs']['parser'];b=row['inputs']['native']
+        expected_comparison={'crispTextArraysEqual':a['crispTexts']==b['crispTexts'],
+                             'crispRunTextArraysEqual':a['crispRunText']==b['crispRunText'],
+                             'pandocAstEqual':a['pandocCanonicalSha256']==b['pandocCanonicalSha256'],
+                             'projectionSummariesEqual':a['summary']==b['summary']}
+        require(set(row['comparison'])==set(expected_comparison),'retained comparison keys')
+        for name,expected in expected_comparison.items():
+            require(row['comparison'][name] is expected,'retained derived comparison: '+name)
     require(sum(r['comparison']['crispTextArraysEqual'] for r in pairs['cases'].values())==6,'flat-text pair count')
     require(sum(r['comparison']['crispRunTextArraysEqual'] for r in pairs['cases'].values())==7,'run-text pair count')
     require(sum(r['comparison']['pandocAstEqual'] for r in pairs['cases'].values())==1,'Pandoc pair count')
+    require(sum(r['comparison']['projectionSummariesEqual'] for r in pairs['cases'].values())==3,'projection-summary pair count')
     notes=js(records,'note-authoring-report.json')
     require(notes['crisp']['references']==['1','1'] and len(notes['crisp']['notes'])==1,'CLI note identity')
     require(len(set(notes['pandoc']['references']))==2 and len(notes['pandoc']['notes'])==2,'Pandoc note identity')
