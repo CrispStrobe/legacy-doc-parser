@@ -91,6 +91,25 @@ void main() {
     },
   );
 
+  test('negative caller sizes cannot credit the aggregate read budget', () {
+    final bytes = compoundOwnershipFixture('valid');
+    final bounded = BoundedCfbReader(bytes, maxTotalReadBytes: 130);
+    final entry = bounded.child(bounded.root, 'SmallA')!;
+    expect(
+      bounded.readPath('SmallA'),
+      List.generate(65, (index) => index + 10),
+    );
+    expect(
+      () => bounded.readEntry(compoundNegativeSizeEntry(entry)),
+      rejectsCompound,
+    );
+    expect(
+      bounded.readPath('SmallB'),
+      List.generate(65, (index) => index + 100),
+    );
+    expect(() => bounded.readPath('SmallA'), throwsFormatException);
+  });
+
   test('caller entry cannot substitute allocation under a parsed index', () {
     final bytes = compoundOwnershipFixture('valid');
     final raw = CfbfFile.fromBytes(bytes), bounded = BoundedCfbReader(bytes);

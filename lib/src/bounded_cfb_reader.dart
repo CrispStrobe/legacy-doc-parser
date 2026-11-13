@@ -132,6 +132,7 @@ class BoundedCfbReader {
 
   Uint8List readEntry(CfbfDirectoryEntry entry) {
     if (!entry.isStream ||
+        entry.streamSize < 0 ||
         entry.streamSize > maxStreamBytes ||
         _readBytes + entry.streamSize > maxTotalReadBytes) {
       throw const FormatException(

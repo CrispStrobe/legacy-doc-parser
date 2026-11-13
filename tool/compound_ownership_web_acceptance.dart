@@ -108,11 +108,30 @@ Map<String, Object?> verifyCompoundOwnershipWebCases() {
   ).entryByName('Other')!;
   rejects(() => raw.readEntry(other), 'raw substituted entry');
   rejects(() => bounded.readEntry(other), 'bounded substituted entry');
+  final limited = BoundedCfbReader(bytes, maxTotalReadBytes: 130);
+  final entry = limited.child(limited.root, 'SmallA')!;
+  equal(
+    limited.readPath('SmallA'),
+    List.generate(65, (index) => index + 10),
+    'first budgeted read',
+  );
+  rejects(
+    () => limited.readEntry(compoundNegativeSizeEntry(entry)),
+    'negative-size budget credit',
+  );
+  equal(
+    limited.readPath('SmallB'),
+    List.generate(65, (index) => index + 100),
+    'exact aggregate budget',
+  );
+  rejects(() => limited.readPath('SmallA'), 'exhausted aggregate budget');
+  comparisons += 2;
   return {
     'malformedOverlapCases': 15,
     'readerRejections': rejections,
     'compatibilityCases': 3,
     'streamComparisons': comparisons,
+    'negativeSizePreservesBudget': true,
     'sourceUnchanged': true,
   };
 }

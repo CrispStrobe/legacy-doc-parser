@@ -122,3 +122,24 @@ Uint8List compoundOwnershipFixture(String mutation) {
   }
   return bytes;
 }
+
+/// Public caller-built metadata can contain a negative size even though the
+/// on-disk size field is unsigned. Keep all other fields of the real entry.
+CfbfDirectoryEntry compoundNegativeSizeEntry(CfbfDirectoryEntry entry) =>
+    CfbfDirectoryEntry(
+      index: entry.index,
+      name: entry.name,
+      type: entry.type,
+      colorBlack: entry.colorBlack,
+      leftSibling: entry.leftSibling,
+      rightSibling: entry.rightSibling,
+      child: entry.child,
+      clsid: entry.clsid,
+      stateBits: entry.stateBits,
+      created: entry.created,
+      modified: entry.modified,
+      createdFiletime: entry.createdFiletime,
+      modifiedFiletime: entry.modifiedFiletime,
+      startSector: entry.startSector,
+      streamSize: -1000,
+    );
