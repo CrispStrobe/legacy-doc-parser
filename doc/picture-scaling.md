@@ -34,6 +34,14 @@ interoperability contract, supported by these measurements and the pinned
 native importer's integer arithmetic. It is not a Microsoft Word rendering
 claim.
 
+The parser now truncates positive fractional twips at this boundary. It checks
+the exact scaled numerator against 15–31680 twips before division, so neither
+nearest rounding nor truncation can admit a dimension outside the documented
+range. Raster and metafile pictures share this rule. Explicit OfficeArt crop
+fractions remain separate and do not scale the final PICMID frame a second
+time. The [baseline receipt](evidence/picture-scaling-20261113/baseline-report.json)
+retains all four pre-fix disagreements.
+
 ## Crop remains source-controlled
 
 The native importer also insets the PNG image by 0.05 pt on each side in the
