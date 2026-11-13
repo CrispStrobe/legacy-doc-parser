@@ -119,7 +119,66 @@ Map<String, Object?> verifyCompoundAllocationWebCases() {
     'sharedTailStreams': 65,
     'sharedTailSectorReads': counted.views,
     'sharedTailZeroLengthReads': counted.zeroLengthViews,
+    'portableIntegers': _verifyPortableIntegers(),
     'sourceUnchanged': true,
+  };
+}
+
+Map<String, Object?> _verifyPortableIntegers() {
+  for (final (value, bytes) in [
+    (0, [0, 0, 0, 0, 0, 0, 0, 0]),
+    (1, [1, 0, 0, 0, 0, 0, 0, 0]),
+    (4294967295, [255, 255, 255, 255, 0, 0, 0, 0]),
+    (4294967296, [0, 0, 0, 0, 1, 0, 0, 0]),
+    (4294967297, [1, 0, 0, 0, 1, 0, 0, 0]),
+    (9007199254740991, [255, 255, 255, 255, 255, 255, 31, 0]),
+  ]) {
+    final source = Uint8List.fromList(bytes);
+    final cursor = ByteCursor(source);
+    if (cursor.u64le() != value || cursor.offset != 8) {
+      throw StateError('Portable u64 decode failed for $value');
+    }
+    final sink = ByteSink()..u64le(value);
+    _equal(sink.takeBytes(), bytes, 'Portable u64 encode $value');
+    _equal(source, bytes, 'Portable u64 source $value');
+  }
+  var rejectedWrites = 0;
+  for (final value in [-1, 9007199254740992]) {
+    final sink = ByteSink()..u8(42);
+    try {
+      sink.u64le(value);
+    } on RangeError {
+      rejectedWrites++;
+    }
+    _equal(sink.toBytes(), [42], 'Failed u64 write remains atomic');
+    if (sink.length != 1) throw StateError('Failed u64 write advanced length');
+  }
+  var rejectedReads = 0;
+  for (final high in [0x200000, 0x80000000, 0xffffffff]) {
+    final bytes = Uint8List(8);
+    ByteData.sublistView(bytes).setUint32(4, high, Endian.little);
+    final before = Uint8List.fromList(bytes);
+    try {
+      ByteCursor(bytes).u64le();
+    } on RangeError {
+      rejectedReads++;
+    }
+    _equal(bytes, before, 'Failed u64 read preserves input');
+  }
+  if (rejectedReads != 3 || rejectedWrites != 2) {
+    throw StateError('Portable u64 range guards did not reject every case');
+  }
+  final time = Uint8List.fromList(List.filled(8, 255));
+  final file = CfbfFile.fromBytes(
+    (CfbfWriter(modifiedFiletime: time)..addStream('Small', [3])).build(),
+  );
+  _equal(file.root.modifiedFiletime, time, 'Full-width raw FILETIME');
+  _equal(file.readPath('Small')!, [3], 'Small stream with raw FILETIME');
+  return {
+    'validValues': 6,
+    'readRangeRejections': rejectedReads,
+    'writeRangeRejections': rejectedWrites,
+    'rawFiletimePreserved': true,
   };
 }
 
