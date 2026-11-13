@@ -617,14 +617,10 @@ extension _WordStories on _StructuredWordWriter {
       final value = instruction.substring(start, end);
       if (value.isNotEmpty) {
         _xml.add('<w:r><w:instrText xml:space="preserve">');
-        // Tabs are legal field instruction separators; no raw field controls
-        // enter XML. Nested control markers are handled by their typed child.
-        _xml.text(
-          value
-              .replaceAll('\t', ' ')
-              .replaceAll('\r', ' ')
-              .replaceAll('\n', ' '),
-        );
+        // Whitespace can also occur inside quoted literals; replacing it with
+        // spaces changes the retained instruction. XML character references
+        // preserve it exactly. Nested field markers use their typed child.
+        _xml.text(value, preserveWhitespace: true);
         _xml.add('</w:instrText></w:r>');
       }
       position = cp;

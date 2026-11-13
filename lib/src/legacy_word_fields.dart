@@ -176,7 +176,15 @@ extension _WordFields on _StructuredWordParser {
         output.write('\n');
       } else if (unit == 7) {
         output.write('\t');
-      } else if (unit >= 32 || unit == 9 || unit == 10 || unit == 12) {
+      } else if (unit == 30) {
+        output.writeCharCode(0x2011);
+      } else if (unit == 31) {
+        output.writeCharCode(0x00ad);
+      } else if (unit >= 32 ||
+          unit == 9 ||
+          unit == 10 ||
+          unit == 12 ||
+          unit == 14) {
         output.writeCharCode(unit);
       }
     }

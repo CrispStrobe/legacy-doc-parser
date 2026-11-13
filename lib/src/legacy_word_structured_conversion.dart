@@ -544,8 +544,19 @@ class _BoundedWordXml {
     _buffer.write(ascii);
   }
 
-  void text(String value, {bool attribute = false}) {
+  void text(
+    String value, {
+    bool attribute = false,
+    bool preserveWhitespace = false,
+  }) {
     for (final rune in value.runes) {
+      if (preserveWhitespace && (rune == 9 || rune == 10 || rune == 13)) {
+        // XML 1.0 permits these three whitespace controls. Character references
+        // preserve CR/CRLF exactly through XML end-of-line normalization and
+        // keep field-code literals distinct from spaces.
+        add('&#${rune};');
+        continue;
+      }
       if (rune < 0x20 ||
           (rune >= 0xd800 && rune <= 0xdfff) ||
           rune == 0xfffe ||

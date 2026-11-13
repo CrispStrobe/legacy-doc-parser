@@ -76,7 +76,7 @@ void main() {
       final xml = _part(result.bytes, 'word/document.xml');
       expect(
         xml.findAllElements('instrText', namespace: _w).single.innerText,
-        instruction.replaceAll('\t', ' '),
+        instruction,
       );
       expect(result.preservedCounts['fields'], 1);
     }
