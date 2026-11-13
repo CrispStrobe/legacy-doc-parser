@@ -192,9 +192,11 @@ class _HtmlWriter {
 
   String? _listText(LegacyWordResolvedNumbering marker) {
     final level = marker.level;
-    if (level.format == 'none') return '';
     if (level.format == 'bullet') return level.text;
     const formats = {
+      // A level without its own number sequence can still carry literal text
+      // and placeholders referencing numbered ancestor levels (MS-DOC 2.4.6.3).
+      'none',
       'decimal',
       'decimalZero',
       'upperRoman',
