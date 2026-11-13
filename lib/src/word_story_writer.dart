@@ -516,14 +516,14 @@ extension _WordStories on _StructuredWordWriter {
           field.storyId,
           field.separatorCp!,
           10,
-          () => _xml.add('<w:r><w:fldChar w:fldCharType="separate"/></w:r>'),
+          () => _fieldMarker('separate', hidden: field.privateResult),
         );
       }
       _event(
         field.storyId,
         field.endCp - 1,
         5,
-        () => _xml.add('<w:r><w:fldChar w:fldCharType="end"/></w:r>'),
+        () => _fieldMarker('end', hidden: field.privateResult),
       );
     }
     _prepareTextboxes();
@@ -638,8 +638,28 @@ extension _WordStories on _StructuredWordWriter {
         .every((child) => _safeFieldTree(child, depth + 1));
   }
 
-  void _fieldBegin(LegacyWordField field, [int depth = 0]) {
+  void _fieldRunStart(bool hidden) {
+    // A field in an instruction never has a visible result in this story.
+    // Explicit run visibility prevents importers from exposing nested caches
+    // or private-field recalculation errors, while retaining every field and
+    // instruction. Reset the outer field's runs so visibility cannot leak.
+    _xml.add('<w:r><w:rPr>');
+    _bool('vanish', hidden);
+    _xml.add('</w:rPr>');
+  }
+
+  void _fieldMarker(String type, {required bool hidden}) {
+    _fieldRunStart(hidden);
+    _xml.add('<w:fldChar w:fldCharType="$type"/></w:r>');
+  }
+
+  void _fieldBegin(
+    LegacyWordField field, [
+    int depth = 0,
+    bool instructionContext = false,
+  ]) {
     if (depth > 64) _tooComplex();
+    final hidden = instructionContext || field.privateResult;
     final instruction = _fieldInstruction(field);
     if (instruction != field.instruction) {
       _count('binaryHyperlinkFields');
@@ -655,9 +675,8 @@ extension _WordStories on _StructuredWordWriter {
             'The original data is retained and no link is traversed.',
       });
     }
-    _xml.add(
-      '<w:r><w:fldChar w:fldCharType="begin" w:fldLock="1" w:dirty="0">',
-    );
+    _fieldRunStart(hidden);
+    _xml.add('<w:fldChar w:fldCharType="begin" w:fldLock="1" w:dirty="0">');
     _displayFieldRevision(field);
     _xml.add('</w:fldChar></w:r>');
     final instructionStart = field.startCp + 1;
@@ -675,7 +694,8 @@ extension _WordStories on _StructuredWordWriter {
       }
       final value = instruction.substring(start, end);
       if (value.isNotEmpty) {
-        _xml.add('<w:r><w:instrText xml:space="preserve">');
+        _fieldRunStart(hidden);
+        _xml.add('<w:instrText xml:space="preserve">');
         // Whitespace can also occur inside quoted literals; replacing it with
         // spaces changes the retained instruction. XML character references
         // preserve it exactly. Nested field markers use their typed child.
@@ -692,9 +712,9 @@ extension _WordStories on _StructuredWordWriter {
           'An unsupported nested Word instruction cannot be activated.',
         );
       }
-      _fieldBegin(child, depth + 1);
+      _fieldBegin(child, depth + 1, true);
       if (child.separatorCp != null) {
-        _xml.add('<w:r><w:fldChar w:fldCharType="separate"/></w:r>');
+        _fieldMarker('separate', hidden: true);
         _writeCachedFieldResult(
           child,
           field.instruction,
@@ -702,7 +722,7 @@ extension _WordStories on _StructuredWordWriter {
           depth + 1,
         );
       }
-      _xml.add('<w:r><w:fldChar w:fldCharType="end"/></w:r>');
+      _fieldMarker('end', hidden: true);
       position = child.endCp;
     }
     textUntil(instructionEnd);
@@ -761,7 +781,14 @@ extension _WordStories on _StructuredWordWriter {
       }
       final text = output.toString();
       if (text.isNotEmpty) {
-        _writeRun(LegacyWordRun(startCp: 0, endCp: text.length, text: text));
+        _writeRun(
+          LegacyWordRun(
+            startCp: 0,
+            endCp: text.length,
+            text: text,
+            style: const LegacyWordCharacterStyle(hidden: true),
+          ),
+        );
       }
       position = cp;
     }
@@ -774,9 +801,9 @@ extension _WordStories on _StructuredWordWriter {
       textUntil(child.startCp);
       final active = emitFields && _safeFieldTree(child);
       if (active) {
-        _fieldBegin(child, depth + 1);
+        _fieldBegin(child, depth + 1, true);
         if (child.separatorCp != null) {
-          _xml.add('<w:r><w:fldChar w:fldCharType="separate"/></w:r>');
+          _fieldMarker('separate', hidden: true);
         }
       } else if (emitFields) {
         _inertFieldEvidence(child);
@@ -789,7 +816,7 @@ extension _WordStories on _StructuredWordWriter {
         emitFields: active,
       );
       if (active) {
-        _xml.add('<w:r><w:fldChar w:fldCharType="end"/></w:r>');
+        _fieldMarker('end', hidden: true);
       }
       position = child.endCp;
     }
