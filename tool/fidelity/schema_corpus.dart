@@ -63,6 +63,15 @@ void main(List<String> arguments) {
     }
   }
 
+  for (final name in ink_strokes.inkHeaderSchemaCases.keys) {
+    record(
+      'ink-strokes/$name',
+      'ink-strokes/$name.doc',
+      'ink-strokes/$name.docx',
+      'tool/fidelity/ink_schema_fixture.dart',
+    );
+  }
+
   origins.main(['${root.path}/table-origin']);
   for (final name in [
     'default',
