@@ -23,11 +23,15 @@ Map<String, Object?> verifyNestedFieldWebAcceptance() {
     'private-instruction-result': 2,
     'unsupported-result': 2,
     'formula': 1,
+    'instruction-whitespace': 1,
+    'nested-instruction-whitespace': 2,
+    'cached-controls': 1,
   };
   for (final name in nestedFieldCases) {
     final source = nestedFieldFixture(name);
     final before = Uint8List.fromList(source);
-    final result = convertLegacyWordToStructuredDocx(source);
+    final parsed = parseLegacyWordDocument(source);
+    final result = convertLegacyWordDocument(parsed);
     final archive = ZipDecoder().decodeBytes(result.bytes);
     final text = utf8.decode(archive.findFile('word/document.xml')!.content);
     final document = XmlDocument.parse(text);
@@ -53,8 +57,20 @@ Map<String, Object?> verifyNestedFieldWebAcceptance() {
             throw StateError('$name unknown field marker');
         }
       } else if (states.every((state) => state)) {
-        for (final item in run.findElements('t', namespace: _w)) {
-          visible.write(item.innerText);
+        for (final item in run.childElements) {
+          if (item.name.namespaceUri != _w) continue;
+          switch (item.name.local) {
+            case 't':
+              visible.write(item.innerText);
+            case 'tab':
+              visible.write('\t');
+            case 'br':
+              visible.write(switch (item.getAttribute('type', namespace: _w)) {
+                'column' => '\x0e',
+                'page' => '\f',
+                _ => '\n',
+              });
+          }
         }
       }
     }
@@ -64,6 +80,8 @@ Map<String, Object?> verifyNestedFieldWebAcceptance() {
     final expectedText = switch (name) {
       'private-result' => 'AZ',
       'formula' => 'A999Z',
+      'instruction-whitespace' => 'ACachedZ',
+      'cached-controls' => 'Aco\u2011op\u00aderate\x0enextZ',
       _ => 'AVisibleZ',
     };
     _check(visible.toString() == expectedText, '$name visible field result');
@@ -80,6 +98,34 @@ Map<String, Object?> verifyNestedFieldWebAcceptance() {
                 .getAttribute('fldLock', namespace: _w) ==
             '1',
         'formula must remain locked without evaluation',
+      );
+    }
+    if (name == 'instruction-whitespace') {
+      _check(
+        document.findAllElements('instrText', namespace: _w).single.innerText ==
+            ' QUOTE "one\ttwo\rthree\nfour\r\nfive & <six> 😀" ',
+        '$name changed quoted literal',
+      );
+    }
+    if (name == 'nested-instruction-whitespace') {
+      final instructions = document
+          .findAllElements('instrText', namespace: _w)
+          .map((e) => e.innerText)
+          .toList();
+      const expected = [
+        ' IF "before\tafter" = "before\tafter" ',
+        ' QUOTE "one\ttwo" ',
+        ' "no\r\nyes" ',
+      ];
+      _check(instructions.length == expected.length, '$name instruction count');
+      for (var i = 0; i < expected.length; i++) {
+        _check(instructions[i] == expected[i], '$name changed slice $i');
+      }
+    }
+    if (name == 'cached-controls') {
+      _check(
+        parsed.fields.single.storedResult == 'co\u2011op\u00aderate\x0enext',
+        '$name normalized metadata differs from displayed controls',
       );
     }
     _check(!text.contains('Private'), '$name private descendant escaped');
@@ -111,6 +157,8 @@ Map<String, Object?> verifyNestedFieldWebAcceptance() {
     'balancedFields': true,
     'privateDescendantsSuppressed': true,
     'externalFieldsInert': true,
+    'instructionWhitespacePreserved': true,
+    'cachedControlsPreserved': true,
     'sourceUnchanged': true,
   };
 }

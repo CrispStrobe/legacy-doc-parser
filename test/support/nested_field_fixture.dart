@@ -20,6 +20,15 @@ const _sources = {
       'A\x13 IF \x13 REF Name \x14pre\x13 INCLUDETEXT "https://invalid.test/" '
       '\x14cached\x15post\x15 = "precachedpost" "yes" "no" '
       '\x14Visible\x15Z\r',
+  'instruction-whitespace':
+      'A\x13 QUOTE "one\ttwo\rthree\nfour\r\nfive & <six> 😀" '
+      '\x14Cached\x15Z\r',
+  'nested-instruction-whitespace':
+      'A\x13 IF "before\tafter" = "before\tafter" '
+      '\x13 QUOTE "one\ttwo" \x14Child\x15 "no\r\nyes" '
+      '\x14Visible\x15Z\r',
+  'cached-controls':
+      'A\x13 QUOTE "cached" \x14co\x1eop\x1ferate\x0enext\x15Z\r',
 };
 
 const nestedFieldCases = [
@@ -28,6 +37,9 @@ const nestedFieldCases = [
   'private-result',
   'private-instruction-result',
   'unsupported-result',
+  'instruction-whitespace',
+  'nested-instruction-whitespace',
+  'cached-controls',
 ];
 
 /// Independently assembled binary controls shared by VM, JS and schema gates.
