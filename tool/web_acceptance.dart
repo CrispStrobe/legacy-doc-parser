@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 import 'package:legacy_doc_parser/src/bounded_cfb_reader.dart';
+import 'package:legacy_doc_parser/src/compound/cfbf_reader.dart' show CfbfFile;
 import 'package:legacy_doc_parser/src/compound/cfbf_writer.dart';
 import 'package:xml/xml.dart';
 
@@ -193,8 +194,132 @@ Map<String, Object?> verifyWebConversion(Uint8List fixture) {
     'sourceUnchanged': true,
     'oleMetadata': true,
     'vbaMetadata': vba,
+    'cfbSimpleNames': _cfbNamesCase(),
+    'boundedTextExtraction': _textExtractionCase(),
     'signatureValidityClaimed': false,
   };
+}
+
+bool _cfbNamesCase() {
+  // Full uppercase expands these BMP names in JavaScript. Supplementary
+  // case pairs must remain distinct in CFB on both the VM and JavaScript.
+  const names = [
+    'ß',
+    'SS',
+    'ßs',
+    'sß',
+    'ﬃ',
+    '\u{10400}',
+    '\u{10428}',
+    '\u1f80',
+    '\u1f90',
+    '\u1fa0',
+    '\u1fb3',
+    '\u1fc3',
+    '\u1ff3',
+  ];
+  final writer = CfbfWriter();
+  for (var index = 0; index < names.length; index++) {
+    writer.addStream(names[index], [index]);
+  }
+  final source = writer.build(), before = Uint8List.fromList(source);
+  final bounded = BoundedCfbReader(source), raw = CfbfFile.fromBytes(source);
+  _check(bounded.childrenOf(bounded.root).length == names.length, 'CFB names');
+  for (var index = 0; index < names.length; index++) {
+    _check(
+      bounded.readPath(names[index])!.single == index &&
+          raw.readPath(names[index])!.single == index,
+      'CFB stream identity ${names[index]}',
+    );
+  }
+  const upperGreek = [
+    '\u1f88',
+    '\u1f98',
+    '\u1fa8',
+    '\u1fbc',
+    '\u1fcc',
+    '\u1ffc',
+  ];
+  for (var index = 0; index < upperGreek.length; index++) {
+    _check(
+      bounded.readPath(upperGreek[index])!.single == index + 7 &&
+          raw.readPath(upperGreek[index])!.single == index + 7,
+      'CFB Greek simple uppercase',
+    );
+  }
+  _check(
+    bounded.readPath('ss')!.single == 1 &&
+        bounded.readPath('ßS')!.single == 2 &&
+        bounded.readPath('Sß')!.single == 3 &&
+        bounded.readPath('FFI') == null &&
+        raw.readPath('FFI') == null,
+    'CFB casing preserves name boundaries',
+  );
+  var rejectedDuplicate = false;
+  try {
+    writer.addStream('ss', [99]);
+  } on ArgumentError {
+    rejectedDuplicate = true;
+  }
+  _check(rejectedDuplicate, 'CFB true case collision');
+  _check(_equal(source, before), 'CFB named source changed');
+  return true;
+}
+
+bool _textExtractionCase() {
+  void rejects(Uint8List bytes, String description) {
+    var rejected = false;
+    try {
+      extractLegacyWordText(bytes);
+    } on FormatException {
+      rejected = true;
+    }
+    _check(rejected, description);
+  }
+
+  for (final compressed in [false, true]) {
+    final fixture = StructuredWordFixture(
+      pieces: [WordFixturePiece('Text\r', compressed: compressed)],
+    );
+    rejects(
+      fixture.build(
+        mutate: (word, _) => word.setUint32(
+          64,
+          8192 + 5 * (compressed ? 1 : 2) - 1,
+          Endian.little,
+        ),
+      ),
+      'text-only declared extent',
+    );
+    rejects(
+      fixture.build(
+        mutate: (word, table) {
+          final clx = word.getUint32(154 + 33 * 8, Endian.little);
+          final data = ByteData.sublistView(table);
+          data.setUint32(
+            clx + 15,
+            data.getUint32(clx + 15, Endian.little) | 0x80000000,
+            Endian.little,
+          );
+        },
+      ),
+      'text-only reserved offset bit',
+    );
+  }
+  final source = StructuredWordFixture(
+    pieces: const [WordFixturePiece('Left\x0eRight\r')],
+  ).build();
+  _check(extractLegacyWordText(source) == 'Left\nRight', 'text column break');
+  final parts = _package(convertLegacyWordToDocx(source));
+  _check(
+    _elements(
+          _xml(parts, 'word/document.xml'),
+          'p',
+        ).map((paragraph) => paragraph.innerText).join('|') ==
+        'Left|Right',
+    'text-only DOCX column separation',
+  );
+  return true;
 }
 
 bool _vbaMetadataCase() {

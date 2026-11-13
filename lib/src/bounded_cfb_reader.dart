@@ -2,6 +2,7 @@
 
 import 'dart:typed_data';
 
+import 'compound/cfbf_names.dart';
 import 'compound/cfbf_reader.dart'
     show CfbfDirectoryEntry, CfbfFile, CfbfObjectType;
 
@@ -57,7 +58,7 @@ class BoundedCfbReader {
 
   /// Looks only in this storage, never in an unrelated embedded message.
   CfbfDirectoryEntry? child(CfbfDirectoryEntry parent, String name) {
-    return _names[parent.index]?[name.toUpperCase()];
+    return _names[parent.index]?[cfbfNameKey(name)];
   }
 
   /// Compound storages own disjoint sibling trees. Validate this once before
@@ -91,10 +92,11 @@ class BoundedCfbReader {
         }
         owners[index] = parent.index;
         final entry = entries[index];
+        final key = cfbfNameKey(entry.name);
         if (entry.type == CfbfObjectType.empty ||
             entry.type == CfbfObjectType.root ||
             entry.name.isEmpty ||
-            names.containsKey(entry.name.toUpperCase())) {
+            names.containsKey(key)) {
           throw const FormatException(
             'Invalid or duplicate compound directory entry',
           );
@@ -103,7 +105,7 @@ class BoundedCfbReader {
           throw const FormatException('Compound stream cannot have children');
         }
         children.add(entry);
-        names[entry.name.toUpperCase()] = entry;
+        names[key] = entry;
         if (entry.isStorage) storages.add(entry);
         stack.add(entry.leftSibling);
         stack.add(entry.rightSibling);

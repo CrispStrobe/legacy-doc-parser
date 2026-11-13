@@ -5,6 +5,7 @@
 import 'dart:typed_data';
 
 import 'byte_source.dart';
+import 'cfbf_names.dart';
 
 /// Compound File Binary signature: `D0 CF 11 E0 A1 B1 1A E1`.
 const List<int> cfbfSignature = <int>[
@@ -630,7 +631,7 @@ bool _cfbfNamesEqual(String a, String b) {
   if (a.length != b.length) {
     return false;
   }
-  return a.toUpperCase() == b.toUpperCase();
+  return cfbfNameKey(a) == cfbfNameKey(b);
 }
 
 DateTime? _filetimeToDate(Uint8List bytes) {
