@@ -27,6 +27,7 @@ CASES = {
     "shadow-translucent": '<v:shadow on="t" type="single" color="#445566" opacity="32768f" offset="4pt,6pt"/>',
     "shadow-disabled": '<v:shadow on="f" type="single" color="#445566" opacity="32768f" offset="4pt,6pt"/>',
 }
+PREPARE_BINARY = None
 
 
 def write(path, value):
@@ -109,6 +110,10 @@ def main():
                 return result
             original = measure("original", source)
             binary = office_convert(args.office, source, directory / "binary", "doc")
+            if PREPARE_BINARY is not None:
+                row["nativeExportSha256"] = digest(binary)
+                binary, row["sourceControl"] = PREPARE_BINARY(args, name, binary, directory)
+            row["binaryPath"] = binary.relative_to(directory).as_posix()
             row["binarySha256"] = digest(binary)
             binary_render = measure("binary-render", binary)
             row["authoredToBinary"] = compare_render(original, binary_render)

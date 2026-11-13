@@ -111,6 +111,47 @@ XmlDocument _convert(
 
 void main() {
   test(
+    'textbox scaled gradient retains both colors, alpha and signed focus',
+    () {
+      final xml = _convert(
+        null,
+        fill: const LegacyWordOfficeArtFill(
+          type: 7,
+          color: '112233',
+          backColor: '445566',
+          opacityFixed16: 0,
+          backOpacityFixed16: 32768,
+          angleFixed16: -45 * 65536,
+          focusPercent: -50,
+          rotateWithShape: false,
+        ),
+      );
+      final rect = xml.findAllElements('rect', namespace: _v).single;
+      final fill = rect.findElements('fill', namespace: _v).single;
+      expect(rect.getAttribute('fillcolor'), '#112233');
+      expect(fill.getAttribute('type'), 'gradient');
+      expect(fill.getAttribute('color2'), '#445566');
+      expect(fill.getAttribute('opacity'), '0.0');
+      expect(
+        fill.getAttribute(
+          'opacity2',
+          namespace: 'urn:schemas-microsoft-com:office:office',
+        ),
+        '0.5',
+      );
+      expect(fill.getAttribute('angle'), '-45.0');
+      expect(fill.getAttribute('focus'), '-50%');
+      expect(fill.getAttribute('rotate'), 'f');
+      final unresolved = _convert(
+        null,
+        fill: const LegacyWordOfficeArtFill(type: 7, backColor: '445566'),
+        unsupported: [0x0197],
+      );
+      expect(unresolved.findAllElements('fill', namespace: _v), isEmpty);
+    },
+  );
+
+  test(
     'textbox paint retains independently resolved opacity, line and shadow',
     () {
       final xml = _convert(

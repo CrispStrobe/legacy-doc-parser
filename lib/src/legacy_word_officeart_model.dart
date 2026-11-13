@@ -60,11 +60,23 @@ class LegacyWordOfficeArtFill {
     this.type,
     this.color,
     this.opacityFixed16,
+    this.backColor,
+    this.backOpacityFixed16,
+    this.angleFixed16,
+    this.focusPercent,
+    this.rotateWithShape,
   });
   final bool? enabled;
   final int? type;
   final String? color;
   final int? opacityFixed16;
+  final String? backColor;
+  final int? backOpacityFixed16;
+
+  /// Counterclockwise from the bottom-to-top gradient vector.
+  final int? angleFixed16;
+  final int? focusPercent;
+  final bool? rotateWithShape;
 }
 
 class LegacyWordOfficeArtLine {

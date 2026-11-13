@@ -113,6 +113,12 @@ class _OfficeArtShapeReader {
             type: _enum(0x0180, 9),
             color: _color(0x0181),
             opacityFixed16: _opacity(0x0182),
+            // MS-ODRAW 2.3.7.4: the background is inactive for solid fills.
+            backColor: (p[0x0180] ?? 0) == 0 ? null : _color(0x0183),
+            backOpacityFixed16: _opacity(0x0184),
+            angleFixed16: _signed(0x018b, -360 * 65536, 360 * 65536),
+            focusPercent: _signed(0x018c, -100, 100),
+            rotateWithShape: _used(0x01bf, 5),
           )
         : null;
     final line = p.keys.any((id) => id >= 0x01c0 && id <= 0x01ff)
@@ -188,7 +194,10 @@ class _OfficeArtShapeReader {
       if (properties.complex.containsKey(id)) unsupported.add(id);
     }
     final geometry = _geometry();
-    if (fill?.type != null && fill!.type != 0) unsupported.add(0x0180);
+    if (!const {null, 0, 7}.contains(fill?.type)) unsupported.add(0x0180);
+    for (final id in [0x0180, 0x0181, 0x0182, 0x0184, 0x018b, 0x018c, 0x01bf]) {
+      if (properties.complex.containsKey(id)) unsupported.add(id);
+    }
     if (line?.type != null && line!.type != 0) unsupported.add(0x01c4);
     if (properties.complex.containsKey(0x01cb)) unsupported.add(0x01cb);
     if (properties.complex.containsKey(0x01cd) ||
@@ -202,9 +211,7 @@ class _OfficeArtShapeReader {
     // opaque-background bit enables an extra stroke (2.3.8.38). Complex or
     // unresolved operands must not receive this exception.
     if (properties.complex.containsKey(0x0183) ||
-        ((p.containsKey(0x0183)) &&
-            ((p[0x0180] ?? 0) != 0 ||
-                properties.complex.containsKey(0x0180)))) {
+        (p.containsKey(0x0183) && properties.complex.containsKey(0x0180))) {
       unsupported.add(0x0183);
     }
     if (properties.complex.containsKey(0x01c2) ||
@@ -234,6 +241,9 @@ class _OfficeArtShapeReader {
       0x0181,
       0x0182,
       0x0183,
+      0x0184,
+      0x018b,
+      0x018c,
       0x01bf,
       0x01c0,
       0x01c1,
@@ -260,7 +270,19 @@ class _OfficeArtShapeReader {
           (id == 0x0004 && properties.complex.containsKey(id))) {
         unsupported.add(id);
       }
-      if (id >= 0x0140 && id <= 0x02ff && !mapped.contains(id)) {
+      // A zero-length BLIP cannot supply an image. Word writes these empty
+      // inherited operands for plain fills and lines; they have no active
+      // pattern/texture meaning in the resolved solid/gradient subset.
+      final inactiveEmptyBlip =
+          properties.complex[id]?.isEmpty == true &&
+          ((id == 0x0186 && const {0, 7}.contains(p[0x0180] ?? 0)) ||
+              (id == 0x01c5 &&
+                  (p[0x01c4] ?? 0) == 0 &&
+                  !properties.complex.containsKey(0x01c4)));
+      if (id >= 0x0140 &&
+          id <= 0x02ff &&
+          !mapped.contains(id) &&
+          !inactiveEmptyBlip) {
         unsupported.add(id);
       }
       // WordArt and unmodeled shape/group properties can
@@ -279,7 +301,9 @@ class _OfficeArtShapeReader {
     }
     // Fill rectangles, recoloring, and inset/background-line styles alter
     // appearance beyond the direct solid-color subset.
-    if (_used(0x01bf, 1) == true || _used(0x01bf, 6) == true) {
+    if (_used(0x01bf, 1) == true ||
+        (_used(0x01bf, 2) == false && (fill?.type ?? 0) != 0) ||
+        _used(0x01bf, 6) == true) {
       unsupported.add(0x01bf);
     }
     // fNoLineDrawDash requests a dashed indication even when the ordinary
@@ -338,6 +362,15 @@ class _OfficeArtShapeReader {
   int? _nonnegative(int id, {int maximum = 0x7fffffff}) {
     final value = p[id];
     if (value != null && value > maximum) {
+      unsupported.add(id);
+      return null;
+    }
+    return value;
+  }
+
+  int? _signed(int id, int minimum, int maximum) {
+    final value = p[id]?.toSigned(32);
+    if (value != null && (value < minimum || value > maximum)) {
       unsupported.add(id);
       return null;
     }

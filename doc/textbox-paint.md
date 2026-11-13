@@ -65,7 +65,49 @@ binary input; the native export's literal offset normalization remains in the
 retained source properties even where the original render matches.
 
 The Word14 source remains a separate follow-up. Its six textboxes use solid,
-pattern, texture, picture and shade-title fills plus absent border widths and
-other properties. None of those unresolved cases is certified by these small
-resolved-paint controls, and the original failures and reviewed goldens are
-unchanged.
+pattern, texture, picture and scaled-gradient fills plus absent border widths and
+other properties. Its complete layout is not certified by these small paint
+controls, and the original failures and reviewed goldens are unchanged.
+
+## Scaled gradients
+
+The additive gradient path retains MS-ODRAW fill type 7 (`msofillShadeScale`),
+both direct RGB colors and opacities, signed fixed-point angle, signed focus,
+and the independently used rotate-with-shape bit. Type 8 is `msofillShadeTitle`;
+it is a different, host-defined effect and remains unsupported. The source
+[fill enumeration](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/e96eecf8-0d2f-48a8-a5ee-dc9ffb6c82ab)
+and [gradient angle](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/d49b1931-da11-452f-a78b-5b5e40e1d0b3)
+map to VML `type="gradient"`, `color2`, `angle`, `focus`, and `rotate`.
+The secondary opacity uses the schema's
+[`o:opacity2`](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.vml.fill.opacity2).
+Absent operands and explicit zero/false remain distinct. Unknown color
+operands, alternate fill rectangles, multistop gradients, other gradient
+types, and unresolved modifiers continue to block the active gradient element.
+Empty inherited BLIPs do not describe an active pattern in the solid/gradient
+subset or in a solid line.
+
+The [sealed gradient controls](evidence/textbox-fill-controls-20261113/README.md)
+retain an independent OOXML source and its original native DOC export. That
+exporter flattens a textbox gradient to a solid midpoint color, so a separate
+bounded source authoring helper restores the explicitly declared gradient FOPT
+operands in a new DOC copy. It updates record lengths and relocates OfficeArt
+to appended table bytes; the source FSPA coordinates, other table contents,
+and original binary export remain unchanged. This avoids mistaking an already
+flattened binary for gradient coverage.
+
+Opaque 0% and 100% focus, a 45-degree gradient, and a negative-angle negative
+axial focus render exactly against both the authored OOXML and the controlled
+DOC. The prior parser lost paint and shifted the text by 1 point. Each of the
+three repeats matches its own regenerated binary, while the first native DOC
+export flattens the gradient; repeat stability is therefore reported separately
+from preservation of the initial appearance.
+
+The unequal-opacity control remains a native-consumer discrepancy. The emitted
+source operands match the independently authored OOXML exactly, but the pinned
+native VML reader reads unqualified `XML_opacity2` in
+[`vmlshapecontext.cxx`](https://github.com/LibreOffice/core/blob/2c87e51eeaa2b413ff4ae097b2705eea1995d8e5/oox/source/vml/vmlshapecontext.cxx)
+instead of the schema's Office-qualified attribute. It ignores the secondary
+alpha on both independently authored and parser-produced VML. The parser keeps
+the schema-correct attribute, the explicit source value, and the existing
+partial-formatting limitation; it does not replace the gradient with a bitmap,
+change colors to mimic this renderer, or emit an invalid unqualified attribute.
