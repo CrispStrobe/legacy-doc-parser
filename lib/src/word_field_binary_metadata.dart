@@ -5,7 +5,7 @@ part of 'conversion.dart';
 // 2.3.7.1 Hyperlink Object and 2.3.7.9 HyperlinkString. A U+0001 in a
 // field instruction can be referenced binary metadata, not an active object.
 // Recognize only fully bounded targets corroborated by both the literal
-// HYPERLINK instruction and its actual CFData/CPicLocation artifact.
+// field instruction and its actual CFData/CPicLocation artifact.
 extension _WordFieldBinaryMetadata on _StructuredWordWriter {
   String _fieldInstruction(LegacyWordField field) =>
       _fieldInstructions.putIfAbsent(
@@ -13,6 +13,7 @@ extension _WordFieldBinaryMetadata on _StructuredWordWriter {
         () =>
             _internalHyperlinkInstruction(field) ??
             _externalHyperlinkInstruction(field) ??
+            _referenceHyperlinkInstruction(field)?.$1 ??
             field.instruction,
       );
 
@@ -64,6 +65,33 @@ extension _WordFieldBinaryMetadata on _StructuredWordWriter {
     // spells the exact stored URL; only its qualified binary marker is removed.
     return field.instruction.replaceRange(marker, marker + 1, ' ');
   }
+
+  (String, bool)? _referenceHyperlinkInstruction(LegacyWordField field) {
+    final type = field.type.toUpperCase();
+    if (!const {'REF', 'PAGEREF', 'NOTEREF'}.contains(type)) return null;
+    final match = RegExp(
+      r'^\s*(REF|PAGEREF|NOTEREF)\s+(?:"([^"\x00-\x1f]+)"|([^\s"\x00-\x1f]+))\s+\\h\s*\x01\s*$',
+      caseSensitive: false,
+    ).firstMatch(field.instruction);
+    if (match == null || match.group(1)!.toUpperCase() != type) return null;
+    final target = match.group(2) ?? match.group(3)!;
+    if (target.length > 255) return null;
+    final marker = field.instruction.indexOf('\x01');
+    final artifact = _fieldBinaryData[field.startCp + 1 + marker];
+    if (artifact == null ||
+        artifact.source.streamPath != 'Data' ||
+        artifact.source.structure != 'NilPICFAndBinData' ||
+        artifact.source.offset < 0 ||
+        artifact.source.length != artifact.bytes.length) {
+      return null;
+    }
+    final location = _referenceHfdLocation(artifact.bytes);
+    if (location == null || location.$1 != target) return null;
+    return (
+      field.instruction.replaceRange(marker, marker + 1, ' '),
+      location.$2,
+    );
+  }
 }
 
 ByteData? _hfdHeader(Uint8List bytes, int bits) {
@@ -112,6 +140,25 @@ String? _internalHfdLocation(Uint8List bytes) {
     return null;
   }
   return _hfdTerminatedString(data, 97, length);
+}
+
+(String, bool)? _referenceHfdLocation(Uint8List bytes) {
+  if (bytes.length < 99 || bytes.length > 611) return null;
+  final data = _hfdHeader(bytes, 0x08);
+  if (data == null || data.getUint32(89, Endian.little) != 0x08) return null;
+  final length = data.getUint32(93, Endian.little);
+  if (length < 2 || length > 256) return null;
+  final end = 97 + length * 2;
+  final padded = end + 2 == bytes.length;
+  // LibreOffice's InsertSpecialChar reference-field producer writes a 32-bit
+  // zero after a location declared with a single UTF-16 terminator. Qualify
+  // only that one extra zero word, never arbitrary trailing HFD contents.
+  if (end != bytes.length &&
+      !(padded && bytes[end] == 0 && bytes[end + 1] == 0)) {
+    return null;
+  }
+  final location = _hfdTerminatedString(data, 97, length);
+  return location == null ? null : (location, padded);
 }
 
 // A conservative allocation bound, not URL normalization or a scheme policy.

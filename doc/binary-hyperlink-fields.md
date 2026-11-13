@@ -23,6 +23,9 @@ The supported forms are currently:
   retain their original spelling; the converter performs no URL normalization,
   resolution, download or traversal. The target must contain valid, non-control
   UTF-16 text and fit the 32,767-code-unit allocation bound.
+* `REF`, `PAGEREF` or `NOTEREF` with an explicit `\\h` switch and a matching
+  location-only HFD. The original reference instruction and cached result are
+  retained; no bookmark lookup or result recalculation is substituted.
 
 Malformed lengths, missing or ambiguous references, inconsistent targets,
 unsupported flags/monikers, unpaired surrogates and unexplained trailing data
@@ -65,6 +68,39 @@ corresponding hyperlink elements with unchanged targets. Pandoc 3.1.11.1 reads t
 links directly from the corrected DOCX and two from that native re-export; its
 AST does not inspect the header stories. These are semantic checks, not a new
 pixel-layout or whole-corpus fidelity certification.
+
+## Separate reference-field producer recovery
+
+An independently authored three-field DOCX (`REF`, internal `HYPERLINK`, `QUOTE`)
+uses deliberately distinct cached results. Its unchanged native DOC bridge has
+SHA-256 `20b4e506f40b733cd7d9467ec2e6f2844e0efe319a61e8c4822e371facee0292`.
+The reference marker at CP32 identifies a 117-byte HFD whose declared location
+ends at byte115. The final two bytes are zero. The other internal HYPERLINK HFD
+has exactly one string terminator and no extra word.
+
+This extra word is a native producer quirk, not a newly invented MS-OSHARED
+field. In the exact source revision of the installed renderer,
+[`InsertSpecialChar`](https://github.com/LibreOffice/core/blob/2c87e51eeaa2b413ff4ae097b2705eea1995d8e5/sw/source/filter/ww8/ww8atr.cxx)
+writes a string length including one UTF-16 NUL, then writes a 32-bit zero after
+the target text. That produces one additional zero word beyond the declared
+HyperlinkString. The original source code and raw field bytes are retained with
+the targeted evidence.
+
+Recovery is limited to `REF`/`PAGEREF`/`NOTEREF` with an explicit `\\h`, the exact
+location-only HFDBits and Hyperlink Object flags `0x08`, a valid bounded target
+equal to the literal reference, and either the exact standard extent or exactly
+one additional zero word. Wrong flags, nonzero padding, two extra words,
+additional switches, missing references and conflicting targets stay inert.
+This does not relax the HYPERLINK forms. A separate `binaryReferenceField`
+evidence record includes `recoveredNativeTerminator`; the corresponding count is
+`binaryReferenceFields`.
+
+The native bridge had already dropped the authored field locks. Its direct
+native DOCX export recalculated the reference result from `CACHED-REF` to
+`ANCHOR-α`. Our conversion retains the original binary cached result and emits a
+locked reference field. In the targeted native re-export of that corrected
+DOCX, the reference field and `CACHED-REF` remain unchanged. The
+original authored, binary, baseline parser and native results remain distinct.
 
 ## Primary format definitions
 

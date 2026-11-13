@@ -547,17 +547,24 @@ extension _WordStories on _StructuredWordWriter {
     if (depth > 64) _tooComplex();
     final instruction = _fieldInstruction(field);
     if (instruction != field.instruction) {
-      _count('binaryHyperlinkFields');
+      final reference = _referenceHyperlinkInstruction(field);
+      _count(
+        reference == null ? 'binaryHyperlinkFields' : 'binaryReferenceFields',
+      );
       _evidenceRecords.add({
-        'kind': 'binaryHyperlinkField',
+        'kind': reference == null
+            ? 'binaryHyperlinkField'
+            : 'binaryReferenceField',
         'story': field.storyId,
         'startCp': field.startCp,
         'instruction': field.instruction,
         'emittedInstruction': instruction,
+        if (reference != null) 'recoveredNativeTerminator': reference.$2,
         'reason':
             'A referenced HFD target agrees with the literal field '
             'target; its binary metadata marker is not instruction text. '
-            'The original data is retained and no link is traversed.',
+            'The original data is retained and no link is traversed.'
+            '${reference?.$2 == true ? ' The reference-only extra zero UTF-16 terminator matches the native producer form.' : ''}',
       });
     }
     _xml.add(
