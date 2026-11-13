@@ -54,6 +54,8 @@ class _StructuredWordWriter {
   final _fieldInstructions = <int, String>{};
   final _fieldBinaryData = <int, LegacyWordOpaqueArtifact?>{};
   final _mediaAssets = <String, LegacyWordImageAsset>{};
+  final _validatedMetafiles = Map<LegacyWordImageAsset, bool>.identity();
+  var _metafileBytesInspected = 0;
   final _mediaParts = <String, String>{};
   final _embeddedParts = <String, String>{};
   var _olePlaceholderWritten = false;

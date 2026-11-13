@@ -22,6 +22,27 @@ class _ConversionInkInspection {
 }
 
 extension _WordMedia on _StructuredWordWriter {
+  bool _canEmbedImage(LegacyWordImageAsset asset) {
+    if (!asset.isRenderable) return false;
+    if (asset.format != LegacyWordImageFormat.emf &&
+        asset.format != LegacyWordImageFormat.wmf) {
+      return true;
+    }
+    final allowed = _validatedMetafiles.putIfAbsent(asset, () {
+      // Repeated references share one scan. Bound total scan work separately
+      // from the later package byte limit, including rejected public models.
+      _metafileBytesInspected += asset.bytes.length;
+      if (_metafileBytesInspected > kLegacyWordPackageLimit) _tooComplex();
+      try {
+        return canEmbedLegacyWordMetafile(asset.bytes, format: asset.format);
+      } on FormatException {
+        return false;
+      }
+    });
+    if (!allowed) limitations.add(LegacyWordConversionLimitation.images);
+    return allowed;
+  }
+
   void _prepareMedia() {
     final media = document.media;
     final inkInspection = _ConversionInkInspection();
@@ -51,7 +72,7 @@ extension _WordMedia on _StructuredWordWriter {
       if (owner == null ||
           !_displayPosition(picture.cp) ||
           asset == null ||
-          !asset.isRenderable ||
+          !_canEmbedImage(asset) ||
           picture.shapeDeleted) {
         limitations.add(LegacyWordConversionLimitation.images);
         _evidenceRecords.add({
@@ -161,7 +182,7 @@ extension _WordMedia on _StructuredWordWriter {
       if (owner == null ||
           !_displayPosition(drawing.anchorCp) ||
           asset == null ||
-          !asset.isRenderable ||
+          !_canEmbedImage(asset) ||
           drawing.shapeDeleted ||
           !_validDrawing(drawing)) {
         limitations.add(LegacyWordConversionLimitation.embeddedObjects);
@@ -343,6 +364,9 @@ extension _WordMedia on _StructuredWordWriter {
   }
 
   String _imageRelation(LegacyWordImageAsset asset) {
+    if (!_canEmbedImage(asset)) {
+      throw const FormatException('Unvalidated Word image embedding.');
+    }
     var path = _mediaParts[asset.id];
     if (path == null) {
       path = 'word/media/image${_mediaParts.length + 1}.${asset.extension}';
