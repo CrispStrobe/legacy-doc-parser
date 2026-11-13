@@ -1,5 +1,17 @@
 ## 0.1.0-dev.1
 
+- Validate allocated compound directory names and exclusive ownership of stream
+  and metadata sectors, with cached linear scans and requested-part validation.
+  Reject negative caller-built stream sizes before aggregate read accounting.
+- Preserve controls in nested cached field results while validating literal
+  instructions separately; require exact story ownership and immediate parent
+  ranges for all caller-built field models, including inactive fields.
+- Reinspect actual EMF/WMF bytes before native image relationships, including
+  textbox fills. Cache bounded validation and retain rejected raw images as
+  inert evidence even when public metadata claims they are embeddable.
+- Ignore restart fields on bullet/no-number levels and retain no-number literal
+  labels and ancestor references in HTML. Explicitly reject literal binary
+  `%1`–`%9` labels that the current native numbering model cannot represent.
 - Reject UTF-16 scalars split across independent Word stories while retaining
   valid supplementary characters split across physical text pieces.
 - Preserve field instruction TAB/CR/LF/CRLF exactly, including quoted literals,
