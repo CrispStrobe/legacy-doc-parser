@@ -8,6 +8,44 @@ This follow-up supersedes integration guidance in the
 rejected controls remain unchanged. Implementation, independent evidence and
 app integration are saved in separate remote checkpoints.
 
+## Combined runtime and acceptance
+
+The integrated parser runtime is
+[`c5ff75e76163d9abbdd44a9f2a7c5ad210929289`](https://github.com/CrispStrobe/legacy-doc-parser/commit/c5ff75e76163d9abbdd44a9f2a7c5ad210929289),
+Git tree `25bd05c12fa2272a32ec2aaba2cc0117be5bed96`. The original and isolated
+parser checkouts both match this clean remote checkpoint. No source or reviewed
+golden changed during its acceptance runs.
+
+| Gate at the combined runtime | Result |
+| --- | --- |
+| Portable | 1,028 Dart tests and 162 Python controls pass; formatting, fatal-info analysis, corpus integrity and package dry-run pass. |
+| Compiled JavaScript | Actual DOC acceptance, 51 media checks, 24 base WPF ISFs and 32 header ISFs pass. The single specified/native pressure-metric discrepancy is required explicitly. |
+| Independent Open XML SDK | All 254 required DOCX outputs have zero validation errors. Both complete 538-file generations match byte for byte; positive/negative validator controls pass. |
+| Native corpus | All 24 documents and 72 repeat imports complete without execution/import errors; nine initial renders are exact. The same source, renderer and font identities are used for the historical comparison. |
+| Hosted CI | [Dart package run 43387392944](https://github.com/CrispStrobe/legacy-doc-parser/actions/runs/43387392944) succeeds at this exact runtime. |
+
+The [complete portable/schema evidence](evidence/continuation-c5ff75e7/README.md)
+and [native corpus evidence](evidence/native-corpus-c5ff75e7/README.md) retain
+original outputs, source identities, commands, tools, logs and independent
+verification. Prior failed setup or authoring attempts remain separately
+identified. Initial render equality and repeat equality are different claims;
+source/native differences are not converted into synthetic passes.
+
+The final native comparison includes a real tradeoff: exact repeats against
+regenerated binary DOC decrease from **39/72 to 36/72**. All three changes are
+Word14's newly retained tiled fills; the other 23 documents keep every recorded
+render fingerprint, and all page/text/geometry comparisons remain unchanged.
+Exact repeats against the previous and first parser imports remain 58/72 and
+48/72. Word14's initial mismatch decreases from 35,146 to 30,704 pixels, with
+summed RGB error decreasing from 10,774,592 to 6,725,615.
+
+The [native review and source triage](evidence/native-corpus-c5ff75e7/README.md)
+bind those measurements to exact images, FOPT operands and 14 retained packages.
+They found no discarded explicit tile-coordinate operand, incorrect image
+binding or geometry change. They retain the native tiled-fill disagreement and
+unsupported original alternate DrawingML; they do not justify guessed offsets,
+recoloring or dropping the restored fills to recover the old parity count.
+
 ## Accepted implementation and independent evidence
 
 | Change | Result and qualification | Evidence |
@@ -16,7 +54,7 @@ app integration are saved in separate remote checkpoints.
 | OLE without a preview | Uses a reviewed visible generated label instead of an invisible empty textbox. Raw object bytes, distinct identities and story-local relationships survive. The label is explicitly generated and never described as a recovered source preview. | [Placeholder evidence](evidence/ole-visible-placeholder-20261113/README.md) |
 | Fractional PICMID scale | Truncates positive fractional twips after exact bounds checks. Seven source controls now agree; the EMF corpus's word drift becomes zero. Its remaining raster difference is recorded separately. | [Scaling contract](picture-scaling.md) |
 | Textbox paint | Preserves resolved opacity, dashes and simple offset shadows and applies the qualified border/frame relationship. Compact linked textboxes become exact in the 74420eb2 corpus. | [Paint controls](evidence/textbox-next-20261113/README.md) |
-| Absent textbox width | Uses the documented 9525-EMU width only with a fully qualified enabled line and its seven-twip frame conversion. Raw source width remains absent. True absent plain/dashed and paired explicit controls are exact through nine repeats; disabled/zero/unresolved cases retain separate behavior. | [Default-width contract](textbox-stroke-defaults.md) |
+| Absent textbox width | Uses the documented 9525-EMU width only with a fully qualified enabled line and its seven-twip frame conversion. Raw source width remains absent. True absent plain/dashed and paired explicit controls are exact through nine repeats; disabled/zero/unresolved cases retain separate behavior. | [Default-width contract](textbox-stroke-defaults.md), [paired native controls](evidence/textbox-default-width-20261113/README.md) |
 | Scaled gradients | Retains type 7 colors, both opacity operands, angle, focus and rotation. Opaque qualified controls match authored OOXML and controlled binary inputs. Native DOC export flattens gradients on repeat; the native VML reader ignores schema-qualified secondary alpha. | [Gradient evidence](evidence/textbox-fill-controls-20261113/README.md) |
 | Bitmap fills | Resolves source BLIP references, retains embedded picture/texture fills and bounded monochrome patterns. The BMP wrapper adds only a file header to exact DIB bytes and is charged to the media budget. Pictures are exact through three cycles. Pattern/texture tiling differences between native import paths remain measured. | [Bitmap evidence](evidence/textbox-bitmap-controls-20261113/README.md) |
 | Nonempty ink | Exposes complete bounded stroke/point/pen semantics, original packet coordinates and selected transforms and pressure metrics. Any unsupported or malformed stream exposes no partial strokes. Word-native ink emission remains inactive. | [Decoder contract](ink-decoding.md), [actual Windows base oracle](evidence/wpf-isf-oracle-20261113/README.md), [header oracle](evidence/wpf-isf-metrics-20261113/README.md) |
@@ -46,8 +84,8 @@ The transform/pressure extension is separately saved as
 `61d7e43c28dbaa2cde73d272ab62d009a34a8c66`. Its focused gate passes 72 tests,
 the actual JavaScript gate checks all 24 base and 32 header ISFs, and all sixteen
 ink schema controls validate. A second independent bounded review made 26,543
-calls. The eventual combined gate must bind its own exact source identity;
-these earlier counts are never relabeled as a later runtime's results.
+calls. The combined gate above binds its own exact source identity; these earlier
+counts are never relabeled as a later runtime's results.
 
 Two potentially misleading source/native comparisons have explicit treatment:
 
@@ -68,14 +106,35 @@ outline rendering, comment association, or native Word editing coverage.
 
 ## App integration and remaining boundaries
 
-The verified intermediate CrispCloud checkpoint is
-`6f2e3245b7971d620410a65e75bf54b04132319a`, pinning parser `74420eb2`.
-Its guarded inventory contains 948 exact parser files and 421 unchanged other
-Office files. It retains the existing Quds pin
-`6d6e77d14ead33de90c57ec5feb2ab3cc44f6501`, app version `1.2.9+22`, root
-lockfile, production package configuration and unrelated app work. Hosted
-provider conformance and Office host/schema jobs at that exact commit succeed.
-Later parser changes require a separately verified app roll and source index.
+The final measured CrispCloud runtime is
+[`86d5a218853d8441afe8bc28f19cfe0adf4cd71e`](https://github.com/CrispStrobe/CrispCloud/commit/86d5a218853d8441afe8bc28f19cfe0adf4cd71e),
+Git tree `765bf752b0095233192d38e678941e7ca92a76b8`, pinning parser `c5ff75e7`.
+The [app acceptance and source receipt](https://github.com/CrispStrobe/CrispCloud/blob/fb81b2ace557964459189afd7c0c7d76b2c9557d/docs/evidence/word-final-c5ff75e7-20261113/README.md)
+is saved at documentation/evidence checkpoint `fb81b2ace557964459189afd7c0c7d76b2c9557d`.
+Its runtime bytes are unchanged from the measured commit.
+
+The guarded inventory contains **1,258 exact parser files and 421 unchanged
+other Office files**, or 1,679 entries. The reviewed projection makes 338
+writes and no deletions. All 107 required Word tests across eight suites, 13
+actual LibreOffice/Poppler assertions and production DOC/RTF/PPT/MSG JavaScript
+checks pass. All 7,573 tracked runtime file hashes, 1,182 captured cohort hashes
+and the production package configuration remain unchanged during acceptance.
+Sync, Apple, crypto and ebook protection checks pass, with the two explicitly
+expected macOS-only crypto skips retained.
+
+The app retains Quds `6d6e77d14ead33de90c57ec5feb2ab3cc44f6501`, version
+`1.2.9+22`, root lockfile, other dependency pins, policy decisions and unrelated
+work. A fresh fetched checkout passes the exact working-byte/mode/Git-index
+verification. The 87-record evidence bundle passes independent review and
+22 resealed semantic corruption controls. Those controls now bind the inner
+Dart command, all eight suite paths and exact event-to-suite relationships.
+The existing app native cohort retains `partialFormatting`; its 13 assertions
+do not certify every document or preserve a complete set of page rasters.
+
+Hosted provider [run 43388810612](https://github.com/CrispStrobe/CrispCloud/actions/runs/43388810612)
+succeeds at exact runtime `86d5a218`. Earlier Office CI remains attributed to
+its earlier app checkpoint; final official-head hosted results must retain
+their actual head and toolchain rather than borrowing that older success.
 
 General Word14 grouped/relative-size metadata, unsupported OfficeArt effects,
 arbitrary GDI behavior, broader review topology and native Word ink are not

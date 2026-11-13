@@ -18,6 +18,22 @@ every Word document or every renderer.
 
 ## Evidence is versioned
 
+The current integrated runtime is **c5ff75e7**. Its
+[portable/schema evidence](evidence/continuation-c5ff75e7/README.md) records
+1,028 Dart tests, 162 Python controls, actual DOC/51-media JavaScript checks,
+56 native WPF ISFs, and 254 schema-valid DOCX outputs. The two complete
+538-file generations are byte-identical and all source inputs stay unchanged.
+The [native corpus](evidence/native-corpus-c5ff75e7/README.md) completes all
+24 documents and 72 repeat imports, with nine exact initial renders. The
+[follow-up handoff](continuation-20261113-followup.md) gives exact integration
+identities and remaining source/native boundaries.
+Word14's three repeated binary-to-DOCX tiled-fill comparisons lose raster
+exactness, changing that aggregate from 39/72 to 36/72; the initial image error
+improves and all page/text/geometry metrics stay unchanged. The native bundle
+retains the complete pixel/source triage and the unsupported original alternate
+DrawingML scope. Source-faithful image retention is not reported as universal
+native parity.
+
 The follow-up adds Line Number character-style inheritance, visible generated
 OLE placeholders, corrected fractional PICMID scaling, qualified textbox paint,
 and bounded nonempty ink decoding. The [updated handoff](continuation-20261113-followup.md)
