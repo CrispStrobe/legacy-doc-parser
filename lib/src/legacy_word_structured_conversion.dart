@@ -554,7 +554,7 @@ class _BoundedWordXml {
         // XML 1.0 permits these three whitespace controls. Character references
         // preserve CR/CRLF exactly through XML end-of-line normalization and
         // keep field-code literals distinct from spaces.
-        add('&#${rune};');
+        add('&#$rune;');
         continue;
       }
       if (rune < 0x20 ||
