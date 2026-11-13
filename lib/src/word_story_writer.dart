@@ -532,42 +532,64 @@ extension _WordStories on _StructuredWordWriter {
         type) {
       return false;
     }
-    return const {
-          'TOC',
-          'REF',
-          'PAGEREF',
-          'NOTEREF',
-          'STYLEREF',
-          'PAGE',
-          'NUMPAGES',
-          'SECTION',
-          'SECTIONPAGES',
-          'SEQ',
-          'LISTNUM',
-          'TC',
-          'XE',
-          'INDEX',
-          'HYPERLINK',
-          'DATE',
-          'TIME',
-          'CREATEDATE',
-          'SAVEDATE',
-          'PRINTDATE',
-          'AUTHOR',
-          'TITLE',
-          'SUBJECT',
-          'KEYWORDS',
-          'DOCPROPERTY',
-          'DOCVARIABLE',
-          'QUOTE',
-          'IF',
-          '=',
-        }.contains(type) &&
-        instruction.runes.every(
-          (rune) =>
-              (rune >= 0x20 && rune != 0xfffe && rune != 0xffff) ||
-              const {9, 10, 13, 19, 20, 21}.contains(rune),
-        );
+    if (!const {
+      'TOC',
+      'REF',
+      'PAGEREF',
+      'NOTEREF',
+      'STYLEREF',
+      'PAGE',
+      'NUMPAGES',
+      'SECTION',
+      'SECTIONPAGES',
+      'SEQ',
+      'LISTNUM',
+      'TC',
+      'XE',
+      'INDEX',
+      'HYPERLINK',
+      'DATE',
+      'TIME',
+      'CREATEDATE',
+      'SAVEDATE',
+      'PRINTDATE',
+      'AUTHOR',
+      'TITLE',
+      'SUBJECT',
+      'KEYWORDS',
+      'DOCPROPERTY',
+      'DOCVARIABLE',
+      'QUOTE',
+      'IF',
+      '=',
+    }.contains(type)) {
+      return false;
+    }
+    // A typed child occupies a whole source range in this raw instruction,
+    // including its cached result. Word text controls in that result are not
+    // instruction text. Validate only the slices emitted as instrText here;
+    // _safeFieldTree checks each child's instruction independently.
+    final start = field.startCp + 1;
+    final end = field.separatorCp ?? field.endCp - 1;
+    var position = start;
+    bool safeTextUntil(int cp) {
+      final value = instruction.substring(position - start, cp - start);
+      return value.runes.every(
+        (rune) =>
+            (rune >= 0x20 && rune != 0xfffe && rune != 0xffff) ||
+            const {9, 10, 13}.contains(rune),
+      );
+    }
+
+    for (final child in _fieldChildren[field.id] ?? const <LegacyWordField>[]) {
+      if (child.startCp >= end) break;
+      if (child.startCp < position || child.endCp > end) {
+        throw const FormatException('Overlapping Word field instructions.');
+      }
+      if (!safeTextUntil(child.startCp)) return false;
+      position = child.endCp;
+    }
+    return safeTextUntil(end);
   }
 
   bool _safeFieldTree(LegacyWordField field, [int depth = 0]) {
@@ -688,7 +710,15 @@ extension _WordStories on _StructuredWordWriter {
           output.write('\n');
         } else if (unit == 7) {
           output.write('\t');
-        } else if (unit >= 32 || unit == 9 || unit == 10 || unit == 12) {
+        } else if (unit == 30) {
+          output.writeCharCode(0x2011);
+        } else if (unit == 31) {
+          output.writeCharCode(0x00ad);
+        } else if (unit >= 32 ||
+            unit == 9 ||
+            unit == 10 ||
+            unit == 12 ||
+            unit == 14) {
           output.writeCharCode(unit);
         }
       }
