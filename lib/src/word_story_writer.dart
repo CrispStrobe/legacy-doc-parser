@@ -274,6 +274,7 @@ extension _WordStories on _StructuredWordWriter {
             deletionRevision: run.deletionRevision,
             formattingRevision: run.formattingRevision,
             formattingSaveId: run.formattingSaveId,
+            symbol: run.symbol,
           ),
         );
       }

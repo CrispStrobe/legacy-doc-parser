@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 VALIDATOR = ROOT / "tool/office-validation"
 OFFICE_SUFFIXES = {".docx", ".docm", ".dotx", ".dotm", ".xlsx", ".pptx"}
 EXPECTED_CASES = frozenset([
+    "symbols/plain", "symbols/deleted",
     *(f"ink-strokes/{name}-{mode}" for name in (
         "polyline-solid", "single-dot", "paint-ellipse-alpha", "multiple-strokes",
         "pressure-ramp", "signed-quantization") for mode in ("compressed", "uncompressed")),

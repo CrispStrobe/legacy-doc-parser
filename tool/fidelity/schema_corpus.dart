@@ -17,6 +17,7 @@ import 'packed_shape_probe.dart' as packed_shapes;
 import 'review_schema_fixture.dart' as reviews;
 import 'section_review_fixture.dart' as sections;
 import 'shape_probe.dart' as shapes;
+import 'symbol_schema_fixture.dart' as symbols;
 import 'table_borders_fixture.dart' as table_borders;
 import 'table_layout_fixture.dart' as table_layout;
 import 'table_origin_fixture.dart' as origins;
@@ -70,6 +71,16 @@ void main(List<String> arguments) {
       'ink-strokes/$name.doc',
       'ink-strokes/$name.docx',
       'tool/fidelity/ink_schema_fixture.dart',
+    );
+  }
+
+  symbols.main(['${root.path}/symbols']);
+  for (final name in symbols.symbolSchemaCases) {
+    record(
+      'symbols/$name',
+      'symbols/$name.doc',
+      'symbols/$name.docx',
+      'tool/fidelity/symbol_schema_fixture.dart',
     );
   }
 
