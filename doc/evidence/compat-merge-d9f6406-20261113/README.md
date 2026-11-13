@@ -4,7 +4,7 @@ This checkpoint combines compatibility branch `e4427725cc720eaefad97c2cb921a6fe1
 
 ## Preserved behavior
 
-The merge retains the compatibility recovery changes for bounded legacy linked-picture records, inert external references, unpositioned textbox stories, and nil paragraph borders. It also retains the incoming textbox bitmap/pattern/gradient fill handling, validated DIB wrapping, image embedding bytes, textbox width handling, ink transform/pressure metrics, and their fixtures and independent native evidence.
+The merge retains the compatibility recovery changes for bounded legacy linked-picture records, inert external references, unpositioned textbox stories, and corroborated nil table borders. It also retains the incoming textbox bitmap/pattern/gradient fill handling, validated DIB wrapping, image embedding bytes, textbox width handling, ink transform/pressure metrics, and their fixtures and independent native evidence.
 
 Git merged without conflicts. The three overlapping source files were reviewed together: `legacy_word_media_model.dart`, `legacy_word_media_parser.dart`, and `word_media_writer.dart`. No additional parser behavior was introduced to resolve this merge.
 
