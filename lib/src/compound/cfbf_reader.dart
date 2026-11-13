@@ -568,6 +568,16 @@ class CfbfFile {
         _parseDirectoryEntry(raw, offset, index, header.majorVersion),
       );
     }
+    // The root is directory identity zero and owns the mini-container. A
+    // missing/displaced root previously escaped as StateError on path reads;
+    // multiple roots could select a different allocation owner by position.
+    if (entries.isEmpty ||
+        entries.first.type != CfbfObjectType.root ||
+        entries.first.leftSibling != cfbfNoStream ||
+        entries.first.rightSibling != cfbfNoStream ||
+        entries.skip(1).any((entry) => entry.type == CfbfObjectType.root)) {
+      throw const CfbfException('Invalid compound root directory');
+    }
     return entries;
   }
 
