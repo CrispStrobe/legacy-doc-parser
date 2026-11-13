@@ -151,6 +151,8 @@ void main(List<String> arguments) {
     File('${root.path}/$name.docx').writeAsBytesSync(conversion.bytes);
     manifest.add({
       'name': name,
+      'source': '$name.doc',
+      'output': '$name.docx',
       'sourceTextWithMarkers': text,
       'expectedCachedText': expected,
       'activeFields': document.fields.length,

@@ -748,7 +748,10 @@ void _applyParagraph(
       case 0x8460:
         output['firstIndent'] = _wordTwipMeasurement(value.i16(0));
       case 0xa413:
-        output['before'] = _wordTwipMeasurement(value.u16(0), nonNegative: true);
+        output['before'] = _wordTwipMeasurement(
+          value.u16(0),
+          nonNegative: true,
+        );
       case 0xa414:
         output['after'] = _wordTwipMeasurement(value.u16(0), nonNegative: true);
       case 0x6412:

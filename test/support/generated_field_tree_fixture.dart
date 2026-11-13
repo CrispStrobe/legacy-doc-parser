@@ -224,7 +224,7 @@ String _text(_StableRandom random, bool ascii) {
     'Cjk',
     'Rocket',
     'Accent',
-    '<&>\"\'',
+    '<&>"\'',
     'TAB',
     'NL',
     'VT',

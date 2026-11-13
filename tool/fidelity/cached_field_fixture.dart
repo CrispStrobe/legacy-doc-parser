@@ -8,8 +8,9 @@ import '../../test/support/generated_field_tree_fixture.dart';
 import '../cached_field_web_acceptance.dart';
 
 void main(List<String> arguments) {
-  if (arguments.length != 1)
+  if (arguments.length != 1) {
     throw ArgumentError('Supply a new output directory.');
+  }
   final root = Directory(arguments.single);
   if (root.existsSync()) throw ArgumentError('Output already exists.');
   root.createSync(recursive: true);
