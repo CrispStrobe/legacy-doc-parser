@@ -557,14 +557,32 @@ class CfbfFile {
       size = sizeHigh * 0x100000000 + sizeLow;
     }
 
-    final int charCount = nameLen ~/ 2;
     final StringBuffer name = StringBuffer();
-    for (int i = 0; i < charCount && i < 32; i++) {
-      final int unit = nameBytes[i * 2] | (nameBytes[i * 2 + 1] << 8);
-      if (unit == 0) {
-        break;
+    if (typeByte == 1 || typeByte == 2 || typeByte == 5) {
+      // MS-CFB §2.6.1 counts the terminating UTF-16 NUL in the byte length.
+      // Silently truncating this field aliases malformed names to unrelated
+      // valid lookup keys. Padding and deleted directory slots remain ignored.
+      if (nameLen < 2 || nameLen > 64 || nameLen.isOdd) {
+        throw CfbfException('Invalid directory name length at entry $index');
       }
-      name.writeCharCode(unit);
+      final int charCount = nameLen ~/ 2;
+      for (int i = 0; i < charCount; i++) {
+        final int unit = nameBytes[i * 2] | (nameBytes[i * 2 + 1] << 8);
+        if (i == charCount - 1) {
+          if (unit != 0) {
+            throw CfbfException('Unterminated directory name at entry $index');
+          }
+        } else {
+          if (unit == 0 ||
+              unit == 0x2f ||
+              unit == 0x5c ||
+              unit == 0x3a ||
+              unit == 0x21) {
+            throw CfbfException('Invalid directory name at entry $index');
+          }
+          name.writeCharCode(unit);
+        }
+      }
     }
 
     return CfbfDirectoryEntry(
