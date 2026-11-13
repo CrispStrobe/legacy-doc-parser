@@ -55,6 +55,7 @@ void main(List<String> arguments) {
         'rightIndentTwips': entry.value.rightIndentTwips,
         'firstLineIndentTwips': entry.value.firstLineIndentTwips,
         'lineSpacingValue': entry.value.lineSpacingValue,
+        'lineSpacingMultiple': entry.value.lineSpacingMultiple,
         'output': '$name.docx',
       });
     }

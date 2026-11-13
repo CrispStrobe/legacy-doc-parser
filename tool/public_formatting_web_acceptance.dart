@@ -114,6 +114,20 @@ Map<String, Object?> verifyPublicFormattingWebAcceptance() {
           style.lineSpacingValue?.abs(),
           '$scope/${entry.key}',
         );
+        final line = style.lineSpacingValue;
+        if (line != null) {
+          _attribute(
+            xml,
+            'spacing',
+            'lineRule',
+            line < 0
+                ? 'exact'
+                : style.lineSpacingMultiple
+                ? 'auto'
+                : 'atLeast',
+            '$scope/${entry.key}',
+          );
+        }
       }
       valid++;
     }
@@ -151,7 +165,7 @@ void _attribute(
   List<XmlDocument> xml,
   String element,
   String attribute,
-  int? value,
+  Object? value,
   String name,
 ) {
   if (value == null) return;

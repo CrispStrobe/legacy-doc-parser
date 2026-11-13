@@ -49,8 +49,8 @@ void main() {
   }
   test('shared formatting gate verifies exact emitted scalar values', () {
     expect(verifyPublicFormattingWebAcceptance(), {
-      'invalidStylesRejected': 91,
-      'validStylesPreserved': 76,
+      'invalidStylesRejected': 179,
+      'validStylesPreserved': 106,
     });
   });
 }

@@ -515,7 +515,7 @@ class _HtmlWriter {
     final lineSpacing = style.lineSpacingValue;
     if (lineSpacing != null && lineSpacing != 0) {
       css.add(
-        style.lineSpacingMultiple
+        style.lineSpacingMultiple && lineSpacing > 0
             ? 'line-height:${lineSpacing.abs() / 240}'
             : 'line-height:${_twips(lineSpacing.abs())}pt',
       );

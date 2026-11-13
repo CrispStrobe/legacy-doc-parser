@@ -21,6 +21,12 @@ const invalidPublicCharacters = <String, LegacyWordCharacterStyle>{
   'position-high': LegacyWordCharacterStyle(positionHalfPoints: 3169),
   'character-spacing-low': LegacyWordCharacterStyle(spacingTwips: -32769),
   'character-spacing-high': LegacyWordCharacterStyle(spacingTwips: 32768),
+  'character-spacing-signed-min': LegacyWordCharacterStyle(
+    spacingTwips: -32768,
+  ),
+  'character-spacing-signed-max': LegacyWordCharacterStyle(spacingTwips: 32767),
+  'character-spacing-below-xas': LegacyWordCharacterStyle(spacingTwips: -31681),
+  'character-spacing-above-xas': LegacyWordCharacterStyle(spacingTwips: 31681),
 };
 const validPublicCharacters = <String, LegacyWordCharacterStyle>{
   'unspecified': LegacyWordCharacterStyle(),
@@ -28,8 +34,13 @@ const validPublicCharacters = <String, LegacyWordCharacterStyle>{
   'font-size-max': LegacyWordCharacterStyle(fontSizeHalfPoints: 3276),
   'position-min': LegacyWordCharacterStyle(positionHalfPoints: -3168),
   'position-max': LegacyWordCharacterStyle(positionHalfPoints: 3168),
-  'character-spacing-min': LegacyWordCharacterStyle(spacingTwips: -32768),
-  'character-spacing-max': LegacyWordCharacterStyle(spacingTwips: 32767),
+  'character-spacing-min': LegacyWordCharacterStyle(spacingTwips: -31680),
+  'character-spacing-max': LegacyWordCharacterStyle(spacingTwips: 31680),
+  'character-spacing-inside-min': LegacyWordCharacterStyle(
+    spacingTwips: -31679,
+  ),
+  'character-spacing-inside-max': LegacyWordCharacterStyle(spacingTwips: 31679),
+  'character-spacing-zero': LegacyWordCharacterStyle(spacingTwips: 0),
 };
 const invalidPublicParagraphs = <String, LegacyWordParagraphStyle>{
   'heading-zero': LegacyWordParagraphStyle(headingLevel: 0),
@@ -46,25 +57,54 @@ const invalidPublicParagraphs = <String, LegacyWordParagraphStyle>{
   'first-high': LegacyWordParagraphStyle(firstLineIndentTwips: 32768),
   'line-low': LegacyWordParagraphStyle(lineSpacingValue: -32769),
   'line-high': LegacyWordParagraphStyle(lineSpacingValue: 32768),
+  'before-above-domain': LegacyWordParagraphStyle(spaceBeforeTwips: 31681),
+  'before-unsigned-max': LegacyWordParagraphStyle(spaceBeforeTwips: 65535),
+  'after-above-domain': LegacyWordParagraphStyle(spaceAfterTwips: 31681),
+  'after-unsigned-max': LegacyWordParagraphStyle(spaceAfterTwips: 65535),
+  'left-below-xas': LegacyWordParagraphStyle(leftIndentTwips: -31681),
+  'left-above-xas': LegacyWordParagraphStyle(leftIndentTwips: 31681),
+  'left-signed-min': LegacyWordParagraphStyle(leftIndentTwips: -32768),
+  'left-signed-max': LegacyWordParagraphStyle(leftIndentTwips: 32767),
+  'right-below-xas': LegacyWordParagraphStyle(rightIndentTwips: -31681),
+  'right-above-xas': LegacyWordParagraphStyle(rightIndentTwips: 31681),
+  'right-signed-min': LegacyWordParagraphStyle(rightIndentTwips: -32768),
+  'right-signed-max': LegacyWordParagraphStyle(rightIndentTwips: 32767),
+  'first-below-xas': LegacyWordParagraphStyle(firstLineIndentTwips: -31681),
+  'first-above-xas': LegacyWordParagraphStyle(firstLineIndentTwips: 31681),
+  'first-signed-min': LegacyWordParagraphStyle(firstLineIndentTwips: -32768),
+  'first-signed-max': LegacyWordParagraphStyle(firstLineIndentTwips: 32767),
+  'line-below-lspd': LegacyWordParagraphStyle(lineSpacingValue: -31681),
+  'line-above-lspd': LegacyWordParagraphStyle(lineSpacingValue: 31681),
+  'line-signed-min': LegacyWordParagraphStyle(lineSpacingValue: -32768),
+  'line-signed-max': LegacyWordParagraphStyle(lineSpacingValue: 32767),
 };
 const validPublicParagraphs = <String, LegacyWordParagraphStyle>{
   'unspecified': LegacyWordParagraphStyle(),
   'heading-min': LegacyWordParagraphStyle(headingLevel: 1),
   'heading-max': LegacyWordParagraphStyle(headingLevel: 9),
-  'before-max': LegacyWordParagraphStyle(spaceBeforeTwips: 65535),
-  'after-max': LegacyWordParagraphStyle(spaceAfterTwips: 65535),
+  'before-max': LegacyWordParagraphStyle(spaceBeforeTwips: 31680),
+  'after-max': LegacyWordParagraphStyle(spaceAfterTwips: 31680),
   'indent-min': LegacyWordParagraphStyle(
-    leftIndentTwips: -32768,
-    rightIndentTwips: -32768,
-    firstLineIndentTwips: -32768,
+    leftIndentTwips: -31680,
+    rightIndentTwips: -31680,
+    firstLineIndentTwips: -31680,
   ),
   'indent-max': LegacyWordParagraphStyle(
-    leftIndentTwips: 32767,
-    rightIndentTwips: 32767,
-    firstLineIndentTwips: 32767,
+    leftIndentTwips: 31680,
+    rightIndentTwips: 31680,
+    firstLineIndentTwips: 31680,
   ),
-  'line-min': LegacyWordParagraphStyle(lineSpacingValue: -32768),
-  'line-max': LegacyWordParagraphStyle(lineSpacingValue: 32767),
+  'line-min': LegacyWordParagraphStyle(lineSpacingValue: -31680),
+  'line-max': LegacyWordParagraphStyle(lineSpacingValue: 31680),
+  'line-multiple-min': LegacyWordParagraphStyle(
+    lineSpacingValue: -31680,
+    lineSpacingMultiple: true,
+  ),
+  'line-multiple-max': LegacyWordParagraphStyle(
+    lineSpacingValue: 31680,
+    lineSpacingMultiple: true,
+  ),
+  'line-zero': LegacyWordParagraphStyle(lineSpacingValue: 0),
 };
 
 LegacyWordDocument publicFormattingDocument({

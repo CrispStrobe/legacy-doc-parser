@@ -214,11 +214,7 @@ class _StructuredWordWriter {
     if (style.layout.spaceAfterAuto) _xml.add(' w:afterAutospacing="1"');
     final line = style.lineSpacingValue;
     if (line != null) {
-      final rule = style.lineSpacingMultiple
-          ? 'auto'
-          : line < 0
-          ? 'exact'
-          : 'atLeast';
+      final rule = _lineSpacingRule(style);
       _xml.add(' w:line="${line.abs()}" w:lineRule="$rule"');
     }
     _xml.add(
@@ -355,7 +351,7 @@ class _StructuredWordWriter {
       throw const FormatException('Invalid Word text position.');
     }
     final spacing = style.spacingTwips;
-    if (spacing != null && (spacing < -32768 || spacing > 32767)) {
+    if (spacing != null && (spacing < -31680 || spacing > 31680)) {
       throw const FormatException('Invalid Word character spacing.');
     }
   }
@@ -368,7 +364,7 @@ class _StructuredWordWriter {
       throw const FormatException('Invalid Word heading level.');
     }
     for (final value in [style.spaceBeforeTwips, style.spaceAfterTwips]) {
-      if (value < 0 || value > 65535) {
+      if (value < 0 || value > 31680) {
         throw const FormatException('Invalid Word paragraph spacing.');
       }
     }
@@ -378,10 +374,18 @@ class _StructuredWordWriter {
       style.firstLineIndentTwips,
       style.lineSpacingValue ?? 0,
     ]) {
-      if (value < -32768 || value > 32767) {
+      if (value < -31680 || value > 31680) {
         throw const FormatException('Invalid Word paragraph measurement.');
       }
     }
+  }
+
+  static String _lineSpacingRule(LegacyWordParagraphStyle style) {
+    // MS-DOC LSPD: a negative dyaLine is exact spacing regardless of the
+    // stored fMultLinespace flag. Retain that flag in the model, but do not
+    // activate its multiplier semantics when translating a negative value.
+    if ((style.lineSpacingValue ?? 0) < 0) return 'exact';
+    return style.lineSpacingMultiple ? 'auto' : 'atLeast';
   }
 
   static int _kerningThreshold(LegacyWordCharacterStyle style) {

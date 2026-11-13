@@ -350,11 +350,7 @@ extension _WordRevisionWriter on _StructuredWordWriter {
     _paragraphDecorations(style, _xml, cp);
     _paragraphLayoutBeforeSpacing(style.layout);
     final line = style.lineSpacingValue;
-    final rule = style.lineSpacingMultiple
-        ? 'auto'
-        : (line ?? 240) < 0
-        ? 'exact'
-        : 'atLeast';
+    final rule = _StructuredWordWriter._lineSpacingRule(style);
     _xml.add(
       '<w:spacing w:before="${style.spaceBeforeTwips}" w:after="${style.spaceAfterTwips}"',
     );
