@@ -431,7 +431,17 @@ extension _WordStories on _StructuredWordWriter {
       });
     }
     for (final field in document.fields) {
+      final start = field.storyId == 'main'
+          ? 0
+          : _stories[field.storyId]?.startCp;
+      final end = field.storyId == 'main'
+          ? _mainEnd
+          : _stories[field.storyId]?.endCp;
       if (_fields.containsKey(field.id) ||
+          start == null ||
+          end == null ||
+          field.startCp < start ||
+          field.endCp > end ||
           field.startCp >= field.endCp ||
           (field.separatorCp != null &&
               (field.separatorCp! <= field.startCp ||
@@ -449,18 +459,36 @@ extension _WordStories on _StructuredWordWriter {
     for (final children in _fieldChildren.values) {
       children.sort((a, b) => a.startCp.compareTo(b.startCp));
     }
-    for (final field in document.fields) {
-      final parent = field.parentId == null ? null : _fields[field.parentId];
-      if (field.parentId != null &&
-          (parent == null ||
-              parent.storyId != field.storyId ||
-              parent.startCp >= field.startCp ||
-              parent.endCp <= field.endCp ||
-              (parent.separatorCp != null &&
-                  field.startCp < parent.separatorCp! &&
-                  field.endCp > parent.separatorCp!))) {
+    // CP ownership determines the immediate parent, even for inactive fields.
+    // Checking only that a declared parent contains a child admits crossing
+    // roots, overlapping siblings and skipped private ancestors. Input list
+    // order is immaterial: the parser normally lists children before parents.
+    final orderedFields = document.fields.toList()
+      ..sort((a, b) {
+        final story = a.storyId.compareTo(b.storyId);
+        return story != 0 ? story : a.startCp.compareTo(b.startCp);
+      });
+    final ancestors = <LegacyWordField>[];
+    String? currentStory;
+    for (final field in orderedFields) {
+      if (field.storyId != currentStory) {
+        ancestors.clear();
+        currentStory = field.storyId;
+      }
+      while (ancestors.isNotEmpty && ancestors.last.endCp <= field.startCp) {
+        ancestors.removeLast();
+      }
+      final parent = ancestors.isEmpty ? null : ancestors.last;
+      if (field.parentId != parent?.id ||
+          parent != null &&
+              (parent.startCp >= field.startCp ||
+                  parent.endCp <= field.endCp ||
+                  (parent.separatorCp != null &&
+                      field.startCp <= parent.separatorCp! &&
+                      field.endCp > parent.separatorCp!))) {
         throw const FormatException('Invalid Word field nesting.');
       }
+      ancestors.add(field);
     }
     for (final field in document.fields) {
       // Every descendant of an instruction field is emitted while recursively
