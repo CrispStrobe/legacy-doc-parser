@@ -148,10 +148,27 @@ The same receipt retains a timestamped observation of
 [Office run 43390627156](https://github.com/CrispStrobe/CrispCloud/actions/runs/43390627156)
 at `fb81b2ac`: at 08:20:09 UTC its first job was queued with no assigned runner
 and no executed steps. Read-only diagnosis found no same-branch active/pending
-run or same-group blocker; no workflow was restarted or cancelled. This is a
-dated queue observation, not hosted Office acceptance. Earlier successful
-Office CI remains attributed to its earlier app checkpoint. Later hosted
-results must retain their actual head, toolchain and observation time.
+run or same-group blocker; no workflow was restarted or cancelled. That dated
+observation remains unchanged. The same run subsequently completed successfully
+at the exact `fb81b2ac` head: both `host-roundtrip` and `external-schema`, including
+every required step, succeeded.
+
+The hosted artifacts retain all 122 required app exports, 468 schema-valid
+Office outputs, 122 rendered PDFs and 158 decoded RGB pages. All 122 native
+conversions succeed on their first attempt. The repeated-save gate renders the
+app/engine's save-one, save-two and save-three exports and verifies 66 comparisons
+across 33 groups, comparing save one with saves two and three. Eighteen exports
+have authored picture checks; 23 other files are render-only. The result has no
+sibling-baseline substitutions or excluded inputs. Its LibreOffice 24.2.7.2
+renderer is distinct from the local parser corpus's LibreOfficeDev 26.8 toolchain.
+
+Committed-source verification runs before the existing temporary system-SQLite
+hook. The hosted coverage inputs correctly fingerprint the hooked test-time
+`pubspec.yaml`; its deliberate change is not described as unchanged Git source.
+The root lockfile remains unchanged. The 2,624/4,138 instrumented-line result
+applies to 12 scoped Office source files. Earlier successful
+Office CI remains attributed to its earlier checkpoint; later evidence-only
+commits do not change the runtime or hosted head these measurements describe.
 
 General Word14 grouped/relative-size metadata, unsupported OfficeArt effects,
 arbitrary GDI behavior, broader review topology and native Word ink are not
