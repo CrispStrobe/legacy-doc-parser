@@ -62,6 +62,9 @@ class _StructuredWordParser {
   final _fieldIndicesByStart = <int, int>{};
   final _activeFieldIndices = <int>[];
   final _displayFieldRevisions = <int, _DisplayFieldRevisionCapture>{};
+  final _hiddenFieldMarkers = <int, int>{};
+  final _hiddenFieldInstructions = <int, List<(int, int)>>{};
+  int _hiddenFieldInstructionRangeCount = 0;
   final _privateFieldSeparators = <int>{};
   final _fieldFlags = <int, int>{};
   List<(int, int)> _invisibleMediaRanges = const [];
@@ -635,6 +638,9 @@ class _StructuredWordParser {
         segmentEnd = cp;
       }
       flush();
+    }
+    if (mark != null) {
+      _captureFieldInstructionVisibility(terminalCp, mark.style.hidden);
     }
     finishRun();
     return _Paragraph(

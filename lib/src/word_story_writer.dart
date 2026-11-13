@@ -240,6 +240,27 @@ extension _WordStories on _StructuredWordWriter {
     if (run.endCp - run.startCp != run.text.length) {
       throw const FormatException('Word run positions do not match text.');
     }
+    if (run.startCp < run.endCp) {
+      // The normalized public model contains display runs only: the parser
+      // flushes and skips instruction/private-result units. Recheck callers'
+      // spans against the merged field ranges before emitting any text or
+      // events. Checking only the start misses a run crossing a hidden range.
+      var low = 0, high = _hiddenContentRanges.length;
+      while (low < high) {
+        final middle = (low + high) ~/ 2;
+        if (_hiddenContentRanges[middle].$2 <= run.startCp) {
+          low = middle + 1;
+        } else {
+          high = middle;
+        }
+      }
+      if (low < _hiddenContentRanges.length &&
+          _hiddenContentRanges[low].$1 < run.endCp) {
+        throw const FormatException(
+          'Word display run overlaps field instructions or private results.',
+        );
+      }
+    }
     _emitEventsThrough(run.startCp);
     var position = run.startCp;
     final events = _events[_storyId] ?? const <_WordInlineEvent>[];
@@ -500,7 +521,10 @@ extension _WordStories on _StructuredWordWriter {
       if (ancestors.length >= 64) _tooComplex();
       ancestors.add(field);
     }
+    var hiddenInstructionRanges = 0;
     for (final field in document.fields) {
+      hiddenInstructionRanges += _validateFieldInstructionVisibility(field);
+      if (hiddenInstructionRanges > 200000) _tooComplex();
       if (fieldMode == LegacyWordFieldMode.cachedResults) {
         _cachedFieldEvidence(field);
         continue;
@@ -521,17 +545,67 @@ extension _WordStories on _StructuredWordWriter {
           field.storyId,
           field.separatorCp!,
           10,
-          () => _fieldMarker('separate', hidden: field.privateResult),
+          () => _fieldMarker(
+            'separate',
+            hidden: field.privateResult || field.separatorHidden,
+          ),
         );
       }
       _event(
         field.storyId,
         field.endCp - 1,
         5,
-        () => _fieldMarker('end', hidden: field.privateResult),
+        () =>
+            _fieldMarker('end', hidden: field.privateResult || field.endHidden),
       );
     }
     _prepareTextboxes();
+  }
+
+  int _validateFieldInstructionVisibility(LegacyWordField field) {
+    final ranges = field.instructionHiddenRanges;
+    if (ranges.length > 200000) _tooComplex();
+    final children = _fieldChildren[field.id] ?? const <LegacyWordField>[];
+    var previousEnd = 0, childIndex = 0;
+    bool splitsScalar(int offset) =>
+        offset > 0 &&
+        offset < field.instruction.length &&
+        field.instruction.codeUnitAt(offset) >= 0xdc00 &&
+        field.instruction.codeUnitAt(offset) <= 0xdfff;
+    for (final (start, end) in ranges) {
+      if (start < previousEnd ||
+          start < 0 ||
+          end <= start ||
+          end > field.instruction.length ||
+          splitsScalar(start) ||
+          splitsScalar(end)) {
+        throw const FormatException(
+          'Invalid Word instruction visibility range.',
+        );
+      }
+      final sourceStart = field.startCp + 1 + start;
+      final sourceEnd = field.startCp + 1 + end;
+      while (childIndex < children.length &&
+          children[childIndex].endCp <= sourceStart) {
+        childIndex++;
+      }
+      if (childIndex < children.length &&
+          children[childIndex].startCp < sourceEnd) {
+        throw const FormatException(
+          'Word instruction visibility crosses a nested field.',
+        );
+      }
+      for (var offset = start; offset < end; offset++) {
+        final unit = field.instruction.codeUnitAt(offset);
+        if (unit == 19 || unit == 20 || unit == 21) {
+          throw const FormatException(
+            'Word instruction visibility includes a field marker.',
+          );
+        }
+      }
+      previousEnd = end;
+    }
+    return ranges.length;
   }
 
   bool _fieldHandledByAncestor(LegacyWordField field) {
@@ -581,6 +655,12 @@ extension _WordStories on _StructuredWordWriter {
       'dirty': field.dirty,
       'privateResult': field.privateResult,
       'mode': 'cachedResults',
+      'beginHidden': field.beginHidden,
+      'separatorHidden': field.separatorHidden,
+      'endHidden': field.endHidden,
+      'instructionHiddenRanges': [
+        for (final (start, end) in field.instructionHiddenRanges) [start, end],
+      ],
       'automaticRecalculation': false,
       'reason':
           'Explicit stored-result export; field instructions and nesting are '
@@ -674,7 +754,8 @@ extension _WordStories on _StructuredWordWriter {
     // A field in an instruction never has a visible result in this story.
     // Explicit run visibility prevents importers from exposing nested caches
     // or private-field recalculation errors, while retaining every field and
-    // instruction. Reset the outer field's runs so visibility cannot leak.
+    // instruction. Preserve source marker/instruction visibility, explicitly
+    // resetting visible runs so a previous hidden run cannot leak its style.
     _xml.add('<w:r><w:rPr>');
     _bool('vanish', hidden);
     _xml.add('</w:rPr>');
@@ -707,7 +788,7 @@ extension _WordStories on _StructuredWordWriter {
             'The original data is retained and no link is traversed.',
       });
     }
-    _fieldRunStart(hidden);
+    _fieldRunStart(hidden || field.beginHidden);
     _xml.add('<w:fldChar w:fldCharType="begin" w:fldLock="1" w:dirty="0">');
     _displayFieldRevision(field);
     _xml.add('</w:fldChar></w:r>');
@@ -715,6 +796,8 @@ extension _WordStories on _StructuredWordWriter {
     final instructionEnd = field.separatorCp ?? field.endCp - 1;
     final children = (_fieldChildren[field.id] ?? const <LegacyWordField>[])
         .where((child) => child.startCp < instructionEnd);
+    final visibility = field.instructionHiddenRanges;
+    var visibilityIndex = 0;
     var position = instructionStart;
     void textUntil(int cp) {
       final start = position - instructionStart;
@@ -724,15 +807,29 @@ extension _WordStories on _StructuredWordWriter {
           'Word field instruction positions do not match text.',
         );
       }
-      final value = instruction.substring(start, end);
-      if (value.isNotEmpty) {
-        _fieldRunStart(hidden);
+      var offset = start;
+      while (offset < end) {
+        while (visibilityIndex < visibility.length &&
+            visibility[visibilityIndex].$2 <= offset) {
+          visibilityIndex++;
+        }
+        final range = visibilityIndex < visibility.length
+            ? visibility[visibilityIndex]
+            : null;
+        final sourceHidden = range != null && range.$1 <= offset;
+        final boundary = range == null
+            ? end
+            : (sourceHidden ? range.$2 : range.$1);
+        final limit = boundary < end ? boundary : end;
+        final value = instruction.substring(offset, limit);
+        _fieldRunStart(hidden || sourceHidden);
         _xml.add('<w:instrText xml:space="preserve">');
         // Whitespace can also occur inside quoted literals; replacing it with
         // spaces changes the retained instruction. XML character references
         // preserve it exactly. Nested field markers use their typed child.
         _xml.text(value, preserveWhitespace: true);
         _xml.add('</w:instrText></w:r>');
+        offset = limit;
       }
       position = cp;
     }

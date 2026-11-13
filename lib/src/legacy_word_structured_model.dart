@@ -332,6 +332,25 @@ class LegacyWordBookmark {
   final int? lastCell;
 }
 
+/// Hidden literal instruction spans, measured in UTF-16 offsets relative to
+/// [LegacyWordField.instruction]. Nested field source ranges belong to their
+/// own field, so they must not be included in a parent's spans.
+final class LegacyWordFieldInstructionVisibility {
+  LegacyWordFieldInstructionVisibility(List<(int, int)> hiddenRanges)
+    : hiddenRanges = _copy(hiddenRanges);
+
+  const LegacyWordFieldInstructionVisibility.empty() : hiddenRanges = const [];
+
+  final List<(int, int)> hiddenRanges;
+
+  static List<(int, int)> _copy(List<(int, int)> ranges) {
+    if (ranges.length > 200000) {
+      throw const FormatException('Word field visibility is too complex.');
+    }
+    return List.unmodifiable(ranges);
+  }
+}
+
 /// Original field syntax and cached display content. The library never
 /// evaluates a field, resolves a URL, or updates a TOC/REF from external data.
 class LegacyWordField {
@@ -348,6 +367,11 @@ class LegacyWordField {
     this.locked = false,
     this.dirty = false,
     this.privateResult = false,
+    this.beginHidden = false,
+    this.separatorHidden = false,
+    this.endHidden = false,
+    this.instructionVisibility =
+        const LegacyWordFieldInstructionVisibility.empty(),
     this.displayRevision,
   });
   final int id;
@@ -368,6 +392,18 @@ class LegacyWordField {
   final bool locked;
   final bool dirty;
   final bool privateResult;
+
+  /// Resolved character visibility at each original field marker. These flags
+  /// are independent of fPrivateResult and the formatting of cached text.
+  final bool beginHidden;
+  final bool separatorHidden;
+  final bool endHidden;
+  final LegacyWordFieldInstructionVisibility instructionVisibility;
+
+  /// Immutable, ordered, nonoverlapping hidden ranges in literal instruction
+  /// text. Each pair is an inclusive start and exclusive end UTF-16 offset.
+  List<(int, int)> get instructionHiddenRanges =>
+      instructionVisibility.hiddenRanges;
   final LegacyWordDisplayFieldRevision? displayRevision;
 }
 
@@ -1000,8 +1036,9 @@ class LegacyWordParagraphStyle {
   final int spaceBeforeTwips;
   final int spaceAfterTwips;
 
-  /// For multiple=true, 240 denotes one line. Otherwise the absolute value is
-  /// twips, negative means exact spacing and positive means at least.
+  /// Negative values mean exact twip spacing regardless of
+  /// [lineSpacingMultiple]. For nonnegative values, true means 240ths of a
+  /// line and false means a minimum distance in twips.
   final int? lineSpacingValue;
   final bool lineSpacingMultiple;
   final bool keepNext;

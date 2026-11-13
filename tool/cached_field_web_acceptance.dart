@@ -114,6 +114,14 @@ LegacyWordStructuredConversion verifyCachedFieldSource(
           record['privateResult'] == field.privateResult &&
           record['locked'] == field.locked &&
           record['dirty'] == field.dirty &&
+          record['beginHidden'] == field.beginHidden &&
+          record['separatorHidden'] == field.separatorHidden &&
+          record['endHidden'] == field.endHidden &&
+          jsonEncode(record['instructionHiddenRanges']) ==
+              jsonEncode([
+                for (final (start, end) in field.instructionHiddenRanges)
+                  [start, end],
+              ]) &&
           record['automaticRecalculation'] == false,
       'cached field metadata changed',
     );

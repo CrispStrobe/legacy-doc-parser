@@ -29,6 +29,7 @@ Map<String, Object?> verifyFieldVisibilityCase(String name) {
   }
 
   final privateRoot = name == 'private-result';
+  final sourceHiddenRoot = name == 'character-hidden-result';
   final stack = <(bool, bool)>[]; // Cached-result phase, hidden field scope.
   final visible = StringBuffer();
   var begins = 0, hiddenRuns = 0, visibleRuns = 0;
@@ -40,7 +41,10 @@ Map<String, Object?> verifyFieldVisibilityCase(String name) {
     if (hidden == '0') visibleRuns++;
     if (kind == 'begin') {
       final expected = privateRoot || stack.any((s) => !s.$1 || s.$2);
-      check(hidden == (expected ? '1' : '0'), 'begin run visibility $begins');
+      check(
+        hidden == (expected || sourceHiddenRoot ? '1' : '0'),
+        'begin run visibility $begins',
+      );
       check(
         marker?.getAttribute('fldLock', namespace: _w) == '1',
         'field lock',
@@ -49,7 +53,10 @@ Map<String, Object?> verifyFieldVisibilityCase(String name) {
       begins++;
     } else if (kind != null) {
       check(stack.isNotEmpty, 'unmatched field marker');
-      check(hidden == (stack.last.$2 ? '1' : '0'), '$kind visibility');
+      check(
+        hidden == (stack.last.$2 || sourceHiddenRoot ? '1' : '0'),
+        '$kind visibility',
+      );
       if (kind == 'separate') {
         check(!stack.last.$1, 'duplicate separator');
         stack[stack.length - 1] = (true, stack.last.$2);
@@ -59,7 +66,10 @@ Map<String, Object?> verifyFieldVisibilityCase(String name) {
       }
     } else if (run.getElement('instrText', namespace: _w) != null) {
       check(stack.isNotEmpty, 'instruction outside field');
-      check(hidden == (stack.last.$2 ? '1' : '0'), 'instruction visibility');
+      check(
+        hidden == (stack.last.$2 || sourceHiddenRoot ? '1' : '0'),
+        'instruction visibility',
+      );
     } else {
       if (stack.any((s) => s.$2)) {
         check(hidden == '1', 'instruction-context cached run visibility');
@@ -90,6 +100,16 @@ Map<String, Object?> verifyFieldVisibilityCase(String name) {
   );
   if (name == 'character-hidden-result') {
     check(!model.fields.single.privateResult, 'ordinary hidden is not private');
+    final field = model.fields.single;
+    check(
+      field.beginHidden && field.separatorHidden && field.endHidden,
+      'source marker visibility',
+    );
+    check(
+      field.instructionHiddenRanges.length == 1 &&
+          field.instructionHiddenRanges.single == (0, field.instruction.length),
+      'source instruction visibility',
+    );
     final cached = document
         .findAllElements('r', namespace: _w)
         .singleWhere(
