@@ -497,9 +497,14 @@ extension _WordStories on _StructuredWordWriter {
                       field.endCp > parent.separatorCp!))) {
         throw const FormatException('Invalid Word field nesting.');
       }
+      if (ancestors.length >= 64) _tooComplex();
       ancestors.add(field);
     }
     for (final field in document.fields) {
+      if (fieldMode == LegacyWordFieldMode.cachedResults) {
+        _cachedFieldEvidence(field);
+        continue;
+      }
       // Every descendant of an instruction field is emitted while recursively
       // writing that instruction, including fields in its cached result.
       // Private ancestors suppress their entire result subtree. Scheduling
@@ -556,6 +561,33 @@ extension _WordStories on _StructuredWordWriter {
       'privateResult': field.privateResult,
       'reason': 'inert; no external or unsupported field evaluation',
     });
+  }
+
+  void _cachedFieldEvidence(LegacyWordField field) {
+    if (_evidenceRecords.length >= 20000) _tooComplex();
+    limitations.add(LegacyWordConversionLimitation.fieldsLists);
+    _evidenceRecords.add({
+      'kind': 'cachedField',
+      'id': field.id,
+      'parentId': field.parentId,
+      'type': field.type,
+      'instruction': field.instruction,
+      'storedResult': field.storedResult,
+      'story': field.storyId,
+      'startCp': field.startCp,
+      'separatorCp': field.separatorCp,
+      'endCp': field.endCp,
+      'locked': field.locked,
+      'dirty': field.dirty,
+      'privateResult': field.privateResult,
+      'mode': 'cachedResults',
+      'automaticRecalculation': false,
+      'reason':
+          'Explicit stored-result export; field instructions and nesting are '
+          'inert evidence, and the original display runs retain their styling '
+          'and source positions. Field editing and recalculation are unavailable.',
+    });
+    _count('cachedResultFields');
   }
 
   static final _fieldKeyword = RegExp(r'^\s*([A-Za-z][A-Za-z0-9_]*|=)');

@@ -8,23 +8,26 @@ part of 'conversion.dart';
 LegacyWordStructuredConversion _convertStructuredDocument(
   LegacyWordDocument document, {
   required LegacyWordOutputFormat format,
+  required LegacyWordFieldMode fieldMode,
 }) {
-  final writer = _StructuredWordWriter(document, format);
+  final writer = _StructuredWordWriter(document, format, fieldMode);
   final bytes = writer.convert();
   return LegacyWordStructuredConversion(
     bytes: bytes,
     limitations: writer.limitations.toList(),
     format: format,
+    fieldMode: fieldMode,
     preservedCounts: writer.counts,
     signatureEvidenceParts: writer.signatureEvidenceParts,
   );
 }
 
 class _StructuredWordWriter {
-  _StructuredWordWriter(this.document, this.format);
+  _StructuredWordWriter(this.document, this.format, this.fieldMode);
 
   final LegacyWordDocument document;
   final LegacyWordOutputFormat format;
+  final LegacyWordFieldMode fieldMode;
   var _xml = _BoundedWordXml();
   final _package = _OpcPackageWriter();
   var _part = 'word/document.xml';

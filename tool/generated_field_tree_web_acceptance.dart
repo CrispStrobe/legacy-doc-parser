@@ -76,11 +76,15 @@ String generatedFieldTreeXmlText(XmlDocument xml) {
         case 'begin':
           modes.add(false);
         case 'separate':
-          if (modes.isEmpty) throw StateError('Unmatched DOCX field separator');
+          if (modes.isEmpty || modes.last) {
+            throw StateError('Unmatched or duplicate DOCX field separator');
+          }
           modes[modes.length - 1] = true;
         case 'end':
           if (modes.isEmpty) throw StateError('Unmatched DOCX field end');
           modes.removeLast();
+        default:
+          throw StateError('Unknown DOCX field marker');
       }
     } else if (!modes.contains(false)) {
       if (name == 't' || name == 'delText') {
