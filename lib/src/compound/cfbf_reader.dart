@@ -114,9 +114,11 @@ class CfbfFile {
     required List<int> fat,
     required List<int> miniFat,
     required List<CfbfDirectoryEntry> entries,
+    required Set<int> metadataSectors,
   }) : fat = List.unmodifiable(fat),
        miniFat = List.unmodifiable(miniFat),
-       entries = List.unmodifiable(entries);
+       entries = List.unmodifiable(entries),
+       _metadataSectors = Set.unmodifiable(metadataSectors);
 
   /// source API.
   final ByteSource source;
@@ -135,6 +137,8 @@ class CfbfFile {
 
   final Map<int, int> _fatChainLengths = {};
   final Map<int, int> _miniChainLengths = {};
+  final Set<int> _metadataSectors;
+  Set<int>? _sharedStreamEntries;
   Uint8List? _miniContainer;
 
   /// root API.
@@ -145,19 +149,27 @@ class CfbfFile {
   /// open API.
   factory CfbfFile.open(ByteSource source) {
     final CfbfHeader header = CfbfHeader.parse(source);
-    final List<int> fat = _readFat(source, header);
+    final metadataSectors = <int>{};
+    final List<int> fat = _readFat(source, header, metadataSectors);
     final List<CfbfDirectoryEntry> entries = _readDirectory(
       source,
       header,
       fat,
+      metadataSectors,
     );
-    final List<int> miniFat = _readMiniFat(source, header, fat);
+    final List<int> miniFat = _readMiniFat(
+      source,
+      header,
+      fat,
+      metadataSectors,
+    );
     return CfbfFile._(
       source: source,
       header: header,
       fat: fat,
       miniFat: miniFat,
       entries: entries,
+      metadataSectors: metadataSectors,
     );
   }
 
@@ -224,8 +236,18 @@ class CfbfFile {
     return readEntry(entry);
   }
 
-  /// readEntry API.
+  /// Reads a stream or mini-container described by this file's directory.
   Uint8List readEntry(CfbfDirectoryEntry entry) {
+    // Ownership is cached against the parsed directory, so a caller-supplied
+    // entry must not substitute a different allocation under the same index.
+    if (entry.index < 0 ||
+        entry.index >= entries.length ||
+        (!entry.isStream && entry.type != CfbfObjectType.root) ||
+        entries[entry.index].type != entry.type ||
+        entries[entry.index].startSector != entry.startSector ||
+        entries[entry.index].streamSize != entry.streamSize) {
+      throw const CfbfException('Stream entry does not match this directory');
+    }
     if (entry.streamSize < 0 || entry.streamSize > source.length) {
       throw const CfbfException('Stream size exceeds its compound container');
     }
@@ -235,10 +257,72 @@ class CfbfFile {
     final bool mini =
         entry.type != CfbfObjectType.root &&
         entry.streamSize < header.miniStreamCutoff;
+    final shared = _sharedStreamEntries ??= _findSharedStreamEntries();
+    if (shared.contains(entry.index) || (mini && shared.contains(root.index))) {
+      throw const CfbfException('Stream allocation has multiple owners');
+    }
     if (mini) {
       return _readMiniStream(entry);
     }
     return _readFatStream(entry.startSector, entry.streamSize);
+  }
+
+  /// Detect ambiguous ownership before returning any stream's bytes. Merely
+  /// claiming sectors as streams are read would expose whichever alias was
+  /// requested first. Each sector is visited at most once in each namespace;
+  /// stopping at an existing owner also bounds adversarial shared long tails.
+  ///
+  /// This is not an eager topology check: unrelated invalid links and cycles
+  /// are still rejected only when their streams are requested. Extra allocated
+  /// capacity belongs to its stream even when it lies past the logical bytes.
+  Set<int> _findSharedStreamEntries() {
+    final conflicts = <int>{};
+    final regularOwners = <int, int>{
+      for (final sector in _metadataSectors) sector: -1,
+    };
+    final miniOwners = <int, int>{};
+    void claim(
+      CfbfDirectoryEntry entry,
+      List<int> table,
+      Map<int, int> owners,
+      int physicalSectors,
+    ) {
+      var sector = entry.startSector;
+      while (sector != cfbfEndOfChain &&
+          sector >= 0 &&
+          sector < physicalSectors &&
+          sector < table.length) {
+        final previous = owners[sector];
+        if (previous != null) {
+          if (previous != entry.index) {
+            conflicts.add(entry.index);
+            if (previous >= 0) conflicts.add(previous);
+          }
+          return;
+        }
+        owners[sector] = entry.index;
+        sector = table[sector];
+      }
+    }
+
+    final physicalSectors = source.length ~/ header.sectorSize - 1;
+    final miniSize = header.miniSectorSize;
+    // The mini-container cannot exceed the source; its exact logical bound
+    // (including compatibility with a partial last mini sector) is checked on
+    // read. This cap also bounds the scan of an oversized mini-FAT.
+    final miniSectors = miniSize > 0
+        ? (source.length + miniSize - 1) ~/ miniSize
+        : 0;
+    for (final entry in entries) {
+      if (entry.streamSize <= 0) continue;
+      if (entry.type == CfbfObjectType.root ||
+          (entry.isStream && entry.streamSize >= header.miniStreamCutoff)) {
+        claim(entry, fat, regularOwners, physicalSectors);
+      } else if (entry.isStream) {
+        claim(entry, miniFat, miniOwners, miniSectors);
+      }
+    }
+    return conflicts;
   }
 
   /// Resolves a storage path such as `ObjectPool/obj1/Package`.
@@ -347,8 +431,8 @@ class CfbfFile {
 
   /// Validate each allocation-table suffix once, including spare capacity.
   /// Logical reads still copy only their requested bytes. Without suffix
-  /// caching, many short streams sharing a long tail (or repeated reads of a
-  /// valid overallocated stream) could repeatedly traverse the whole file.
+  /// caching, repeated reads of a valid overallocated stream could repeatedly
+  /// traverse the whole file. Ownership validation separately rejects aliases.
   static int _validatedChainLength(
     List<int> table,
     int start,
@@ -391,7 +475,11 @@ class CfbfFile {
     }
   }
 
-  static List<int> _readFat(ByteSource source, CfbfHeader header) {
+  static List<int> _readFat(
+    ByteSource source,
+    CfbfHeader header,
+    Set<int> metadataSectors,
+  ) {
     final List<int> difat = <int>[];
     final seenFat = <int>{};
     final physicalSectors = source.length ~/ header.sectorSize - 1;
@@ -431,6 +519,8 @@ class CfbfFile {
         guard.length != header.difatSectorCount) {
       throw const CfbfException('Inconsistent FAT or DIFAT sector count');
     }
+    _reserveMetadata(difat, metadataSectors);
+    _reserveMetadata(guard, metadataSectors);
 
     final List<int> fat = <int>[];
     for (final int fatSector in difat) {
@@ -451,12 +541,14 @@ class CfbfFile {
     ByteSource source,
     CfbfHeader header,
     List<int> fat,
+    Set<int> metadataSectors,
   ) {
     final List<int> chain = _followChain(fat, header.firstDirectorySector);
     if (header.majorVersion == 4 &&
         chain.length != header.directorySectorCount) {
       throw const CfbfException('Inconsistent directory sector count');
     }
+    _reserveMetadata(chain, metadataSectors);
     final BytesBuilder builder = BytesBuilder(copy: false);
     for (final int sector in chain) {
       builder.add(source.view(header.sectorOffset(sector), header.sectorSize));
@@ -479,6 +571,7 @@ class CfbfFile {
     ByteSource source,
     CfbfHeader header,
     List<int> fat,
+    Set<int> metadataSectors,
   ) {
     if (header.miniFatSectorCount == 0) {
       return <int>[];
@@ -487,6 +580,7 @@ class CfbfFile {
     if (chain.length != header.miniFatSectorCount) {
       throw const CfbfException('Inconsistent mini FAT sector count');
     }
+    _reserveMetadata(chain, metadataSectors);
     final List<int> mini = <int>[];
     for (final int sector in chain) {
       final ByteCursor cursor = ByteCursor.view(
@@ -500,6 +594,14 @@ class CfbfFile {
       }
     }
     return mini;
+  }
+
+  static void _reserveMetadata(Iterable<int> chain, Set<int> reserved) {
+    for (final sector in chain) {
+      if (!reserved.add(sector)) {
+        throw const CfbfException('Compound metadata sectors overlap');
+      }
+    }
   }
 
   static List<int> _followChain(List<int> fat, int start) {

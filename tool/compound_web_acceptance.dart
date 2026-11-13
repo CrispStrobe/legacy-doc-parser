@@ -102,23 +102,42 @@ Map<String, Object?> verifyCompoundAllocationWebCases() {
   final shared = compoundSharedChainFixture();
   final counted = _CountedSource(shared);
   final raw = CfbfFile.open(counted), bounded = BoundedCfbReader(shared);
-  final expected = List.generate(4096, (index) => index % 251);
   counted.views = counted.zeroLengthViews = 0;
   for (final entry in raw.entries.where((entry) => entry.isStream)) {
-    _equal(raw.readEntry(entry), expected, 'raw shared tail');
-    _equal(bounded.readPath(entry.name)!, expected, 'bounded shared tail');
+    rejects(() => raw.readEntry(entry), 'raw shared tail');
+    rejects(() => bounded.readPath(entry.name), 'bounded shared tail');
   }
-  if (counted.views != 520 || counted.zeroLengthViews != 0) {
-    throw StateError('Shared tails repeated spare-payload reads');
+  if (counted.views != 0 || counted.zeroLengthViews != 0) {
+    throw StateError('Shared tails read payload before rejecting overlap');
+  }
+  final overallocated = compoundOverallocatedFixture();
+  final overallocatedSource = _CountedSource(overallocated);
+  final regular = CfbfFile.open(overallocatedSource);
+  final boundedRegular = BoundedCfbReader(overallocated);
+  final expected = List.generate(4096, (index) => index % 251);
+  overallocatedSource.views = overallocatedSource.zeroLengthViews = 0;
+  for (var index = 0; index < 4; index++) {
+    _equal(regular.readPath('Large')!, expected, 'raw overallocated stream');
+    _equal(
+      boundedRegular.readPath('Large')!,
+      expected,
+      'bounded overallocated',
+    );
+  }
+  if (overallocatedSource.views != 32 ||
+      overallocatedSource.zeroLengthViews != 0) {
+    throw StateError('Valid overallocated stream reread spare payload');
   }
   return {
-    'malformedCases': 15,
+    'malformedCases': 16,
     'readerRejections': rejections,
     'validCases': 7,
     'streamComparisons': streamComparisons,
     'sharedTailStreams': 65,
     'sharedTailSectorReads': counted.views,
     'sharedTailZeroLengthReads': counted.zeroLengthViews,
+    'overallocatedReads': 4,
+    'overallocatedSectorReads': overallocatedSource.views,
     'portableIntegers': _verifyPortableIntegers(),
     'sourceUnchanged': true,
   };

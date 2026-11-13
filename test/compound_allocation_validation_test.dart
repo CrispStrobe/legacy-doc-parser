@@ -98,24 +98,31 @@ void main() {
     });
   }
 
-  test('shared long tails do not cause spare-payload reads per stream', () {
+  test('shared long tails are rejected without any payload reads', () {
     final bytes = compoundSharedChainFixture();
     final source = _CountedSource(bytes);
     final raw = CfbfFile.open(source), bounded = BoundedCfbReader(bytes);
-    final expected = List.generate(4096, (index) => index % 251);
     source.views = source.zeroLengthViews = 0;
     for (final entry in raw.entries.where((entry) => entry.isStream)) {
-      expect(raw.readEntry(entry), expected);
-      expect(bounded.readPath(entry.name), expected);
+      expect(() => raw.readEntry(entry), rejectsCompound);
+      expect(() => bounded.readPath(entry.name), rejectsCompound);
     }
-    expect(source.views, 65 * (4096 ~/ 512));
+    expect(source.views, 0);
     expect(source.zeroLengthViews, 0);
-    // Repeating a valid overallocated stream must not reread spare capacity.
+  });
+
+  test('repeated overallocated stream reads skip spare payload capacity', () {
+    final bytes = compoundOverallocatedFixture();
+    final source = _CountedSource(bytes);
+    final raw = CfbfFile.open(source), bounded = BoundedCfbReader(bytes);
+    final expected = List.generate(4096, (index) => index % 251);
     source.views = 0;
     for (var index = 0; index < 4; index++) {
-      expect(raw.readPath('Shared'), expected);
+      expect(raw.readPath('Large'), expected);
+      expect(bounded.readPath('Large'), expected);
     }
     expect(source.views, 4 * (4096 ~/ 512));
+    expect(source.zeroLengthViews, 0);
   });
 
   test('cached topology uses immutable allocation and directory snapshots', () {

@@ -85,7 +85,8 @@ Uint8List compoundPartialMiniFixture(int size) {
 }
 
 /// Deliberately shared allocation tails exercise resource bounds independently
-/// of logical stream bytes. This is not a claim that such sharing is valid CFB.
+/// of logical stream bytes. Ownership validation must reject every alias
+/// without reading the shared payload or repeatedly walking its long tail.
 Uint8List compoundSharedChainFixture() {
   final writer = CfbfWriter()
     ..addStream('Shared', List.generate(1024 * 1024, (index) => index % 251));
@@ -103,5 +104,20 @@ Uint8List compoundSharedChainFixture() {
     data.setUint32(offset + 116, start, Endian.little);
     data.setUint32(offset + 120, 4096, Endian.little);
   }
+  return bytes;
+}
+
+/// One legitimately overallocated stream retains the suffix-cache performance
+/// control without depending on malformed sharing between directory entries.
+Uint8List compoundOverallocatedFixture() {
+  final bytes =
+      (CfbfWriter()..addStream(
+            'Large',
+            List.generate(1024 * 1024, (index) => index % 251),
+          ))
+          .build();
+  final data = ByteData.sublistView(bytes);
+  final directory = (data.getUint32(48, Endian.little) + 1) * 512;
+  data.setUint32(directory + 128 + 120, 4096, Endian.little);
   return bytes;
 }
