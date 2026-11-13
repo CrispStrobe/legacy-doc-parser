@@ -49,6 +49,7 @@ class _StructuredWordWriter {
   final _numberingIds = <int>{};
   final _numberingReferences = <int, int>{};
   final _resolvedParagraphNumbering = <LegacyWordParagraph, int>{};
+  final _suppressedParagraphNumbering = <LegacyWordParagraph>{};
   final _materializedParagraphNumbering =
       <LegacyWordParagraph, _MaterializedNumberingLabel>{};
   final _numberingTemplates = <(int, int), LegacyWordNumberingTemplate>{};

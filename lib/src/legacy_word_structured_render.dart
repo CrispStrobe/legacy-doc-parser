@@ -18,10 +18,12 @@ part 'legacy_word_html_media.dart';
 String renderLegacyWordHtml(
   List<LegacyWordBlock> blocks, {
   List<LegacyWordNumberingDefinition> numberingDefinitions = const [],
+  List<LegacyWordField> fields = const [],
   int? defaultTabStopTwips,
   LegacyWordMediaCatalog media = const LegacyWordMediaCatalog(),
 }) => LegacyWordHtmlRenderer(
   numberingDefinitions: numberingDefinitions,
+  fields: fields,
   defaultTabStopTwips: defaultTabStopTwips,
   media: media,
 ).render(blocks);
@@ -31,12 +33,15 @@ String renderLegacyWordHtml(
 class LegacyWordHtmlRenderer {
   LegacyWordHtmlRenderer({
     this.numberingDefinitions = const [],
+    List<LegacyWordField> fields = const [],
     this.defaultTabStopTwips,
     LegacyWordMediaCatalog media = const LegacyWordMediaCatalog(),
-  }) : _media = _HtmlMediaIndex(media);
+  }) : _media = _HtmlMediaIndex(media),
+       _numberingVisibility = LegacyWordNumberingVisibility(fields);
   final List<LegacyWordNumberingDefinition> numberingDefinitions;
   final int? defaultTabStopTwips;
   final _HtmlMediaIndex _media;
+  final LegacyWordNumberingVisibility _numberingVisibility;
   var _renderedBytes = 0;
   static const _maxCombinedBytes = 64 * 1024 * 1024;
 
@@ -55,6 +60,7 @@ class LegacyWordHtmlRenderer {
           numberingDefinitions,
           defaultTabStopTwips,
           _media,
+          _numberingVisibility,
         );
         result.add(writer.render(blocks));
         _renderedBytes += writer._bytes;
@@ -73,6 +79,7 @@ class LegacyWordHtmlRenderer {
         numberingDefinitions,
         defaultTabStopTwips,
         _media,
+        _numberingVisibility,
         measureOnly: true,
       )..render(blocks);
       baselineBytes.add(measure._bytes);
@@ -91,6 +98,7 @@ class LegacyWordHtmlRenderer {
         numberingDefinitions,
         defaultTabStopTwips,
         _media,
+        _numberingVisibility,
         imageExpansionBytes: _HtmlWriter._maxBytes - baselineBytes[i],
       );
       result.add(writer.render(stories[i]));
@@ -104,7 +112,8 @@ class _HtmlWriter {
   _HtmlWriter(
     this.numberingDefinitions,
     this.defaultTabStopTwips,
-    this._media, {
+    this._media,
+    this._numberingVisibility, {
     this.measureOnly = false,
     this.imageExpansionBytes = 0,
   });
@@ -116,6 +125,7 @@ class _HtmlWriter {
   final List<LegacyWordNumberingDefinition> numberingDefinitions;
   final int? defaultTabStopTwips;
   final _HtmlMediaIndex _media;
+  final LegacyWordNumberingVisibility _numberingVisibility;
   final bool measureOnly;
   int imageExpansionBytes;
   final _markers = <LegacyWordParagraph, _HtmlListMarker>{};
@@ -169,6 +179,7 @@ class _HtmlWriter {
     ).resolve(blocks);
     for (final entry in resolved.entries) {
       _item();
+      if (!_numberingVisibility.visibleAt(entry.key.startCp)) continue;
       final value = entry.value;
       if (value == null) {
         _markers[entry.key] = const _HtmlListMarker(unsupported: true);
@@ -422,8 +433,14 @@ class _HtmlWriter {
       'orphans:${style.layout.widowControl ? 2 : 1}',
     ];
     final marker = _markers[paragraph];
+    final markerStyle = marker?.level == null
+        ? null
+        : resolveLegacyWordMarkerStyle(marker!.level!, paragraph.mark?.style);
     if (marker?.unsupported == true ||
-        (marker == null && style.listId != null && style.listId != 0)) {
+        (marker == null &&
+            style.listId != null &&
+            style.listId != 0 &&
+            _numberingVisibility.visibleAt(paragraph.startCp))) {
       attributes += ' data-word-numbering="unsupported"';
     } else if (marker?.ambiguousContinuation == true) {
       attributes += ' data-word-numbering="instance-approximation"';
@@ -442,14 +459,11 @@ class _HtmlWriter {
     _write('<$tag$attributes style="${css.join(';')}">');
     var hasVisibleText = false;
     final images = _media.within(paragraph.startCp, paragraph.endCp);
-    final visible =
-        paragraph.runs.any((run) => !run.style.hidden && run.text.isNotEmpty) ||
-        images.isNotEmpty;
-    if (visible &&
-        marker != null &&
+    if (marker != null &&
         marker.text != null &&
         marker.text!.isNotEmpty &&
-        !marker.level!.characterStyle.hidden) {
+        markerStyle != null &&
+        !markerStyle.hidden) {
       final level = marker.level!;
       _write(
         '<span data-word-list-label="true" style="text-indent:0;'
@@ -464,10 +478,11 @@ class _HtmlWriter {
           startCp: paragraph.startCp,
           endCp: paragraph.startCp,
           text: marker.text!,
-          style: resolveLegacyWordMarkerStyle(level, paragraph.mark?.style),
+          style: markerStyle,
         ),
       );
       _write('</span>');
+      hasVisibleText = true;
       switch (level.suffix) {
         case LegacyWordListSuffix.tab:
           _write('\t');

@@ -132,6 +132,7 @@ extension _WordLists on _StructuredWordParser {
               paragraphStyle: model.paragraphStyle,
               characterStyle: model.characterStyle,
               characterStyleOverrides: model.characterStyleOverrides,
+              characterStyleIsSparse: model.characterStyleIsSparse,
             ),
             old.paragraph,
             old.styleIndex,
@@ -289,6 +290,7 @@ extension _WordLists on _StructuredWordParser {
             for (final property in LegacyWordNumberingCharacterProperty.values)
               if (characterProperties.containsKey(property.name)) property,
           }),
+          characterStyleIsSparse: true,
         ),
         List.unmodifiable(paragraph),
         styleIndex,

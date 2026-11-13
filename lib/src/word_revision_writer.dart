@@ -112,6 +112,35 @@ extension _WordRevisionWriter on _StructuredWordWriter {
         'rawDttm': change.revision.rawDate,
       });
     }
+    if (_suppressedParagraphNumbering.contains(paragraph)) {
+      _xml.add('<w:numPr><w:numId w:val="0"/></w:numPr>');
+      if (change != null) {
+        _incompleteRevision(
+          'suppressedFieldNumberingRevision',
+          paragraph.startCp,
+          change.revision,
+          marked: true,
+          snapshot: change.original != null,
+        );
+        _evidenceRecords.last.addAll({
+          'originalNumbering': change.original,
+          'previouslyNumbered': change.previouslyNumbered,
+          'numberingInserted': change.inserted,
+          'revision': {
+            'author': change.revision.author,
+            'time': change.revision.time?.toIso8601String(),
+            'authorIndex': change.revision.authorIndex,
+            'rawDate': change.revision.rawDate,
+            'saveId': change.revision.saveId,
+            'reason': change.revision.reason,
+          },
+          'reason':
+              'Source-hidden label remains suppressed; original numbering '
+              'history is retained without activating its revision behavior',
+        });
+      }
+      return;
+    }
     if (materialized) {
       _xml.add('<w:numPr><w:numId w:val="0"/></w:numPr>');
       if (change != null) {
@@ -126,6 +155,14 @@ extension _WordRevisionWriter on _StructuredWordWriter {
           'originalNumbering': change.original,
           'previouslyNumbered': change.previouslyNumbered,
           'numberingInserted': change.inserted,
+          'revision': {
+            'author': change.revision.author,
+            'time': change.revision.time?.toIso8601String(),
+            'authorIndex': change.revision.authorIndex,
+            'rawDate': change.revision.rawDate,
+            'saveId': change.revision.saveId,
+            'reason': change.revision.reason,
+          },
           'reason':
               'Literal label is retained as text; automatic numbering '
               'revision accept/reject behavior cannot be reproduced',

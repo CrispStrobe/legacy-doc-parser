@@ -7,11 +7,18 @@ import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 import 'package:xml/xml.dart';
 
 import '../test/support/list_marker_style_fixture.dart';
+import '../test/support/list_boolean_style_fixture.dart';
+import '../test/support/list_sparse_style_fixture.dart';
+import 'list_sparse_style_web_acceptance.dart';
 
 const _w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
 Map<String, Object> verifyListMarkerStyleWebAcceptance() {
   for (final name in listMarkerStyleCases) {
+    if (listSparseStyleCases.contains(name)) {
+      verifyListSparseStyleCase(name);
+      continue;
+    }
     void check(bool condition, String message) {
       if (!condition) throw StateError('$name: $message');
     }
@@ -157,6 +164,49 @@ Map<String, Object> verifyListMarkerStyleWebAcceptance() {
         'HTML respects explicit resets',
       );
     }
+    if (listBooleanStyleCases.contains(name)) {
+      final absent = name.endsWith('-absent');
+      final enabled = absent || name.endsWith('-1') || name.endsWith('-81');
+      final level = document.numbering.single.levels.single;
+      check(level.characterStyleIsSparse, 'binary sparse marker formatting');
+      for (final property in [
+        LegacyWordNumberingCharacterProperty.bold,
+        LegacyWordNumberingCharacterProperty.italic,
+      ]) {
+        check(
+          level.characterStyleOverrides.contains(property) != absent,
+          'exact ${property.name} override presence',
+        );
+      }
+      for (final property in ['b', 'i']) {
+        check(
+          value(property) ==
+              (!materialized && absent
+                  ? null
+                  : enabled
+                  ? '1'
+                  : '0'),
+          'exact sparse or materialized $property',
+        );
+      }
+      final labelCss = labels.single.toXmlString();
+      check(
+        labelCss.contains('font-weight:bold') == enabled &&
+            labelCss.contains('font-style:italic') == enabled,
+        'HTML marker bold/italic inherit without altering body',
+      );
+      final bodyRun = paragraph.findElements('r', namespace: _w).last;
+      for (final property in ['b', 'i']) {
+        check(
+          bodyRun
+                  .getElement('rPr', namespace: _w)
+                  ?.getElement(property, namespace: _w)
+                  ?.getAttribute('val', namespace: _w) ==
+              '0',
+          'body $property stays explicitly off',
+        );
+      }
+    }
     check(
       (result.preservedCounts['materializedNumberingLabels'] ?? 0) ==
           (materialized ? 1 : 0),
@@ -170,6 +220,7 @@ Map<String, Object> verifyListMarkerStyleWebAcceptance() {
   return {
     'cases': listMarkerStyleCases.length,
     'nullableInheritance': true,
+    'sparseBooleanInheritance': true,
     'explicitResets': true,
     'nativeMarkerProperties': true,
     'numberingHighlightUsesShading': true,

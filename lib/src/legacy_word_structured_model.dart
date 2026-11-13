@@ -435,9 +435,19 @@ class LegacyWordDisplayFieldRevision {
 
 enum LegacyWordListSuffix { tab, space, nothing }
 
-/// Nullable marker properties for which an explicitly supplied reset differs
-/// from the absence of an override on the paragraph mark's formatting.
+/// Marker properties for which an explicitly supplied reset differs from
+/// the absence of an override on the paragraph mark's formatting.
 enum LegacyWordNumberingCharacterProperty {
+  bold,
+  italic,
+  strike,
+  doubleStrike,
+  smallCaps,
+  allCaps,
+  hidden,
+  underline,
+  verticalAlign,
+  kerning,
   fontSize,
   color,
   highlight,
@@ -484,6 +494,7 @@ class LegacyWordNumberingLevel {
     this.paragraphStyle = const LegacyWordParagraphStyle(),
     this.characterStyle = const LegacyWordCharacterStyle(),
     this.characterStyleOverrides = const {},
+    this.characterStyleIsSparse = false,
     this.markerAlignment = LegacyWordAlignment.left,
   });
   final int level;
@@ -513,12 +524,19 @@ class LegacyWordNumberingLevel {
   final LegacyWordParagraphStyle paragraphStyle;
   final LegacyWordCharacterStyle characterStyle;
 
-  /// Explicit nullable character-property overrides from the LVL/linked
+  /// Explicit character-property overrides from the LVL/linked
   /// style. For example, explicit automatic color remains distinct from an
   /// absent color that inherits the paragraph mark. Non-null values always
   /// override; public models may leave this empty to retain null-as-unspecified
   /// inheritance. Binary parsing preserves these keys as an immutable set.
   final Set<LegacyWordNumberingCharacterProperty> characterStyleOverrides;
+
+  /// Parsed LVL formatting distinguishes absent defaults from explicit resets.
+  /// When true, absent false, baseline, and zero-kerning values inherit the
+  /// paragraph mark; nondefault values and keys in [characterStyleOverrides]
+  /// always override. The false default preserves public-model behavior in
+  /// which those default values reset ordinary materialized label formatting.
+  final bool characterStyleIsSparse;
 }
 
 sealed class LegacyWordBlock {

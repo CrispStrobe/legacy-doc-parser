@@ -850,6 +850,14 @@ void main() {
       expect(evidence['numberingInserted'], true);
       expect(evidence['previouslyNumbered'], true);
       expect(evidence['authorIndex'], 2);
+      expect(evidence['revision'], {
+        'author': 'Author',
+        'time': null,
+        'authorIndex': 2,
+        'rawDate': null,
+        'saveId': null,
+        'reason': null,
+      });
     },
   );
 
@@ -984,83 +992,44 @@ void main() {
     },
   );
 
-  test(
-    'cross-paragraph active instructions reject invisible label materialization',
-    () {
-      final document = _crossParagraphField(
-        'A\x13 QUOTE "before\r after" \x14Value\x15Z\r',
-      );
-      expect(
-        () => convertLegacyWordDocument(document),
-        throwsA(
-          isA<FormatException>().having(
-            (error) => error.message,
-            'reason',
-            allOf(contains('active field'), contains('cachedResults')),
-          ),
-        ),
-      );
-      final cached = convertLegacyWordDocument(
-        document,
-        fieldMode: LegacyWordFieldMode.cachedResults,
-      );
-      final xml = _part(cached, 'word/document.xml');
-      expect(xml.findAllElements('fldChar', namespace: _w), isEmpty);
-      final paragraph = xml.findAllElements('p', namespace: _w).last;
-      expect(
-        paragraph
-            .findElements('r', namespace: _w)
-            .first
-            .findAllElements('t', namespace: _w)
-            .single
-            .innerText,
-        '%1',
-      );
-      final context = _evidence(cached).singleWhere(
-        (record) => record['kind'] == 'materializedNumberingFieldContext',
-      );
-      expect(context['fieldMode'], 'cachedResults');
-      expect(context['containingFields'], [
-        {
-          'id': document.fields.single.id,
-          'phase': 'instruction',
-          'active': false,
-        },
-      ]);
-    },
-  );
-
-  test(
-    'inert cross-paragraph instructions retain literal labels without activation',
-    () {
-      final document = _crossParagraphField(
-        'A\x13 DDEAUTO server\r topic item \x14Value\x15Z\r',
-      );
-      final result = convertLegacyWordDocument(document);
+  test('cross-paragraph instructions suppress labels in both field modes', () {
+    final document = _crossParagraphField(
+      'A\x13 QUOTE "before\r after" \x14Value\x15Z\r',
+    );
+    for (final mode in LegacyWordFieldMode.values) {
+      final result = convertLegacyWordDocument(document, fieldMode: mode);
       final xml = _part(result, 'word/document.xml');
-      expect(xml.findAllElements('fldChar', namespace: _w), isEmpty);
-      expect(xml.findAllElements('instrText', namespace: _w), isEmpty);
       expect(
-        xml
-            .findAllElements('p', namespace: _w)
-            .last
-            .findElements('r', namespace: _w)
-            .first
-            .findAllElements('t', namespace: _w)
-            .single
-            .innerText,
-        '%1',
+        xml.findAllElements('t', namespace: _w).map((node) => node.innerText),
+        isNot(contains('%1')),
       );
-      final context = _evidence(result).singleWhere(
-        (record) => record['kind'] == 'materializedNumberingFieldContext',
-      );
-      expect(context['containingFields'], [
-        {
-          'id': document.fields.single.id,
-          'phase': 'instruction',
-          'active': false,
-        },
-      ]);
-    },
-  );
+      expect(result.preservedCounts['suppressedNumberingLabels'], 1);
+      final evidence = _evidence(
+        result,
+      ).singleWhere((record) => record['kind'] == 'suppressedFieldNumbering');
+      expect(evidence['cp'], document.blocks.last.startCp);
+      if (mode == LegacyWordFieldMode.cachedResults) {
+        expect(xml.findAllElements('fldChar', namespace: _w), isEmpty);
+      }
+    }
+  });
+
+  test('inert cross-paragraph instructions suppress source-hidden labels', () {
+    final document = _crossParagraphField(
+      'A\x13 DDEAUTO server\r topic item \x14Value\x15Z\r',
+    );
+    final result = convertLegacyWordDocument(document);
+    final xml = _part(result, 'word/document.xml');
+    expect(xml.findAllElements('fldChar', namespace: _w), isEmpty);
+    expect(xml.findAllElements('instrText', namespace: _w), isEmpty);
+    expect(
+      xml.findAllElements('t', namespace: _w).map((node) => node.innerText),
+      isNot(contains('%1')),
+    );
+    expect(result.preservedCounts['suppressedNumberingLabels'], 1);
+    final context = _evidence(
+      result,
+    ).singleWhere((record) => record['kind'] == 'suppressedFieldNumbering');
+    expect(context['cp'], document.blocks.last.startCp);
+  });
 }

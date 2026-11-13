@@ -31,8 +31,12 @@ void main(List<String> arguments) {
       'output': '$name.docx',
       'sourceKind': 'independently authored binary LVL, CHPX and style records',
       'materialized': !name.startsWith('native-'),
-      'label': name == 'native-hidden'
+      'label':
+          name == 'native-hidden' ||
+              name.contains('-sparse-hidden-') && !name.endsWith('-reset')
           ? ''
+          : name.contains('-sparse-')
+          ? '${name.startsWith('native-') ? '7' : '%1'} abc'
           : name.startsWith('native-')
           ? '7.'
           : '%1',

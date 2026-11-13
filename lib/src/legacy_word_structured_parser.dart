@@ -150,6 +150,7 @@ class _StructuredWordParser {
     _linkTextboxDrawings(media);
     final renderer = LegacyWordHtmlRenderer(
       numberingDefinitions: numbering,
+      fields: fields,
       defaultTabStopTwips: source.defaultTabStopTwips,
       media: media,
     );

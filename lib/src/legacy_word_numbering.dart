@@ -2,10 +2,66 @@
 
 import 'legacy_word_structured_model.dart';
 
+/// A label precedes the source character at its paragraph's start CP. At a
+/// separator/end marker it still belongs to the preceding field phase. These
+/// ranges therefore include the closing marker, unlike hidden text ranges.
+/// Resolving counters remains independent of whether a label is displayed.
+class LegacyWordNumberingVisibility {
+  LegacyWordNumberingVisibility(List<LegacyWordField> fields) {
+    if (fields.length > 20000) {
+      throw const FormatException('Word numbering has too many field ranges.');
+    }
+    final ranges = <(int, int)>[];
+    for (final field in fields) {
+      final separator = field.separatorCp;
+      if (field.startCp < 0 ||
+          field.endCp <= field.startCp + 1 ||
+          separator != null &&
+              (separator <= field.startCp || separator >= field.endCp - 1)) {
+        throw const FormatException('Invalid Word numbering field range.');
+      }
+      ranges.add((
+        field.startCp + 1,
+        field.privateResult || separator == null ? field.endCp : separator + 1,
+      ));
+    }
+    ranges.sort((a, b) => a.$1.compareTo(b.$1));
+    for (final range in ranges) {
+      if (_hidden.isNotEmpty && _hidden.last.$2 >= range.$1) {
+        final previous = _hidden.removeLast();
+        _hidden.add((
+          previous.$1,
+          previous.$2 > range.$2 ? previous.$2 : range.$2,
+        ));
+      } else {
+        _hidden.add(range);
+      }
+    }
+  }
+
+  final _hidden = <(int, int)>[];
+
+  bool visibleAt(int cp) {
+    var low = 0, high = _hidden.length;
+    while (low < high) {
+      final middle = (low + high) ~/ 2;
+      final range = _hidden[middle];
+      if (cp < range.$1) {
+        high = middle;
+      } else if (cp >= range.$2) {
+        low = middle + 1;
+      } else {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
 // Numbering inherits unspecified faces and nullable character properties from
 // the paragraph mark. Ordinary text/HTML runs must spell those properties out.
 // Explicit automatic-color/no-highlight resets remain distinct from absence;
-// do not borrow body-run styling or guess that a false boolean is unspecified.
+// parsed sparse overrides also distinguish absent defaults from explicit resets.
 LegacyWordCharacterStyle resolveLegacyWordMarkerStyle(
   LegacyWordNumberingLevel level,
   LegacyWordCharacterStyle? mark,
@@ -19,20 +75,66 @@ LegacyWordCharacterStyle resolveLegacyWordMarkerStyle(
   ) =>
       value ??
       (level.characterStyleOverrides.contains(property) ? null : parent);
+  bool inheritedBoolean(
+    LegacyWordNumberingCharacterProperty property,
+    bool value,
+    bool parent,
+  ) =>
+      value ||
+      level.characterStyleIsSparse &&
+          !level.characterStyleOverrides.contains(property) &&
+          parent;
+  bool inheritsDefault(LegacyWordNumberingCharacterProperty property) =>
+      level.characterStyleIsSparse &&
+      !level.characterStyleOverrides.contains(property);
+  final inheritUnderline =
+      !marker.underline &&
+      marker.underlineStyle == null &&
+      inheritsDefault(LegacyWordNumberingCharacterProperty.underline);
   String? nonAscii(LegacyWordCharacterStyle style) =>
       style.scriptFonts == null ? style.fontName : style.scriptFonts!.nonAscii;
   String? eastAsia(LegacyWordCharacterStyle style) =>
       style.scriptFonts == null ? style.fontName : style.scriptFonts!.eastAsia;
   return LegacyWordCharacterStyle(
-    bold: marker.bold,
-    italic: marker.italic,
-    underline: marker.underline,
-    underlineStyle: marker.underlineStyle,
-    strike: marker.strike,
-    doubleStrike: marker.doubleStrike,
-    smallCaps: marker.smallCaps,
-    allCaps: marker.allCaps,
-    hidden: marker.hidden,
+    bold: inheritedBoolean(
+      LegacyWordNumberingCharacterProperty.bold,
+      marker.bold,
+      mark.bold,
+    ),
+    italic: inheritedBoolean(
+      LegacyWordNumberingCharacterProperty.italic,
+      marker.italic,
+      mark.italic,
+    ),
+    underline: inheritUnderline ? mark.underline : marker.underline,
+    underlineStyle: inheritUnderline
+        ? mark.underlineStyle
+        : marker.underlineStyle,
+    strike: inheritedBoolean(
+      LegacyWordNumberingCharacterProperty.strike,
+      marker.strike,
+      mark.strike,
+    ),
+    doubleStrike: inheritedBoolean(
+      LegacyWordNumberingCharacterProperty.doubleStrike,
+      marker.doubleStrike,
+      mark.doubleStrike,
+    ),
+    smallCaps: inheritedBoolean(
+      LegacyWordNumberingCharacterProperty.smallCaps,
+      marker.smallCaps,
+      mark.smallCaps,
+    ),
+    allCaps: inheritedBoolean(
+      LegacyWordNumberingCharacterProperty.allCaps,
+      marker.allCaps,
+      mark.allCaps,
+    ),
+    hidden: inheritedBoolean(
+      LegacyWordNumberingCharacterProperty.hidden,
+      marker.hidden,
+      mark.hidden,
+    ),
     fontName: marker.fontName ?? mark.fontName,
     scriptFonts: LegacyWordScriptFonts(
       nonAscii: nonAscii(marker) ?? nonAscii(mark),
@@ -45,7 +147,11 @@ LegacyWordCharacterStyle resolveLegacyWordMarkerStyle(
       marker.fontSizeHalfPoints,
       mark.fontSizeHalfPoints,
     ),
-    kerningThresholdHalfPoints: marker.kerningThresholdHalfPoints,
+    kerningThresholdHalfPoints:
+        marker.kerningThresholdHalfPoints == 0 &&
+            inheritsDefault(LegacyWordNumberingCharacterProperty.kerning)
+        ? mark.kerningThresholdHalfPoints
+        : marker.kerningThresholdHalfPoints,
     colorHex: inherited(
       LegacyWordNumberingCharacterProperty.color,
       marker.colorHex,
@@ -56,7 +162,11 @@ LegacyWordCharacterStyle resolveLegacyWordMarkerStyle(
       marker.highlightHex,
       mark.highlightHex,
     ),
-    verticalAlign: marker.verticalAlign,
+    verticalAlign:
+        marker.verticalAlign == LegacyWordVerticalAlignment.baseline &&
+            inheritsDefault(LegacyWordNumberingCharacterProperty.verticalAlign)
+        ? mark.verticalAlign
+        : marker.verticalAlign,
     positionHalfPoints: inherited(
       LegacyWordNumberingCharacterProperty.position,
       marker.positionHalfPoints,

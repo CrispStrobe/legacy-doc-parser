@@ -17,6 +17,7 @@ extension _WordNumberingWriter on _StructuredWordWriter {
   void _prepareNumbering() {
     if (document.numbering.isEmpty) return;
     final resolver = LegacyWordNumberingResolver(document.numbering);
+    final visibility = LegacyWordNumberingVisibility(document.fields);
     for (final definition in document.numbering) {
       for (final level in definition.levels) {
         final template = resolver.templates[level]!;
@@ -44,6 +45,7 @@ extension _WordNumberingWriter on _StructuredWordWriter {
           'characterStyleOverrides': [
             for (final property in level.characterStyleOverrides) property.name,
           ],
+          'characterStyleIsSparse': level.characterStyleIsSparse,
           'reason':
               'OOXML lvlText reserves percent-number sequences; using this '
               'template requires styled text labels without automatic renumbering',
@@ -87,6 +89,29 @@ extension _WordNumberingWriter on _StructuredWordWriter {
         }
         if (resolved.approximate) {
           limitations.add(LegacyWordConversionLimitation.fieldsLists);
+        }
+        if (!visibility.visibleAt(entry.key.startCp)) {
+          if (_evidenceRecords.length >= 20000) _tooComplex();
+          _suppressedParagraphNumbering.add(entry.key);
+          _evidenceRecords.add({
+            'kind': 'suppressedFieldNumbering',
+            'story': story,
+            'cp': entry.key.startCp,
+            'definition': resolved.definition.id,
+            'level': resolved.level.level,
+            'referenceNumbers': {
+              for (final entry in resolved.referenceNumbers.entries)
+                '${entry.key}': entry.value,
+            },
+            'reason':
+                'The label precedes a source character inside field instructions '
+                'or a private result; source counters advance without a visible label',
+          });
+          _count('suppressedNumberingLabels');
+          // Hidden source items still advance the independent resolver. They
+          // must not advance native counters, so later visible items receive
+          // a fresh native instance when its start value needs to catch up.
+          continue;
         }
         if (!resolved.template.nativeRepresentable) {
           final cp = entry.key.startCp;
@@ -207,15 +232,8 @@ extension _WordNumberingWriter on _StructuredWordWriter {
                 ),
               )
               .toList();
-    for (final field in activeFields) {
-      if (paragraph.startCp <= (field.separatorCp ?? field.endCp - 1)) {
-        throw FormatException(
-          'Cannot materialize a literal Word list label '
-          'inside active field ${field.id} instruction at CP ${paragraph.startCp}; '
-          'cachedResults field mode preserves the visible label.',
-        );
-      }
-    }
+    // _prepareNumbering has already suppressed prefixes inside instructions
+    // and private results, including their closing marker CPs.
     if (label.containingFields.isNotEmpty) {
       if (_evidenceRecords.length >= 20000) _tooComplex();
       _evidenceRecords.add({
@@ -381,14 +399,56 @@ extension _WordNumberingWriter on _StructuredWordWriter {
         xml.add('/></w:pPr><w:rPr>');
         final character = level.characterStyle;
         _runFonts(character, xml);
-        xml.add(
-          '<w:b w:val="${character.bold ? 1 : 0}"/><w:i w:val="${character.italic ? 1 : 0}"/>',
-        );
-        if (character.allCaps) xml.add('<w:caps w:val="1"/>');
-        if (character.smallCaps) xml.add('<w:smallCaps w:val="1"/>');
-        if (character.strike) xml.add('<w:strike w:val="1"/>');
-        if (character.doubleStrike) xml.add('<w:dstrike w:val="1"/>');
-        if (character.hidden) xml.add('<w:vanish/>');
+        for (final property in [
+          ('b', character.bold, LegacyWordNumberingCharacterProperty.bold),
+          ('i', character.italic, LegacyWordNumberingCharacterProperty.italic),
+        ]) {
+          if (property.$2 ||
+              !level.characterStyleIsSparse ||
+              level.characterStyleOverrides.contains(property.$3)) {
+            xml.add('<w:${property.$1} w:val="${property.$2 ? 1 : 0}"/>');
+          }
+        }
+        // Sparse LVL defaults inherit the paragraph mark. Explicit resets
+        // must remain present so an enabled mark cannot reactivate them.
+        for (final property in [
+          (
+            'caps',
+            character.allCaps,
+            LegacyWordNumberingCharacterProperty.allCaps,
+          ),
+          (
+            'smallCaps',
+            character.smallCaps,
+            LegacyWordNumberingCharacterProperty.smallCaps,
+          ),
+          (
+            'strike',
+            character.strike,
+            LegacyWordNumberingCharacterProperty.strike,
+          ),
+          (
+            'dstrike',
+            character.doubleStrike,
+            LegacyWordNumberingCharacterProperty.doubleStrike,
+          ),
+          (
+            'vanish',
+            character.hidden,
+            LegacyWordNumberingCharacterProperty.hidden,
+          ),
+        ]) {
+          if (property.$2) {
+            xml.add(
+              property.$1 == 'vanish'
+                  ? '<w:vanish/>'
+                  : '<w:${property.$1} w:val="1"/>',
+            );
+          } else if (level.characterStyleIsSparse &&
+              level.characterStyleOverrides.contains(property.$3)) {
+            xml.add('<w:${property.$1} w:val="0"/>');
+          }
+        }
         if (character.colorHex != null ||
             level.characterStyleOverrides.contains(
               LegacyWordNumberingCharacterProperty.color,
@@ -400,9 +460,15 @@ extension _WordNumberingWriter on _StructuredWordWriter {
         if (character.spacingTwips != null) {
           xml.add('<w:spacing w:val="${character.spacingTwips}"/>');
         }
-        xml.add(
-          '<w:kern w:val="${_StructuredWordWriter._kerningThreshold(character)}"/>',
-        );
+        if (character.kerningThresholdHalfPoints != 0 ||
+            !level.characterStyleIsSparse ||
+            level.characterStyleOverrides.contains(
+              LegacyWordNumberingCharacterProperty.kerning,
+            )) {
+          xml.add(
+            '<w:kern w:val="${_StructuredWordWriter._kerningThreshold(character)}"/>',
+          );
+        }
         if (character.positionHalfPoints != null) {
           xml.add('<w:position w:val="${character.positionHalfPoints}"/>');
         }
@@ -412,13 +478,24 @@ extension _WordNumberingWriter on _StructuredWordWriter {
         final highlight = character.highlightHex == null
             ? null
             : _StructuredWordWriter._color(character.highlightHex!);
-        xml.add('<w:u w:val="${_underlineValue(character)}"/>');
+        if (character.underline ||
+            character.underlineStyle != null ||
+            !level.characterStyleIsSparse ||
+            level.characterStyleOverrides.contains(
+              LegacyWordNumberingCharacterProperty.underline,
+            )) {
+          xml.add('<w:u w:val="${_underlineValue(character)}"/>');
+        }
         // NumberingSymbolRunProperties permits shading but not highlight
         // (MS-OI29500 17.9.24). Retain the exact background RGB using shading.
         if (highlight != null) {
           xml.add('<w:shd w:val="clear" w:color="auto" w:fill="$highlight"/>');
         }
-        if (character.verticalAlign != LegacyWordVerticalAlignment.baseline) {
+        if (character.verticalAlign != LegacyWordVerticalAlignment.baseline ||
+            level.characterStyleIsSparse &&
+                level.characterStyleOverrides.contains(
+                  LegacyWordNumberingCharacterProperty.verticalAlign,
+                )) {
           xml.add('<w:vertAlign w:val="${character.verticalAlign.name}"/>');
         }
         xml.add('</w:rPr></w:lvl>');

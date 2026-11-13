@@ -2,10 +2,12 @@
 
 import 'dart:typed_data';
 
+import 'list_boolean_style_fixture.dart';
+import 'list_sparse_style_fixture.dart';
 import 'list_word_fixture.dart';
 import 'structured_word_fixture.dart';
 
-const listMarkerStyleCases = [
+final listMarkerStyleCases = List<String>.unmodifiable([
   'inherited-nullable',
   'explicit-overrides',
   'explicit-resets',
@@ -14,10 +16,18 @@ const listMarkerStyleCases = [
   'native-hidden',
   'native-font-slots',
   'native-color-reset',
-];
+  ...listBooleanStyleCases,
+  ...listSparseStyleCases,
+]);
 
 Uint8List listMarkerStyleFixture(String name) {
   if (!listMarkerStyleCases.contains(name)) throw ArgumentError.value(name);
+  if (listBooleanStyleCases.contains(name)) {
+    return listBooleanStyleFixture(name);
+  }
+  if (listSparseStyleCases.contains(name)) {
+    return listSparseStyleFixture(name);
+  }
   final literal = !name.startsWith('native-');
   final parent = [
     ...wordSprm(0x4a43, wordU16(48)),
