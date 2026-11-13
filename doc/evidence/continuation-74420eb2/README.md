@@ -59,6 +59,12 @@ archive loading, so those controls exercise evidence bindings rather than
 merely compressed-file checksums. All checks use explicit exceptions and remain
 active under optimized Python. `verification.json` retains the observed result.
 
+The separate hosted [Dart package run 43383581993](https://github.com/CrispStrobe/legacy-doc-parser/actions/runs/43383581993)
+also succeeded at exact commit `74420eb2`. Both its `test` and `openxml-schema`
+jobs completed successfully. `hosted-ci.json` retains the run identity and job
+status response. This status observation does not relabel the local artifact
+archive as downloaded CI output.
+
 Schema validity and portable tests do not establish visual fidelity. The
 separate [complete native corpus](../native-corpus-74420eb2/README.md) retains
 the measured rendering and repeated-save differences. Microsoft Word was not
