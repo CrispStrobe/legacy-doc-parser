@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 
 import 'header_textbox_alias_fixture.dart' as header_aliases;
+import 'font_charset_schema_fixture.dart' as font_charsets;
 import 'image_appearance_probe.dart' as image_appearance;
 import 'ink_schema_fixture.dart' as ink_strokes;
 import 'list_sequence_fixture.dart' as list_sequences;
@@ -81,6 +82,16 @@ void main(List<String> arguments) {
       'symbols/$name.doc',
       'symbols/$name.docx',
       'tool/fidelity/symbol_schema_fixture.dart',
+    );
+  }
+
+  font_charsets.main(['${root.path}/font-charsets']);
+  for (final name in font_charsets.fontCharsetSchemaCases.keys) {
+    record(
+      'font-charsets/$name',
+      'font-charsets/$name.doc',
+      'font-charsets/$name.docx',
+      'tool/fidelity/font_charset_schema_fixture.dart',
     );
   }
 

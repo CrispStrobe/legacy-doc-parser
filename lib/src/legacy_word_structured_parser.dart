@@ -50,6 +50,7 @@ class _StructuredWordParser {
   final _resolvedStyles = <int, _ResolvedStyle>{};
   final _styleActive = <int>{};
   final fonts = <String>[];
+  final fontTable = <LegacyWordFontDefinition>[];
   final authors = <String>[];
   int? defaultFont;
   int? defaultEastAsianFont;
@@ -190,6 +191,7 @@ class _StructuredWordParser {
       defaultTabStopTwips: source.defaultTabStopTwips,
       compatibility: source.compatibility,
       lineNumberStyle: lineNumberStyle,
+      fontTable: List.unmodifiable(fontTable),
     );
   }
 

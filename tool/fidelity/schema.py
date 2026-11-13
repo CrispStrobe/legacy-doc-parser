@@ -19,6 +19,8 @@ VALIDATOR = ROOT / "tool/office-validation"
 OFFICE_SUFFIXES = {".docx", ".docm", ".dotx", ".dotm", ".xlsx", ".pptx"}
 EXPECTED_CASES = frozenset([
     "symbols/plain", "symbols/deleted",
+    "font-charsets/symbol", "font-charsets/default", "font-charsets/default-symbol-alias",
+    "font-charsets/conflict", "font-charsets/unknown",
     *(f"ink-strokes/{name}-{mode}" for name in (
         "polyline-solid", "single-dot", "paint-ellipse-alpha", "multiple-strokes",
         "pressure-ramp", "signed-quantization") for mode in ("compressed", "uncompressed")),

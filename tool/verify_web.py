@@ -35,6 +35,7 @@ def main():
     media_helper = (repository / "tool/media_web_acceptance.dart").as_uri()
     ink_helper = (repository / "tool/ink_web_acceptance.dart").as_uri()
     symbol_helper = (repository / "tool/symbol_web_acceptance.dart").as_uri()
+    font_charset_helper = (repository / "tool/font_charset_web_acceptance.dart").as_uri()
     ink_cases = []
     for source in sorted((repository / "test/fixtures/ink_wpf").glob("*/*.isf")):
         snapshot = source.with_name(source.name.replace(".roundtrip.isf", ".second-reloaded.json")
@@ -64,6 +65,7 @@ def main():
             f"import {json.dumps(media_helper)};\n"
             f"import {json.dumps(ink_helper)};\n"
             f"import {json.dumps(symbol_helper)};\n"
+            f"import {json.dumps(font_charset_helper)};\n"
             "void main() {\n"
             f"  final result = verifyWebConversion(base64Decode('{encoded}'));\n"
             "  print('Legacy DOC JavaScript acceptance passed: ${jsonEncode(result)}');\n"
@@ -73,6 +75,7 @@ def main():
             f"  final inkHeaders = verifyInkWebAcceptance(jsonDecode(utf8.decode(base64Decode('{encoded_ink_headers}'))) as List, headerCases: true);\n"
             "  print('Ink header JavaScript acceptance passed: ${jsonEncode(inkHeaders)}');\n"
             "  print('Symbol JavaScript acceptance passed: ${jsonEncode(verifySymbolWebAcceptance())}');\n"
+            "  print('Font charset JavaScript acceptance passed: ${jsonEncode(verifyFontCharsetWebAcceptance())}');\n"
             "}\n",
             encoding="utf-8",
         )

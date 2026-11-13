@@ -178,7 +178,8 @@ class _StructuredWordWriter {
         'styles.xml',
       );
     }
-    // Style serialization can add preservation counts and fallback evidence.
+    _writeFontTable();
+    // Style/font serialization can add counts and fallback evidence.
     // Serialize that evidence only once every native style has been emitted.
     _writeEvidence();
     _summarizeLimitations();

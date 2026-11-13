@@ -71,12 +71,16 @@ as the native DOC reference. Its mismatch changes from **92 pixels to 0**.
 The whole-page mismatch changes from **1,300 to 1,208 pixels**. Pixels below the
 first line and all later word boxes are identical before/after the fix.
 
-The remaining whole-page maximum word drift is **2.7 pt**, associated with the
-unchanged Wingdings private-use/font control. That residual is a separate open
-font-metadata investigation; stable repeats do not establish its correctness.
+At the CSymbol-only checkpoint, the remaining whole-page maximum word drift was
+**2.7 pt**, associated with the unchanged Wingdings private-use/font control.
+That observation remains in the original evidence. The subsequent
+[source font charset fix](font-charsets.md) traced and removed this independent
+omission without changing the private-use text. Stable repeats alone had not
+established its first-export correctness.
 Two actual DOCX→DOC→parser import repeats are raster-exact to their own binary
 inputs with **0 pt** drift, while retaining the same residual to the original
-source. Full-page raster equality to the initial source is **not** claimed.
+source at that checkpoint. Full-page raster equality was **not** claimed for the
+CSymbol-only change; the separate charset proof records the later exact result.
 
 ## Checks
 

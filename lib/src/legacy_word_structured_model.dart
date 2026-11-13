@@ -96,6 +96,7 @@ class LegacyWordDocument {
     this.defaultTabStopTwips,
     this.compatibility = const LegacyWordCompatibility.unspecified(),
     this.lineNumberStyle,
+    this.fontTable = const [],
   });
   final List<LegacyWordBlock> blocks;
   final List<LegacyWordSection> sections;
@@ -128,6 +129,42 @@ class LegacyWordDocument {
   /// Number style (MS-DOC StdfBase.sti 40). Null preserves its absence; an
   /// ordinary style with the same display name does not define this value.
   final LegacyWordCharacterStyle? lineNumberStyle;
+
+  /// Original FFN indices, primary names and charset bytes. Duplicate names
+  /// remain separate source definitions; they are not interchangeable indices.
+  final List<LegacyWordFontDefinition> fontTable;
+}
+
+/// The bounded font-selection metadata retained from one MS-DOC FFN record.
+/// Unknown charset bytes remain source evidence, not an inferred code page.
+class LegacyWordFontDefinition {
+  const LegacyWordFontDefinition({
+    required this.sourceIndex,
+    required this.name,
+    required this.charset,
+  });
+  final int sourceIndex;
+  final String name;
+  final int charset;
+
+  String get hexadecimalCharset {
+    if (sourceIndex < 0 ||
+        sourceIndex >= 4096 ||
+        charset < 0 ||
+        charset > 255 ||
+        name.isEmpty ||
+        name.length > 256 ||
+        name.runes.any(
+          (value) =>
+              value < 0x20 ||
+              (value >= 0xd800 && value <= 0xdfff) ||
+              value == 0xfffe ||
+              value == 0xffff,
+        )) {
+      throw const FormatException('Invalid Word font definition.');
+    }
+    return charset.toRadixString(16).padLeft(2, '0').toUpperCase();
+  }
 }
 
 enum LegacyWordStoryKind {
