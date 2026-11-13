@@ -166,6 +166,13 @@ difference is retained as a consumer-path discrepancy, not a reason to add an
 unproven tile offset or to recolor the retained source image. The whole Word14
 layout and absent-width frame semantics remain separate from this fill scope.
 
+The [sealed bitmap observations](evidence/textbox-bitmap-controls-20261113/README.md)
+retain the pre-fix picture control, native pattern export counterexample,
+independent DIB controls and twelve repeated imports with their original
+source/build identities. Picture and texture imports remain stable through all
+three cycles; native pattern export becomes a colored texture on its first
+repeat. All twelve cycles retain zero word displacement.
+
 Eight required `textbox-fills/` schema cases exercise gradients, image fills,
 and the unknown gradient/DIB guards from independently declared FOPT operands.
 They include the correctly qualified secondary opacity attribute. Unit tests
