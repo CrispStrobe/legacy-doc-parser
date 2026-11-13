@@ -530,13 +530,57 @@ void main() {
   );
 
   test(
-    'textbox default stroke remains unforced while frame semantics are unresolved',
+    'qualified enabled absent width couples source default to outer frame',
     () {
-      for (final line in [null, const LegacyWordOfficeArtLine(enabled: true)]) {
+      final parsed = parseLegacyWordDocument(
+        officeArtShapeWordFixture(type: 202, values: {0x01ff: 0x00080008}),
+      ).media.drawings.single.shape!;
+      expect(parsed.line!.enabled, isTrue);
+      expect(parsed.line!.widthEmu, isNull);
+      for (final line in [
+        parsed.line,
+        const LegacyWordOfficeArtLine(enabled: true, widthEmu: 9525),
+        const LegacyWordOfficeArtLine(enabled: true, dash: 1),
+      ]) {
         final box = _convert(
           null,
           line: line,
         ).findAllElements('rect', namespace: _v).single;
+        expect(box.getAttribute('strokeweight'), '0.75pt');
+        expect(
+          box.getAttribute('style'),
+          contains(
+            'margin-left:71.65pt;margin-top:71.65pt;width:144.7pt;height:72.7pt;',
+          ),
+        );
+      }
+      expect(parsed.line!.widthEmu, isNull);
+    },
+  );
+
+  test(
+    'textbox default stroke remains unforced while frame semantics are unresolved',
+    () {
+      for (final xml in [
+        _convert(null),
+        _convert(null, line: const LegacyWordOfficeArtLine()),
+        _convert(
+          null,
+          line: const LegacyWordOfficeArtLine(enabled: true),
+          unsupported: [0x0307],
+        ),
+        _convert(
+          null,
+          line: const LegacyWordOfficeArtLine(enabled: true),
+          rotation: 65536,
+        ),
+        _convert(
+          null,
+          line: const LegacyWordOfficeArtLine(enabled: true),
+          position: const LegacyWordOfficeArtPosition(horizontalMode: 1),
+        ),
+      ]) {
+        final box = xml.findAllElements('rect', namespace: _v).single;
         expect(box.getAttribute('strokeweight'), isNull);
         expect(
           box.getAttribute('style'),
@@ -574,9 +618,14 @@ void main() {
 
   test('unsupported line width cannot be relabeled as source default', () {
     for (final bytes in [
-      officeArtShapeWordFixture(values: {0x01cb: 0xffffffff}),
-      officeArtShapeWordFixture(values: {0x01cb: 0x0132f541}),
       officeArtShapeWordFixture(
+        values: {0x01cb: 0xffffffff, 0x01ff: 0x00080008},
+      ),
+      officeArtShapeWordFixture(
+        values: {0x01cb: 0x0132f541, 0x01ff: 0x00080008},
+      ),
+      officeArtShapeWordFixture(
+        values: {0x01ff: 0x00080008},
         complex: {
           0x01cb: Uint8List.fromList([0, 0, 0, 0]),
         },

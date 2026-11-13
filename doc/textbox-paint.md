@@ -9,8 +9,10 @@ fill does not discard a resolved line, and an unresolved shadow is not emitted
 as an apparently complete simple shadow.
 
 Explicit zero opacity, disabled line/shadow flags, zero offsets and absent
-properties remain distinct. These changes do not materialize an absent line
-width, relax the general unsupported-property guard, or flatten pattern,
+properties remain distinct. Paint parsing retains an absent line width; the
+[qualified frame path](textbox-stroke-defaults.md#qualified-enabled-line-with-an-absent-width)
+separately couples a documented default to its frame conversion. Paint changes
+do not relax the general unsupported-property guard or flatten pattern,
 texture, picture or gradient fills. Editable text and original binary
 artifacts remain retained with the existing partial-formatting limitation.
 
