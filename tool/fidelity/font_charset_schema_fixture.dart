@@ -9,6 +9,7 @@ const fontCharsetSchemaCases = {
   'default-symbol-alias': [('Wingdings', 1), ('Wingdings', 2)],
   'conflict': [('Wingdings', 0), ('Wingdings', 2)],
   'unknown': [('Wingdings', 9)],
+  'empty-name': [('', 1)],
 };
 
 void main(List<String> arguments) {

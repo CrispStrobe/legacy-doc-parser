@@ -28,6 +28,7 @@ The converter applies these rules:
 | Exactly `DEFAULT_CHARSET=1` and `SYMBOL_CHARSET=2` | Emit the explicitly stored symbol charset. Retain the default alias and the qualification in evidence. This is the independently verified Symbol/Wingdings alias case. |
 | Any other mixture of different charsets | Retain the operands and an ambiguity explanation; do not pick a charset. |
 | An unrecognized charset byte | Retain it as source evidence; do not infer a known code page. |
+| A structurally retained FFN with an empty primary name | Keep its index/charset and an explicit qualification, without emitting an unnamed font. |
 | Case-variant names that collapse to the same case-insensitive group | Retain the separate source definitions and omit that group's font-table entry. |
 | No source font metadata | Do not invent a font table. |
 
@@ -39,7 +40,9 @@ remain guarded. A guarded name does not suppress unrelated unambiguous fonts.
 
 The package's `sourceFontCharsets` evidence record retains **all** source
 indices, names and charset bytes, plus each projection decision. Duplicate
-source indices, out-of-range public operands and invalid font names fail closed.
+source indices, out-of-range public operands and invalid name code points fail
+closed. An empty name remains evidence, preserving previously accepted source
+records without treating them as usable font definitions.
 The existing package/XML/evidence budgets apply. Other FFN properties, alternate
 names, embedded fonts and general font substitution equivalence remain outside
 this change; `partialFormatting` remains accurate.
@@ -77,13 +80,25 @@ Repeat stability alone missed the original first-export defect.
 
 ## Checks and retained observations
 
-Seven new regression methods cover source FFN extraction, unmodified CPs/PUA,
+Eight new regression methods cover source FFN extraction, unmodified CPs/PUA,
 exact charsets, duplicate/default cases, explicit conflicts, case collisions,
 unknown bytes, independent fonts, package bindings, absent metadata and invalid
-public inputs. The three targeted Dart suites passed **27 tests**, static analysis
+public inputs. The three targeted Dart suites initially passed **27 tests**, static analysis
 was clean, and both VM and real compiled JavaScript passed **7 cases / 35 checks**.
-Five required schema fixtures passed the retained Open XML SDK 3.3.0 validator
+Five initial schema fixtures passed the retained Open XML SDK 3.3.0 validator
 with zero errors; this bounded run reused the existing validator build.
+
+The combined JavaScript gate then exposed an existing empty-name FFN in
+`formatting.doc` (source index `6`, charset `1`). The initial writer rejected
+that newly surfaced metadata and blocked conversion. The follow-up preserves
+the raw record as evidence and omits only its unnamed font-table entry. An actual
+fixture regression and an authored empty-name case extend the required schema
+cohort to six cases and the JS cohort to eight cases / forty checks. The original
+failed gate and its cause remain separate from the corrected full-web result.
+The corrected targeted suites passed **28 tests**, static analysis remained
+clean, all six schema outputs had zero SDK errors, and the full JavaScript gate
+passed its existing document/media/ink cohorts plus the symbol and charset
+cohorts. This is broader than the earlier charset-only JavaScript check.
 
 The source control, untouched native parent, before/after packages, paired
 counterfactuals, source receipts, PDFs, text/word boxes, compressed raw rasters,

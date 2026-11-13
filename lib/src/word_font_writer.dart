@@ -28,7 +28,9 @@ extension _WordFontWriter on _StructuredWordWriter {
       final charsets = entries.map((font) => font.charset).toSet();
       int? charset;
       String? reason;
-      if (entries.any((font) => font.name != name)) {
+      if (name.isEmpty) {
+        reason = 'empty source font name';
+      } else if (entries.any((font) => font.name != name)) {
         reason = 'case-variant font names are not merged';
       } else if (charsets.any((value) => !_wordFontCharsets.contains(value))) {
         reason = 'unrecognized source charset';

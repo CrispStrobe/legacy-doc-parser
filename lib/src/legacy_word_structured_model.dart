@@ -152,7 +152,6 @@ class LegacyWordFontDefinition {
         sourceIndex >= 4096 ||
         charset < 0 ||
         charset > 255 ||
-        name.isEmpty ||
         name.length > 256 ||
         name.runes.any(
           (value) =>

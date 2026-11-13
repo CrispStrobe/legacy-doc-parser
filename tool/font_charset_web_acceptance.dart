@@ -27,6 +27,7 @@ Map<String, Object> verifyFontCharsetWebAcceptance() {
     ('conflict', [('Wingdings', 0), ('Wingdings', 2)], null),
     ('locale-default', [('Wingdings', 1), ('Wingdings', 0)], null),
     ('unknown', [('Wingdings', 9)], null),
+    ('empty-name', [('', 1)], null),
   ];
   for (final (name, fonts, expected) in cases) {
     final document = parseLegacyWordDocument(fontCharsetWordFixture(fonts));

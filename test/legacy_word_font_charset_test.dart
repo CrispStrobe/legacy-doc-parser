@@ -203,6 +203,40 @@ void main() {
     expect(_archive(document).findFile('word/fontTable.xml'), isNull);
   });
 
+  test('empty source names remain evidence without blocking valid fonts', () {
+    for (final document in [
+      parseLegacyWordDocument(
+        fontCharsetWordFixture([('', 1), ('Wingdings', 2)], selectedFont: 1),
+      ),
+      parseLegacyWordDocument(
+        File('test/fixtures/word_native/formatting.doc').readAsBytesSync(),
+      ),
+    ]) {
+      final empty = document.fontTable.singleWhere((font) => font.name.isEmpty);
+      final archive = _archive(document);
+      expect(_charsets(archive), isNotEmpty);
+      expect(_charsets(archive).containsKey(''), isFalse);
+      final evidence = _evidence(archive);
+      expect(
+        (evidence['definitions'] as List).singleWhere(
+          (item) => item['sourceIndex'] == empty.sourceIndex,
+        ),
+        {'sourceIndex': empty.sourceIndex, 'name': '', 'charset': 1},
+      );
+      expect(
+        (evidence['decisions'] as List).singleWhere(
+          (item) => item['name'] == '',
+        ),
+        {
+          'name': '',
+          'sourceIndices': [empty.sourceIndex],
+          'emittedCharset': null,
+          'qualification': 'empty source font name',
+        },
+      );
+    }
+  });
+
   test(
     'invalid public font metadata and duplicate source indices fail closed',
     () {
@@ -221,7 +255,6 @@ void main() {
             charset: 2,
           ),
         ],
-        [const LegacyWordFontDefinition(sourceIndex: 0, name: '', charset: 2)],
         [
           const LegacyWordFontDefinition(
             sourceIndex: 0,
