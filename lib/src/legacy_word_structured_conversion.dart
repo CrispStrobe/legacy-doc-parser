@@ -56,6 +56,7 @@ class _StructuredWordWriter {
   final _mediaAssets = <String, LegacyWordImageAsset>{};
   final _mediaParts = <String, String>{};
   final _embeddedParts = <String, String>{};
+  var _olePlaceholderWritten = false;
   final _renderedTextboxes = <(String, String?)>{};
   final _unplacedTextboxes = <(LegacyWordTextboxReference, LegacyWordStory)>[];
   final _inertStories = <String, String>{};
