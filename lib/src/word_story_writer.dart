@@ -343,13 +343,26 @@ extension _WordStories on _StructuredWordWriter {
         closing: true,
       );
     }
+    final noteIds = <(bool, int)>{};
+    final noteStories = <String>{};
     for (final reference in document.noteReferences) {
       final story = _stories[reference.storyId];
       final kind = reference.endnote
           ? LegacyWordStoryKind.endnote
           : LegacyWordStoryKind.footnote;
-      if (reference.id < 1 || story == null || story.kind != kind) {
+      // Hidden notes still own their identity and source position. A shared
+      // story can otherwise be made inert after a visible reference has been
+      // queued, leaving an active reference with no corresponding note part.
+      if (reference.id < 1 ||
+          story == null ||
+          story.kind != kind ||
+          !noteIds.add((reference.endnote, reference.id)) ||
+          !noteStories.add(reference.storyId)) {
         throw const FormatException('Invalid Word note reference.');
+      }
+      final owner = _storyAt(reference.anchorCp);
+      if (owner == null) {
+        throw const FormatException('Invalid Word note anchor.');
       }
       if (!_displayPosition(reference.anchorCp) ||
           reference.presentation.hidden) {
@@ -357,10 +370,6 @@ extension _WordStories on _StructuredWordWriter {
             'note marker hidden or inside a private field';
         limitations.add(LegacyWordConversionLimitation.notesComments);
         continue;
-      }
-      final owner = _storyAt(reference.anchorCp);
-      if (owner == null) {
-        throw const FormatException('Invalid Word note anchor.');
       }
       final name = reference.endnote ? 'endnote' : 'footnote';
       _event(owner, reference.anchorCp, 30, () {
