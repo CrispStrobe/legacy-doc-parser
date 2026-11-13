@@ -47,7 +47,6 @@ class BoundedCfbReader {
   final int maxStreamBytes;
   final int maxTotalReadBytes;
   int _readBytes = 0;
-  Uint8List? _miniContainer;
   final Map<int, List<CfbfDirectoryEntry>> _children = {};
   final Map<int, Map<String, CfbfDirectoryEntry>> _names = {};
 
@@ -140,30 +139,9 @@ class BoundedCfbReader {
       );
     }
     _readBytes += entry.streamSize;
-    if (entry.streamSize > 0 && entry.streamSize < 4096) {
-      // The engine re-reads the entire mini-stream container for each small
-      // property. Cache it once so a message with many headers is still linear
-      // in the file size, instead of repeatedly allocating that container.
-      final container = _miniContainer ??= _file.readEntry(root);
-      final result = Uint8List(entry.streamSize);
-      final seen = <int>{};
-      var sector = entry.startSector;
-      var written = 0;
-      while (written < result.length) {
-        final count = (result.length - written).clamp(0, 64);
-        final offset = sector * 64;
-        if (!seen.add(sector) ||
-            sector >= _file.miniFat.length ||
-            offset < 0 ||
-            offset + count > container.length) {
-          throw const FormatException('Invalid compound mini-stream chain');
-        }
-        result.setRange(written, written + count, container, offset);
-        written += count;
-        sector = _file.miniFat[sector];
-      }
-      return result;
-    }
+    // The underlying reader caches the mini-stream container and validated
+    // allocation suffixes; both small-property reads and spare-capacity checks
+    // stay linear in the file size plus the logical bytes requested here.
     return _file.readEntry(entry);
   }
 
@@ -235,7 +213,7 @@ class BoundedCfbReader {
     ];
     List<int> checkChain(int sector, int limit) {
       final seen = <int>{};
-      while (sector != end && sector != free) {
+      while (sector != end) {
         offsetOf(sector);
         if (sector >= fat.length || !seen.add(sector) || seen.length > limit) {
           throw const FormatException(
@@ -248,6 +226,9 @@ class BoundedCfbReader {
     }
 
     final directory = checkChain(u32(48), 65536 ~/ (size ~/ 128));
+    if (major == 4 && directory.length != u32(40)) {
+      throw const FormatException('Inconsistent compound directory count');
+    }
     for (final sector in directory) {
       final offset = offsetOf(sector);
       for (var index = 0; index < size; index += 128) {
@@ -262,6 +243,8 @@ class BoundedCfbReader {
         }
       }
     }
-    if (u32(64) > 0) checkChain(u32(60), sectors);
+    if (u32(64) > 0 && checkChain(u32(60), sectors).length != u32(64)) {
+      throw const FormatException('Inconsistent compound mini FAT count');
+    }
   }
 }

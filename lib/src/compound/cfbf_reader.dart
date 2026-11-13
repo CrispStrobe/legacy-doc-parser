@@ -103,14 +103,20 @@ class CfbfDirectoryEntry {
 }
 
 /// Parsed Compound File Binary (OLE 2.0 structured storage).
+///
+/// Allocation and directory metadata are immutable snapshots. Successful and
+/// failed chain validation is cached, as is the mini-stream container once it
+/// is read. Do not modify the underlying [source] while this reader is in use.
 class CfbfFile {
   CfbfFile._({
     required this.source,
     required this.header,
-    required this.fat,
-    required this.miniFat,
-    required this.entries,
-  });
+    required List<int> fat,
+    required List<int> miniFat,
+    required List<CfbfDirectoryEntry> entries,
+  }) : fat = List.unmodifiable(fat),
+       miniFat = List.unmodifiable(miniFat),
+       entries = List.unmodifiable(entries);
 
   /// source API.
   final ByteSource source;
@@ -118,14 +124,18 @@ class CfbfFile {
   /// header API.
   final CfbfHeader header;
 
-  /// fat API.
+  /// Immutable FAT snapshot. Chain validation is cached against these bytes.
   final List<int> fat;
 
-  /// miniFat API.
+  /// Immutable mini-FAT snapshot.
   final List<int> miniFat;
 
-  /// entries API.
+  /// Immutable directory snapshot, including the mini-stream's root metadata.
   final List<CfbfDirectoryEntry> entries;
+
+  final Map<int, int> _fatChainLengths = {};
+  final Map<int, int> _miniChainLengths = {};
+  Uint8List? _miniContainer;
 
   /// root API.
   CfbfDirectoryEntry get root => entries.firstWhere(
@@ -273,47 +283,51 @@ class CfbfFile {
     if (size < 0 || size > source.length) {
       throw const CfbfException('Stream size exceeds its compound container');
     }
+    final int sectorSize = header.sectorSize;
+    final sectors = _validatedChainLength(
+      fat,
+      startSector,
+      _fatChainLengths,
+      source.length ~/ sectorSize - 1,
+    );
+    if (sectors * sectorSize < size) {
+      throw const CfbfException('Truncated FAT stream');
+    }
     final Uint8List out = Uint8List(size);
     int remaining = size;
     int written = 0;
     int sector = startSector;
-    final int sectorSize = header.sectorSize;
-    final Set<int> guard = <int>{};
-    while (remaining > 0 && sector != cfbfEndOfChain) {
-      if (!guard.add(sector)) {
-        throw const CfbfException('FAT cycle detected');
-      }
+    while (remaining > 0) {
       final int offset = header.sectorOffset(sector);
       final int take = remaining < sectorSize ? remaining : sectorSize;
       out.setRange(written, written + take, source.view(offset, take));
       written += take;
       remaining -= take;
-      if (sector >= fat.length) {
-        throw CfbfException('FAT index $sector out of range (${fat.length})');
-      }
       sector = fat[sector];
-    }
-    if (remaining != 0) {
-      throw CfbfException('Truncated FAT stream: $remaining bytes missing');
     }
     return out;
   }
 
   Uint8List _readMiniStream(CfbfDirectoryEntry entry) {
-    final Uint8List miniContainer = _readFatStream(
+    final Uint8List miniContainer = _miniContainer ??= _readFatStream(
       root.startSector,
       root.streamSize,
     );
+    final int miniSize = header.miniSectorSize;
+    final sectors = _validatedChainLength(
+      miniFat,
+      entry.startSector,
+      _miniChainLengths,
+      (miniContainer.length + miniSize - 1) ~/ miniSize,
+    );
+    if (sectors * miniSize < entry.streamSize) {
+      throw const CfbfException('Truncated mini stream');
+    }
     final Uint8List out = Uint8List(entry.streamSize);
     int remaining = entry.streamSize;
     int written = 0;
     int sector = entry.startSector;
-    final int miniSize = header.miniSectorSize;
-    final Set<int> guard = <int>{};
-    while (remaining > 0 && sector != cfbfEndOfChain) {
-      if (!guard.add(sector)) {
-        throw const CfbfException('MiniFAT cycle detected');
-      }
+    while (remaining > 0) {
       final int offset = sector * miniSize;
       final int take = remaining < miniSize ? remaining : miniSize;
       if (offset + take > miniContainer.length) {
@@ -326,24 +340,80 @@ class CfbfFile {
       );
       written += take;
       remaining -= take;
-      if (sector >= miniFat.length) {
-        throw CfbfException('MiniFAT index $sector out of range');
-      }
       sector = miniFat[sector];
-    }
-    if (remaining != 0) {
-      throw CfbfException('Truncated MiniFAT stream: $remaining bytes missing');
     }
     return out;
   }
 
+  /// Validate each allocation-table suffix once, including spare capacity.
+  /// Logical reads still copy only their requested bytes. Without suffix
+  /// caching, many short streams sharing a long tail (or repeated reads of a
+  /// valid overallocated stream) could repeatedly traverse the whole file.
+  static int _validatedChainLength(
+    List<int> table,
+    int start,
+    Map<int, int> cached,
+    int physicalSectorCount,
+  ) {
+    final path = <int>[];
+    final seen = <int>{};
+    var sector = start;
+    var length = 0;
+    try {
+      while (sector != cfbfEndOfChain) {
+        final previous = cached[sector];
+        if (previous != null) {
+          if (previous < 0) {
+            throw const CfbfException('Invalid compound allocation chain');
+          }
+          length = previous;
+          break;
+        }
+        if (sector < 0 ||
+            sector >= physicalSectorCount ||
+            sector >= table.length ||
+            !seen.add(sector)) {
+          throw const CfbfException('Invalid or cyclic allocation chain');
+        }
+        path.add(sector);
+        sector = table[sector];
+      }
+      for (var index = path.length - 1; index >= 0; index--) {
+        cached[path[index]] = ++length;
+      }
+      return length;
+    } on CfbfException {
+      // A repeated request for an invalid suffix must not repeat its work.
+      for (final index in path) {
+        cached[index] = -1;
+      }
+      rethrow;
+    }
+  }
+
   static List<int> _readFat(ByteSource source, CfbfHeader header) {
-    final List<int> difat = List<int>.from(header.headerDifat);
+    final List<int> difat = <int>[];
+    final seenFat = <int>{};
+    final physicalSectors = source.length ~/ header.sectorSize - 1;
+    final entriesPerSector = header.sectorSize ~/ 4;
+    void addFat(int sector) {
+      if (sector == cfbfFreeSect) return;
+      if (sector < 0 || sector >= physicalSectors || !seenFat.add(sector)) {
+        throw const CfbfException('Invalid or repeated FAT sector');
+      }
+      difat.add(sector);
+    }
+
+    for (final sector in header.headerDifat) {
+      addFat(sector);
+    }
     int difatSector = header.firstDifatSector;
     final Set<int> guard = <int>{};
     while (difatSector != cfbfEndOfChain && difatSector != cfbfFreeSect) {
-      if (!guard.add(difatSector)) {
-        throw const CfbfException('DIFAT cycle detected');
+      if (difatSector < 0 ||
+          difatSector >= physicalSectors ||
+          !guard.add(difatSector)) {
+        throw const CfbfException('Invalid or cyclic DIFAT sector');
       }
       final int offset = header.sectorOffset(difatSector);
       final ByteCursor cursor = ByteCursor.view(
@@ -351,20 +421,19 @@ class CfbfFile {
         offset,
         header.sectorSize,
       );
-      final int entriesPerSector = header.sectorSize ~/ 4;
       for (int i = 0; i < entriesPerSector - 1; i++) {
-        difat.add(cursor.u32le());
+        addFat(cursor.u32le());
       }
       difatSector = cursor.u32le();
     }
 
+    if (difat.length != header.fatSectorCount ||
+        guard.length != header.difatSectorCount) {
+      throw const CfbfException('Inconsistent FAT or DIFAT sector count');
+    }
+
     final List<int> fat = <int>[];
-    int fatSectorsSeen = 0;
     for (final int fatSector in difat) {
-      if (fatSector == cfbfFreeSect || fatSector == cfbfEndOfChain) {
-        continue;
-      }
-      fatSectorsSeen++;
       final ByteCursor cursor = ByteCursor.view(
         source,
         header.sectorOffset(fatSector),
@@ -375,9 +444,6 @@ class CfbfFile {
         fat.add(cursor.u32le());
       }
     }
-    if (header.fatSectorCount != 0 && fatSectorsSeen != header.fatSectorCount) {
-      // Some writers leave unused DIFAT slots; tolerate extra FREESECT.
-    }
     return fat;
   }
 
@@ -387,6 +453,10 @@ class CfbfFile {
     List<int> fat,
   ) {
     final List<int> chain = _followChain(fat, header.firstDirectorySector);
+    if (header.majorVersion == 4 &&
+        chain.length != header.directorySectorCount) {
+      throw const CfbfException('Inconsistent directory sector count');
+    }
     final BytesBuilder builder = BytesBuilder(copy: false);
     for (final int sector in chain) {
       builder.add(source.view(header.sectorOffset(sector), header.sectorSize));
@@ -410,11 +480,13 @@ class CfbfFile {
     CfbfHeader header,
     List<int> fat,
   ) {
-    if (header.miniFatSectorCount == 0 ||
-        header.firstMiniFatSector == cfbfEndOfChain) {
+    if (header.miniFatSectorCount == 0) {
       return <int>[];
     }
     final List<int> chain = _followChain(fat, header.firstMiniFatSector);
+    if (chain.length != header.miniFatSectorCount) {
+      throw const CfbfException('Inconsistent mini FAT sector count');
+    }
     final List<int> mini = <int>[];
     for (final int sector in chain) {
       final ByteCursor cursor = ByteCursor.view(
@@ -434,7 +506,7 @@ class CfbfFile {
     final List<int> chain = <int>[];
     final Set<int> seen = <int>{};
     int sector = start;
-    while (sector != cfbfEndOfChain && sector != cfbfFreeSect) {
+    while (sector != cfbfEndOfChain) {
       if (!seen.add(sector)) {
         throw const CfbfException('Sector chain cycle detected');
       }
