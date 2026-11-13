@@ -171,11 +171,15 @@ Map<String, bool> _resolved(LegacyWordDocument document) => {
 Map<String, bool> _baseline(Iterable<String> names) => {
   for (final name in names) name: _inverted.contains(name),
 };
-// ISO 29500-1 17.15.3.3 defines omitted width balancing as disabled.
+// ISO 29500-1 17.15.3.3/.5 define these omitted options as disabled.
 // Keep source interpretation assertions separate from equivalent XML spelling.
 Map<String, bool> _serialized(Map<String, bool> source) => {
   for (final entry in source.entries)
-    if (entry.key != 'balanceSingleByteDoubleByteWidth' || entry.value)
+    if (entry.value ||
+        !{
+          'balanceSingleByteDoubleByteWidth',
+          'doNotExpandShiftReturn',
+        }.contains(entry.key))
       entry.key: entry.value,
 };
 List<Map<String, dynamic>> _evidence(Map<String, Uint8List> files) =>
@@ -283,6 +287,36 @@ void main() {
     final settings = _settings(_parts(convertLegacyWordDocument(parsed).bytes));
     expect(settings.containsKey('balanceSingleByteDoubleByteWidth'), isFalse);
     expect(parsed.plainText, contains('Zufahrt für'));
+  });
+
+  test('manual-break justification preserves both inverse source choices', () {
+    const flag = LegacyWordCompatibilityFlag.doNotExpandShiftReturn;
+    for (final expand in [false, true]) {
+      // fExpShRtn is bit 13, with the opposite OOXML meaning.
+      final dop = _dop(544, options: expand ? 0x2000 : 0);
+      final parsed = parseLegacyWordDocument(
+        _source(dop: dop, newVersion: 0xd9),
+      );
+      expect(parsed.compatibility[flag], !expand);
+      final converted = convertLegacyWordDocument(parsed);
+      final files = _parts(converted.bytes);
+      final settings = _settings(files);
+      if (expand) {
+        expect(settings.containsKey('doNotExpandShiftReturn'), isFalse);
+      } else {
+        expect(settings['doNotExpandShiftReturn'], isTrue);
+      }
+      expect(settings['wrapTrailSpaces'], isFalse);
+      expect(
+        converted.preservedCounts['compatibilityFlags'],
+        parsed.compatibility.flags.length,
+      );
+      for (final record in _evidence(files)) {
+        final start = record['offsetInDop'] as int;
+        final bytes = files[record['part']]!;
+        expect(bytes, dop.sublist(start, start + bytes.length));
+      }
+    }
   });
 
   test('Copts80 font and line metrics use documented upper-word positions', () {
