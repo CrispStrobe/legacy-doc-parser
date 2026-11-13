@@ -7188,7 +7188,7 @@
   ],
   "helpers": {
     "audit.py": "113cc8ca2d5a7c2dda45b4e887ad4d606ad68c5052b65b4e404ad7d6cbd5ae92",
-    "verify.py": "9cb01d2e9b123249950eb747086cfc1f753cd5dc4c6bfc2c6e1cd4f2061ca41b",
-    "test_verifier.py": "c95d0d538faad731fe76d12956c1e3b97754addef6c29885403488d5411bc73f"
+    "verify.py": "ed8a5856b238de5c924de03d35eb5f9c1ba809dec5e8373096b04237a5afa2da",
+    "test_verifier.py": "a3ba0c81cac3119f517e11dff0346f8dd613fa1671e9b821c24e252628d5c25a"
   }
 }

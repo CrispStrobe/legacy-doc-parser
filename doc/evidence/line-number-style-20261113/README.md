@@ -92,9 +92,13 @@ old outputs; and both full generated schema corpora against the SDK's exact
 sources and the authored control to the runtime commit. Checks use explicit
 errors and remain active under optimized Python.
 
-The verifier controls accept the valid evidence and reject nine mutations,
+The verifier controls accept the valid evidence and reject 22 mutations,
 including a failed actual command, an unrelated command with a retained success
 log, an omitted second-corpus output, a stale SDK output hash even after its
 report receipt is resealed, changed source bytes, an omitted native cycle,
 replacement of the restored output by the failing baseline, a changed old
-output and an altered font receipt. The same controls pass under `python -O`.
+output and an altered font receipt. Each of the 13 SDK stage commands is also
+individually replaced by an unrelated executable with its valid original
+success log retained; every replacement is rejected. The same controls pass
+under `python -O`. This command binding was strengthened after independent
+review; the original captured run records and archive bytes are unchanged.
