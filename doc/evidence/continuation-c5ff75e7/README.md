@@ -102,3 +102,33 @@ SDK input/result; original failure attribution; and the nonempty ink evidence.
 **44 semantic corruption controls** reject contradictions after outer archive
 loading. Checks use explicit exceptions and remain active under optimized
 Python. `verification.json` retains the observed verification result.
+
+## Separate hosted CI observation
+
+The exact runtime also completed [GitHub Actions run 43387392944](https://github.com/CrispStrobe/legacy-doc-parser/actions/runs/43387392944)
+successfully. The retained API observation identifies the successful `test`
+job 131758985202 and `openxml-schema` job 131758984962, including all required
+step outcomes. The returned decoded logs contain the 1,028-test and 162-control
+results, all four actual JavaScript result objects, and the 254-output SDK gate.
+
+**Hosted Dart was 3.14.0; local Dart was 3.13.7.** Hosted status and decoded logs
+are retained separately and do not relabel the local source, generated corpora
+or native render artifacts as CI downloads. `hosted-logs.tar.xz` stores the
+exact returned log strings encoded as UTF-8, preserving line endings and BOM;
+it is not the original GitHub ZIP. Its two members total 315,332 bytes and
+compress to 42,956 bytes, SHA-256
+`633642d04bc392ae7bce237b5e6ac01b890260a517b42712a460b03fc6a30146`.
+
+The complete bundle, including these API/log receipts, is verified with:
+
+```sh
+python3 doc/evidence/continuation-c5ff75e7/verify_bundle.py --repository . --self-test
+```
+
+The additional hosted verifier binds exact run/job identities, required step
+successes, all member hashes, the checked-out source, hosted toolchain, and
+actual result markers. Seven targeted corruptions reject altered run identity,
+failed jobs/steps, stale hashes and resealed contradictory SDK/JavaScript/head
+logs, also under optimized Python. The original 1,546-member local archive and
+its verifier remain unchanged. `bundle-files.json` inventories every file in
+this directory except itself and Python bytecode caches.
