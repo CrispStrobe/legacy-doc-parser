@@ -7,6 +7,7 @@ import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 import 'package:test/test.dart';
 import 'package:xml/xml.dart';
 
+import 'support/nested_field_fixture.dart';
 import 'support/story_word_fixture.dart';
 
 const _w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
@@ -26,6 +27,33 @@ String _text(XmlDocument xml) => xml
     .findAllElements('t', namespace: _w)
     .map((element) => element.innerText)
     .join();
+
+LegacyWordDocument _overrideFieldTypes(
+  String source,
+  Map<String, String> overrides,
+) {
+  final parsed = parseLegacyWordDocument(storyWordFixture(main: source));
+  return LegacyWordDocument(
+    blocks: parsed.blocks,
+    sections: parsed.sections,
+    plainText: parsed.plainText,
+    safeHtml: parsed.safeHtml,
+    fields: [
+      for (final field in parsed.fields)
+        LegacyWordField(
+          id: field.id,
+          storyId: field.storyId,
+          startCp: field.startCp,
+          endCp: field.endCp,
+          instruction: field.instruction,
+          storedResult: field.storedResult,
+          type: overrides[field.type] ?? field.type,
+          separatorCp: field.separatorCp,
+          parentId: field.parentId,
+        ),
+    ],
+  );
+}
 
 // Independently project complex-field XML: text is visible only after every
 // enclosing field's separator. No instruction or field evaluation is involved.
@@ -55,31 +83,49 @@ String _visibleText(XmlDocument xml) {
   return result.toString();
 }
 
-List<int> _fieldPlc(String text, Set<int> privateEnds) {
-  final positions = <int>[], records = <int>[];
-  var depth = 0;
-  for (var cp = 0; cp < text.length; cp++) {
-    final unit = text.codeUnitAt(cp);
-    if (!const [19, 20, 21].contains(unit)) continue;
-    positions.add(cp);
-    var flags = 0;
-    if (unit == 19) depth++;
-    if (unit == 21) {
-      flags =
-          0x80 | (depth > 1 ? 0x40 : 0) | (privateEnds.contains(cp) ? 0x20 : 0);
-      depth--;
-    }
-    records.addAll([unit, flags]);
-  }
-  return storyPlc([...positions, 0xffffffff], records);
-}
-
 void main() {
+  test('public model field types cannot authorize a different instruction', () {
+    final result = convertLegacyWordDocument(
+      _overrideFieldTypes('A\x13 DDEAUTO server topic item \x14Cached\x15Z\r', {
+        'DDEAUTO': 'PAGE',
+      }),
+    );
+    final xml = _xml(result.bytes);
+    expect(_markers(xml), isEmpty);
+    expect(xml.findAllElements('instrText', namespace: _w), isEmpty);
+    expect(_visibleText(xml), 'ACachedZ');
+    expect(
+      result.limitations,
+      contains(LegacyWordConversionLimitation.fieldsLists),
+    );
+  });
+
+  test('a mislabeled nested instruction keeps the containing field inert', () {
+    final result = convertLegacyWordDocument(
+      _overrideFieldTypes(
+        'A\x13 REF \x13 INCLUDETEXT "https://invalid.test/" '
+        '\x14Cached\x15 \x14Outer\x15Z\r',
+        {'INCLUDETEXT': 'PAGE'},
+      ),
+    );
+    final xml = _xml(result.bytes);
+    expect(_markers(xml), isEmpty);
+    expect(xml.findAllElements('instrText', namespace: _w), isEmpty);
+    expect(_visibleText(xml), 'AOuterZ');
+  });
+
+  test('matching public field keywords remain case insensitive', () {
+    final result = convertLegacyWordDocument(
+      _overrideFieldTypes('A\x13\tpage \x142\x15Z\r', {'PAGE': 'page'}),
+    );
+    final xml = _xml(result.bytes);
+    expect(_markers(xml), ['begin', 'separate', 'end']);
+    expect(_visibleText(xml), 'A2Z');
+    expect(result.preservedCounts['fields'], 1);
+  });
+
   test('nested cached results stay inside the enclosing field instruction', () {
-    const source =
-        'A\x13 IF \x13 REF Name \x14pre\x13 PAGE \x142\x15post\x15 '
-        '= "pre2post" "yes" "no" \x14Visible\x15Z\r';
-    final bytes = storyWordFixture(main: source);
+    final bytes = nestedFieldFixture('nested-results');
     final original = Uint8List.fromList(bytes);
     final document = parseLegacyWordDocument(bytes);
     expect(
@@ -108,16 +154,8 @@ void main() {
   test(
     'private results do not emit nested instruction text or field markers',
     () {
-      const source =
-          'A\x13 REF Hidden \x14before\x13 QUOTE "PrivateInstruction" '
-          '\x14PrivateResult\x15after\x15Z\r';
       final converted = convertLegacyWordToStructuredDocx(
-        storyWordFixture(
-          main: source,
-          tablePairs: {
-            16: _fieldPlc(source, {source.lastIndexOf('\x15')}),
-          },
-        ),
+        nestedFieldFixture('private-result'),
       );
       final xml = _xml(converted.bytes);
       expect(_markers(xml), ['begin', 'separate', 'end']);
@@ -130,18 +168,8 @@ void main() {
   test(
     'private nested instruction results remain empty across deeper fields',
     () {
-      const source =
-          'A\x13 IF \x13 REF Hidden \x14before\x13 QUOTE "PrivateInstruction" '
-          '\x14PrivateResult\x15after\x15 = "" "yes" "no" '
-          '\x14Visible\x15Z\r';
-      final privateEnd = source.indexOf(' =') - 1;
       final converted = convertLegacyWordToStructuredDocx(
-        storyWordFixture(
-          main: source,
-          tablePairs: {
-            16: _fieldPlc(source, {privateEnd}),
-          },
-        ),
+        nestedFieldFixture('private-instruction-result'),
       );
       final xml = _xml(converted.bytes);
       expect(_markers(xml), [
@@ -162,12 +190,8 @@ void main() {
   test(
     'unsupported nested result fields retain only cached text and evidence',
     () {
-      const source =
-          'A\x13 IF \x13 REF Name \x14pre\x13 INCLUDETEXT "https://invalid.test/" '
-          '\x14cached\x15post\x15 = "precachedpost" "yes" "no" '
-          '\x14Visible\x15Z\r';
       final converted = convertLegacyWordToStructuredDocx(
-        storyWordFixture(main: source),
+        nestedFieldFixture('unsupported-result'),
       );
       final xml = _xml(converted.bytes);
       expect(_markers(xml), [

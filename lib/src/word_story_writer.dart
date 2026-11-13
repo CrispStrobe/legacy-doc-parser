@@ -521,43 +521,54 @@ extension _WordStories on _StructuredWordWriter {
     });
   }
 
-  bool _safeField(LegacyWordField field) =>
-      const {
-        'TOC',
-        'REF',
-        'PAGEREF',
-        'NOTEREF',
-        'STYLEREF',
-        'PAGE',
-        'NUMPAGES',
-        'SECTION',
-        'SECTIONPAGES',
-        'SEQ',
-        'LISTNUM',
-        'TC',
-        'XE',
-        'INDEX',
-        'HYPERLINK',
-        'DATE',
-        'TIME',
-        'CREATEDATE',
-        'SAVEDATE',
-        'PRINTDATE',
-        'AUTHOR',
-        'TITLE',
-        'SUBJECT',
-        'KEYWORDS',
-        'DOCPROPERTY',
-        'DOCVARIABLE',
-        'QUOTE',
-        'IF',
-        '=',
-      }.contains(field.type.toUpperCase()) &&
-      _fieldInstruction(field).runes.every(
-        (rune) =>
-            (rune >= 0x20 && rune != 0xfffe && rune != 0xffff) ||
-            const {9, 10, 13, 19, 20, 21}.contains(rune),
-      );
+  static final _fieldKeyword = RegExp(r'^\s*([A-Za-z][A-Za-z0-9_]*|=)');
+
+  bool _safeField(LegacyWordField field) {
+    final instruction = _fieldInstruction(field);
+    final type = field.type.toUpperCase();
+    // Public document models may be caller-built. A supplied label must not
+    // authorize an unrelated active instruction, including an external field.
+    if (_fieldKeyword.firstMatch(instruction)?.group(1)?.toUpperCase() !=
+        type) {
+      return false;
+    }
+    return const {
+          'TOC',
+          'REF',
+          'PAGEREF',
+          'NOTEREF',
+          'STYLEREF',
+          'PAGE',
+          'NUMPAGES',
+          'SECTION',
+          'SECTIONPAGES',
+          'SEQ',
+          'LISTNUM',
+          'TC',
+          'XE',
+          'INDEX',
+          'HYPERLINK',
+          'DATE',
+          'TIME',
+          'CREATEDATE',
+          'SAVEDATE',
+          'PRINTDATE',
+          'AUTHOR',
+          'TITLE',
+          'SUBJECT',
+          'KEYWORDS',
+          'DOCPROPERTY',
+          'DOCVARIABLE',
+          'QUOTE',
+          'IF',
+          '=',
+        }.contains(type) &&
+        instruction.runes.every(
+          (rune) =>
+              (rune >= 0x20 && rune != 0xfffe && rune != 0xffff) ||
+              const {9, 10, 13, 19, 20, 21}.contains(rune),
+        );
+  }
 
   bool _safeFieldTree(LegacyWordField field, [int depth = 0]) {
     if (depth > 64) _tooComplex();
