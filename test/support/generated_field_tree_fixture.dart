@@ -9,29 +9,30 @@ import 'structured_word_fixture.dart';
 /// so expected display text is evaluated without parsing the generated DOC.
 /// No fields are evaluated. Results deliberately differ from their instructions.
 class GeneratedFieldTreeCase {
-  GeneratedFieldTreeCase(int seed) {
+  GeneratedFieldTreeCase(int seed, {bool ascii = false}) {
     final random = _StableRandom(seed);
     final root = _GeneratedField(
       'IF',
       [
         _GeneratedText(' "instruction-$seed" '),
-        _field(random, 0),
+        _field(random, 0, ascii),
         _GeneratedText(' = "unused" '),
       ],
       [
         _GeneratedText('cached-$seed:'),
-        _field(random, 0),
-        _GeneratedText('|${_text(random)}|'),
-        _field(random, 0),
+        _field(random, 0, ascii),
+        _GeneratedText('|${_text(random, ascii)}|'),
+        _field(random, 0, ascii),
       ],
       privateResult: seed % 7 == 0,
     );
     final writer = _GeneratedSource();
-    writer.write(_GeneratedText('A\u{1f600}:'));
+    final prefix = ascii ? 'A:' : 'A\u{1f600}:';
+    writer.write(_GeneratedText(prefix));
     writer.write(root);
     writer.write(_GeneratedText(':Z\r'));
     source = writer.text.toString();
-    expected = 'A\u{1f600}:${root.visible}:Z';
+    expected = '$prefix${root.visible}:Z';
     fields = writer.fields;
     fieldTable = storyPlc([...writer.positions, 0xffffffff], writer.records);
   }
@@ -175,20 +176,20 @@ class _GeneratedSource {
   }
 }
 
-_GeneratedField _field(_StableRandom random, int depth) {
+_GeneratedField _field(_StableRandom random, int depth, bool ascii) {
   const types = ['QUOTE', 'REF', 'IF', 'DDEAUTO'];
   final type = types[random.next(types.length)];
   final instruction = <_GeneratedNode>[
     _GeneratedText(' "key-${random.next(97)}" '),
   ];
   if (depth < 2 && random.next(3) == 0) {
-    instruction.add(_field(random, depth + 1));
+    instruction.add(_field(random, depth + 1, ascii));
     instruction.add(_GeneratedText(' "tail" '));
   }
-  final result = <_GeneratedNode>[_GeneratedText(_text(random))];
+  final result = <_GeneratedNode>[_GeneratedText(_text(random, ascii))];
   if (depth < 2 && random.next(2) == 0) {
-    result.add(_field(random, depth + 1));
-    result.add(_GeneratedText(_text(random)));
+    result.add(_field(random, depth + 1, ascii));
+    result.add(_GeneratedText(_text(random, ascii)));
   }
   return _GeneratedField(
     type,
@@ -198,7 +199,7 @@ _GeneratedField _field(_StableRandom random, int depth) {
   );
 }
 
-String _text(_StableRandom random) {
+String _text(_StableRandom random, bool ascii) {
   const values = [
     'Latin',
     'عربي',
@@ -216,7 +217,25 @@ String _text(_StableRandom random) {
     '\x1f',
     '\x06',
   ];
-  return List.generate(3, (_) => values[random.next(values.length)]).join();
+  const asciiValues = [
+    'Latin',
+    'Arabic',
+    'Hebrew',
+    'Cjk',
+    'Rocket',
+    'Accent',
+    '<&>\"\'',
+    'TAB',
+    'NL',
+    'VT',
+    'FF',
+    'COL',
+    'NB',
+    'SH',
+    'CTL',
+  ];
+  final selected = ascii ? asciiValues : values;
+  return List.generate(3, (_) => selected[random.next(selected.length)]).join();
 }
 
 class _StableRandom {

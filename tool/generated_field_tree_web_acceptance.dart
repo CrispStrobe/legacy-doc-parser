@@ -8,8 +8,11 @@ import 'package:xml/xml.dart';
 
 import '../test/support/generated_field_tree_fixture.dart';
 
-Map<String, Object?> verifyGeneratedFieldTreeCase(int seed) {
-  final fixture = GeneratedFieldTreeCase(seed);
+Map<String, Object?> verifyGeneratedFieldTreeCase(
+  int seed, {
+  bool ascii = false,
+}) {
+  final fixture = GeneratedFieldTreeCase(seed, ascii: ascii);
   List<int>? firstOutput;
   for (final split in [false, true]) {
     final source = fixture.bytes(splitPieces: split);
@@ -111,12 +114,15 @@ Map<String, Object?> verifyGeneratedFieldTreeWebAcceptance() {
   var fields = 0;
   for (var seed = 1; seed <= 96; seed++) {
     fields += verifyGeneratedFieldTreeCase(seed)['fields'] as int;
+    fields += verifyGeneratedFieldTreeCase(seed, ascii: true)['fields'] as int;
   }
   return {
     'seedFirst': 1,
     'seedLast': 96,
-    'cases': 96,
-    'binaryLayouts': 192,
+    'cases': 192,
+    'unicodeCases': 96,
+    'asciiCases': 96,
+    'binaryLayouts': 384,
     'fieldsPerLayout': fields,
     'sourceUnchanged': true,
     'pieceLayoutIndependentDocx': true,
