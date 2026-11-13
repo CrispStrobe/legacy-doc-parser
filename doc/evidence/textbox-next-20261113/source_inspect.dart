@@ -16,7 +16,7 @@ void main(List<String> arguments) {
   stdout.writeln(
     jsonEncode({
       'source': path,
-    'sourceBytes': bytes.length,
+      'sourceBytes': bytes.length,
       'drawings': [
         for (final drawing in document.media.drawings)
           {

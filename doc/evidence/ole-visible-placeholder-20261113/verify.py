@@ -97,6 +97,17 @@ def verify(directory):
             == receipt['validatorSourceSha256'], 'Validator source differs')
     require([stage['name'] for stage in receipt['commands']]
             == ['generate-media-review-fixtures', 'independent-schema'], 'Stage inventory differs')
+    workspace = '/workspace/scratch/c1ca2a1344e9/'
+    output = workspace + 'root-gap-probes/ole/d086-native/'
+    expected_commands = [
+        [workspace + 'toolchains/dart-3.13.7/dart-sdk/bin/dart', 'run',
+         'tool/fidelity/media_review_fixture.dart', output + 'schema/fixtures'],
+        [workspace + 'toolchains/dotnet-8.0.428/dotnet',
+         workspace + 'parser-schema-final/validator/OfficeValidation.dll',
+         output + 'schema', output + 'schema-report.json'],
+    ]
+    require([stage['args'] for stage in receipt['commands']] == expected_commands,
+            'Stage command differs from the measured generator or SDK invocation')
     for stage in receipt['commands']:
         require(stage['exitCode'] == 0
                 and sha(records['final/' + stage['name'] + '.log']) == stage['logSha256'],

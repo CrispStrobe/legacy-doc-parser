@@ -26,6 +26,7 @@ SCHEMA_STAGES = ('git-head', 'git-status', 'dart-version', 'dotnet-sdks', 'compi
                  'negative-controls', 'generate-corpus', 'repeat-corpus', 'schema-validation')
 SDK_BINARIES = {'DocumentFormat.OpenXml.Framework.dll', 'DocumentFormat.OpenXml.dll',
                 'OfficeValidation.dll', 'System.IO.Packaging.dll'}
+RECORDED_ROOT = '/workspace/scratch/c1ca2a1344e9'
 
 
 def sha(data):
@@ -311,11 +312,35 @@ def verify_payloads(manifest, files):
     # Full independent SDK gate, including both complete generated corpora.
     require(schema['passed'] and schema['selfTestPassed'] and
             tuple(s['name'] for s in schema['stages']) == SCHEMA_STAGES, 'SDK gate/stage inventory')
+    # These are the commands of this immutable captured run. Bind actual argv
+    # as well as names/exits/logs; a retained success log must not certify an
+    # unrelated executable or generation/validation target.
+    gate = RECORDED_ROOT + '/layout-next-probes/schema-a1784cde'
+    dotnet = RECORDED_ROOT + '/toolchains/dotnet-8.0.428/dotnet'
+    compiler = RECORDED_ROOT + '/toolchains/dotnet-8.0.428/sdk/8.0.428/Roslyn/bincore/csc.dll'
+    validator = gate + '/validator/OfficeValidation.dll'
+    dart = report['tools']['dart']['path']
+    sdk_commands = {
+        'git-head': ['git', 'rev-parse', 'HEAD'],
+        'git-status': ['git', 'status', '--porcelain'],
+        'dart-version': [dart, '--version'],
+        'dotnet-sdks': [dotnet, '--list-sdks'],
+        'compiler-version': [dotnet, 'exec', compiler, '-version'],
+        'dotnet-runtimes': [dotnet, '--list-runtimes'],
+        'validator-build': [dotnet, 'exec', compiler, '-noconfig', '@' + gate + '/compile.rsp'],
+        'validator-self-test': [dotnet, validator, '--self-test'],
+        'positive-control': [dotnet, validator, gate + '/controls/positive', gate + '/positive-control.json'],
+        'negative-controls': [dotnet, validator, gate + '/controls/negative', gate + '/negative-controls.json'],
+        'generate-corpus': [dart, 'run', 'tool/fidelity/schema_corpus.dart', gate + '/corpus'],
+        'repeat-corpus': [dart, 'run', 'tool/fidelity/schema_corpus.dart', gate + '/corpus-repeat'],
+        'schema-validation': [dotnet, validator, gate + '/corpus', gate + '/schema-validation.json'],
+    }
     for stage in schema['stages']:
         require(stage['status'] == 'completed' and stage['returncode'] ==
                 (1 if stage['name'] == 'negative-controls' else 0) and
                 stage['log'] == stage['name'] + '.log' and
                 stage['logSha256'] == sha(files['schema/' + stage['log']]), 'SDK command/log binding')
+        require(stage['command'] == sdk_commands[stage['name']], 'SDK exact command: ' + stage['name'])
     require(files['schema/git-head.log'].decode().strip() == COMMIT and files['schema/git-status.log'] == b'',
             'SDK Git receipt')
     require(b'Open XML SDK controls passed: 8 valid Word packages, 4 invalid XML, 12 mismatched types, and exact discovery.'

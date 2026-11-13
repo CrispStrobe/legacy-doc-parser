@@ -33,6 +33,10 @@ def main():
         f, 'native/focused-tests.command.json', lambda d: d.update(exitCode=9)))
     rejects('unrelated command with retained success log', lambda m, f: mutate_json(
         f, 'native/focused-tests.command.json', lambda d: d.update(argv=['true'])))
+    for stage_name in verify.SCHEMA_STAGES:
+        rejects('unrelated SDK command: ' + stage_name, lambda m, f, name=stage_name: mutate_json(
+            f, 'schema/report.json', lambda d: next(stage for stage in d['stages']
+                                                   if stage['name'] == name).update(command=['true'])))
     rejects('generated second corpus omitted', lambda m, f: f.pop(
         next(n for n in f if n.startswith('schema/corpus-repeat/') and n.endswith('.docx'))))
     def stale_sdk_hash(manifest, files):
