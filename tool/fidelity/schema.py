@@ -21,7 +21,8 @@ EXPECTED_CASES = frozenset([
     "ink-budget/aggregate",
     *(f"nested-fields/{name}" for name in (
         "nested-results", "private-result", "private-instruction-result", "unsupported-result", "formula",
-        "instruction-whitespace", "nested-instruction-whitespace", "cached-controls")),
+        "instruction-whitespace", "nested-instruction-whitespace", "cached-controls",
+        "nested-cached-controls")),
     *(f"ink-strokes/{name}-{mode}" for name in (
         "polyline-solid", "single-dot", "paint-ellipse-alpha", "multiple-strokes",
         "pressure-ramp", "signed-quantization") for mode in ("compressed", "uncompressed")),

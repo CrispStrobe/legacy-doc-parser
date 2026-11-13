@@ -26,6 +26,7 @@ Map<String, Object?> verifyNestedFieldWebAcceptance() {
     'instruction-whitespace': 1,
     'nested-instruction-whitespace': 2,
     'cached-controls': 1,
+    'nested-cached-controls': 2,
   };
   for (final name in nestedFieldCases) {
     final source = nestedFieldFixture(name);
@@ -37,6 +38,7 @@ Map<String, Object?> verifyNestedFieldWebAcceptance() {
     final document = XmlDocument.parse(text);
     final states = <bool>[];
     final visible = StringBuffer();
+    final allText = StringBuffer();
     var fields = 0;
     // Project display text from the emitted complex-field grammar, independent
     // of the parser's normalized storedResult and its source-CP representation.
@@ -56,20 +58,22 @@ Map<String, Object?> verifyNestedFieldWebAcceptance() {
           default:
             throw StateError('$name unknown field marker');
         }
-      } else if (states.every((state) => state)) {
+      } else {
         for (final item in run.childElements) {
           if (item.name.namespaceUri != _w) continue;
-          switch (item.name.local) {
-            case 't':
-              visible.write(item.innerText);
-            case 'tab':
-              visible.write('\t');
-            case 'br':
-              visible.write(switch (item.getAttribute('type', namespace: _w)) {
-                'column' => '\x0e',
-                'page' => '\f',
-                _ => '\n',
-              });
+          final value = switch (item.name.local) {
+            't' => item.innerText,
+            'tab' => '\t',
+            'br' => switch (item.getAttribute('type', namespace: _w)) {
+              'column' => '\x0e',
+              'page' => '\f',
+              _ => '\n',
+            },
+            _ => null,
+          };
+          if (value != null) {
+            allText.write(value);
+            if (states.every((state) => state)) visible.write(value);
           }
         }
       }
@@ -128,6 +132,34 @@ Map<String, Object?> verifyNestedFieldWebAcceptance() {
         '$name normalized metadata differs from displayed controls',
       );
     }
+    if (name == 'nested-cached-controls') {
+      const cached =
+          'co\u2011op\u00aderate\x0enext\fpage\nline\ncarriage\nnewline\ttab\tcell';
+      _check(
+        parsed.fields
+                .singleWhere((field) => field.type == 'QUOTE')
+                .storedResult ==
+            cached,
+        '$name normalized cached result',
+      );
+      _check(
+        allText.toString() == 'A${cached}VisibleZ',
+        '$name cached result XML',
+      );
+      final instructions = document
+          .findAllElements('instrText', namespace: _w)
+          .map((e) => e.innerText)
+          .toList();
+      const expected = [
+        ' IF ',
+        ' QUOTE "cached" ',
+        ' = "comparison" "yes" "no" ',
+      ];
+      _check(instructions.length == expected.length, '$name instruction count');
+      for (var i = 0; i < expected.length; i++) {
+        _check(instructions[i] == expected[i], '$name instruction slice $i');
+      }
+    }
     _check(!text.contains('Private'), '$name private descendant escaped');
     _check(!text.contains('INCLUDETEXT'), '$name external field activated');
     if (name == 'unsupported-result') {
@@ -159,6 +191,7 @@ Map<String, Object?> verifyNestedFieldWebAcceptance() {
     'externalFieldsInert': true,
     'instructionWhitespacePreserved': true,
     'cachedControlsPreserved': true,
+    'nestedCachedControlsPreserved': true,
     'sourceUnchanged': true,
   };
 }

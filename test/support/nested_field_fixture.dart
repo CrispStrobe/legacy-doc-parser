@@ -29,6 +29,10 @@ const _sources = {
       '\x14Visible\x15Z\r',
   'cached-controls':
       'A\x13 QUOTE "cached" \x14co\x1eop\x1ferate\x0enext\x15Z\r',
+  'nested-cached-controls':
+      'A\x13 IF \x13 QUOTE "cached" '
+      '\x14co\x1eop\x1ferate\x0enext\x0cpage\x0bline\rcarriage\nnewline\ttab\x07cell\x15 '
+      '= "comparison" "yes" "no" \x14Visible\x15Z\r',
 };
 
 const nestedFieldCases = [
@@ -40,6 +44,7 @@ const nestedFieldCases = [
   'instruction-whitespace',
   'nested-instruction-whitespace',
   'cached-controls',
+  'nested-cached-controls',
 ];
 
 /// Independently assembled binary controls shared by VM, JS and schema gates.
