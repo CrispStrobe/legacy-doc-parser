@@ -6,23 +6,53 @@ extension _WordRevisionWriter on _StructuredWordWriter {
   void _displayFieldRevisionEvidence(LegacyWordField field) {
     final change = field.displayRevision;
     if (change == null) return;
+    if (_evidenceRecords.length >= 20000) _tooComplex();
+    final detail = {
+      'original': change.original,
+      'hidden': change.hidden,
+      'revision': {
+        'author': change.revision.author,
+        'time': change.revision.time?.toIso8601String(),
+        'authorIndex': change.revision.authorIndex,
+        'rawDate': change.revision.rawDate,
+        'saveId': change.revision.saveId,
+        'reason': change.revision.reason,
+      },
+    };
+    final metadata = {
+      'fieldId': field.id,
+      'story': field.storyId,
+      'startCp': field.startCp,
+      'authorIndex': change.revision.authorIndex,
+      'rawDttm': change.revision.rawDate,
+      'privateResult': field.privateResult,
+      'hidden': change.hidden,
+      'displayRevision': detail,
+      'nativeHistoryAvailable': false,
+    };
     if (change.sourceRecord != null) {
       _preserveEvidence('displayFieldRevisionRecord', change.sourceRecord!, {
         'sourceStructure': 'DispFldRmOperand',
-        'fieldId': field.id,
-        'story': field.storyId,
-        'startCp': field.startCp,
-        'authorIndex': change.revision.authorIndex,
-        'rawDttm': change.revision.rawDate,
-        'privateResult': field.privateResult,
-        'hidden': change.hidden,
+        ...metadata,
       });
+      detail['sourceRecordPart'] = _evidenceRecords.last['part'] as String;
+    } else {
+      _evidenceRecords.add({'kind': 'displayFieldRevision', ...metadata});
     }
+    // Record every typed history before visibility or field-support filtering.
+    // Caller-built models need not have a binary DispFldRmOperand. Mark native
+    // availability only when the original is actually emitted: ancestors can
+    // suppress otherwise supported LISTNUM descendants.
+    _displayFieldRevisionRecords[field.id] = _evidenceRecords.last;
     if (field.type != 'LISTNUM' ||
         field.privateResult ||
         change.hidden ||
         !change.original.runes.every(
-          (rune) => rune >= 32 && rune != 0xfffe && rune != 0xffff,
+          (rune) =>
+              rune >= 32 &&
+              rune != 0xfffe &&
+              rune != 0xffff &&
+              !(rune >= 0xd800 && rune <= 0xdfff),
         )) {
       _incompleteRevision(
         'displayField',
@@ -55,6 +85,11 @@ extension _WordRevisionWriter on _StructuredWordWriter {
       empty: true,
       originalNumbering: safeOriginal ? change.original : null,
     );
+    if (safeOriginal &&
+        !_part.startsWith('word/inertStoryEvidence') &&
+        !_part.startsWith('word/textboxEvidence')) {
+      _displayFieldRevisionRecords[field.id]!['nativeHistoryAvailable'] = true;
+    }
     _count('displayFieldRevisions');
   }
 

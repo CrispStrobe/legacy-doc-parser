@@ -58,6 +58,7 @@ class _StructuredWordWriter {
   var _tableDepth = 0;
   final _fields = <int, LegacyWordField>{};
   final _fieldChildren = <int, List<LegacyWordField>>{};
+  final _displayFieldRevisionRecords = <int, Map<String, Object?>>{};
   final _fieldInstructions = <int, String>{};
   final _fieldBinaryData = <int, LegacyWordOpaqueArtifact?>{};
   final _mediaAssets = <String, LegacyWordImageAsset>{};

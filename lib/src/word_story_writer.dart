@@ -633,6 +633,9 @@ extension _WordStories on _StructuredWordWriter {
       'startCp': field.startCp,
       'endCp': field.endCp,
       'privateResult': field.privateResult,
+      if (field.displayRevision != null)
+        'displayRevision':
+            _displayFieldRevisionRecords[field.id]!['displayRevision'],
       'reason': 'inert; no external or unsupported field evaluation',
     });
   }
@@ -661,6 +664,9 @@ extension _WordStories on _StructuredWordWriter {
       'instructionHiddenRanges': [
         for (final (start, end) in field.instructionHiddenRanges) [start, end],
       ],
+      if (field.displayRevision != null)
+        'displayRevision':
+            _displayFieldRevisionRecords[field.id]!['displayRevision'],
       'automaticRecalculation': false,
       'reason':
           'Explicit stored-result export; field instructions and nesting are '
