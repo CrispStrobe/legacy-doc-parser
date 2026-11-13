@@ -1,0 +1,2 @@
+# Keep independently generated Windows WPF oracle bytes exactly as downloaded.
+test/fixtures/ink_wpf/** -text whitespace=cr-at-eol
