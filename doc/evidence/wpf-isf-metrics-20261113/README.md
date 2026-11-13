@@ -132,11 +132,14 @@ python3 -O doc/evidence/wpf-isf-metrics-20261113/test_verifier.py
 The verifier binds the exact GitHub run/artifact, original ZIP, exact fixture
 copies, ten source identities, every mutation inventory and unchanged stroke
 record, native argument list, snapshots, pressure metrics, declared formula
-differences and all 12 raster comparisons. Sixteen semantic corruption
+differences and all 12 raster comparisons. Eighteen semantic corruption
 controls recompute inner manifest hashes before checking rejection. They
 cover source/command substitution, rewritten hypotheses, changed packets,
 erased translation/pressure observations, altered paint and false pixel or
-serialization claims. All checks remain active under optimized Python.
+serialization claims. In particular, both native loads must retain the exact
+source pressure packets; explicit packet factors must match their reported
+metric, and a transform alone cannot alter the implicit default pressure
+metric. All checks remain active under optimized Python.
 
 The measured scope is Windows WPF ISF decoding and ink rendering. These
 controls do not establish Microsoft Word rendering, OfficeArt placement,

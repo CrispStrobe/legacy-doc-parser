@@ -60,6 +60,10 @@ def cases():
     yield 'omitted_pair_comparison', lambda f: put(f, 'summary.json', lambda s: s['comparisons'].pop())
     yield 'stale_png_pixel_hash', lambda f: put(f, 'summary.json',
         lambda s: s['cases'][0]['reloadedRender'].update(pixelSha256='0' * 64))
+    yield 'second_reload_changed_raw_pressure', lambda f: put(f, 'pressure-explicit-0-2047/second-reloaded.json',
+        lambda s: s['strokes'][0]['points'][0].update(pressurePropertyValue=1))
+    yield 'second_reload_changed_implicit_metric', lambda f: put(f, 'polyline-solid-baseline/second-reloaded.json',
+        lambda s: s['strokes'][0]['pressureMetric'].update(maximum=1024))
 
 
 def main():

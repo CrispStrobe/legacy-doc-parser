@@ -1,9 +1,9 @@
 {
   "files": [
     {
-      "bytes": 9282,
+      "bytes": 9494,
       "path": "README.md",
-      "sha256": "ad4f4abc83afb71e6b5807d92daf176d5744b9e20b4cae2b18092968075c42d8"
+      "sha256": "73d69eac3b79f0f87d730525dad2ebd5851843d29285ab5366223e13e178aefb"
     },
     {
       "bytes": 3962,
@@ -76,14 +76,14 @@
       "sha256": "79561a6936904aa3268d4220852707c30d999ebee86fc2b57fd51e27434d381a"
     },
     {
-      "bytes": 4363,
+      "bytes": 4747,
       "path": "test_verifier.py",
-      "sha256": "c6ecb4dff3211be17bde94270b72b581c1967958813648a2d9fce47ab487c0eb"
+      "sha256": "7c8129a6e510c39b507524540b0e4e85ddfa2b0dc694457abb32b9885319768f"
     },
     {
-      "bytes": 22273,
+      "bytes": 23008,
       "path": "verify.py",
-      "sha256": "afa0dd994506d242383095444f3601fc61bc09140531ba840805ca944d12c4b4"
+      "sha256": "1b739a87a05f733fa6e72115b5dccbd7a78019cf4a5a486b164fcb9f17d6d6f4"
     }
   ],
   "schema": "legacy-doc-parser/wpf-isf-header-evidence",

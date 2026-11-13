@@ -244,8 +244,18 @@ def verify_payloads(files):
         for stroke in (first['strokes'][0], second['strokes'][0]):
             require(stroke['attributes'] == baseline['strokes'][0]['attributes'], 'Preserved source pen attributes')
         if control['rawPressurePackets'] is not None:
-            require([p['pressurePropertyValue'] for p in first['strokes'][0]['points']] == control['rawPressurePackets'],
-                    'Unchanged observed raw pressure packet values')
+            for snapshot in (first, second):
+                stroke = snapshot['strokes'][0]
+                require([p['pressurePropertyValue'] for p in stroke['points']] == control['rawPressurePackets'],
+                        'Unchanged first/second observed raw pressure packet values')
+                metric = stroke['pressureMetric']
+                for point in stroke['points']:
+                    expected_factor = (point['pressurePropertyValue'] - metric['minimum']) / (metric['maximum'] - metric['minimum'])
+                    close(point['pressureFactor'], expected_factor, 'Explicit pressure packet normalization', 1e-7)
+        else:
+            declared = {k: v for k, v in control['pressureMetric'].items() if k != 'explicit'}
+            require(first['strokes'][0]['pressureMetric'] == second['strokes'][0]['pressureMetric'] == declared,
+                    'Unchanged implicit default pressure metric')
     comparisons = [(name + '-float-only', name + '-float-and-double') for name, *_ in author.TRANSFORMS]
     for mode in ('float-only', 'float-and-double'):
         comparisons.extend([('translate-100-minus50-' + mode, 'affine-translate-100-minus50-' + mode),
