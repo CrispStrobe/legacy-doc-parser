@@ -118,7 +118,9 @@ class CfbfFile {
   }) : fat = List.unmodifiable(fat),
        miniFat = List.unmodifiable(miniFat),
        entries = List.unmodifiable(entries),
-       _metadataSectors = Set.unmodifiable(metadataSectors);
+       _metadataSectors = Set.unmodifiable(metadataSectors) {
+    _indexDirectory();
+  }
 
   /// source API.
   final ByteSource source;
@@ -138,6 +140,8 @@ class CfbfFile {
   final Map<int, int> _fatChainLengths = {};
   final Map<int, int> _miniChainLengths = {};
   final Set<int> _metadataSectors;
+  final Map<int, List<CfbfDirectoryEntry>> _children = {};
+  final Map<int, Map<String, CfbfDirectoryEntry>> _names = {};
   Set<int>? _sharedStreamEntries;
   Uint8List? _miniContainer;
 
@@ -203,27 +207,70 @@ class CfbfFile {
     return null;
   }
 
-  /// Walks the red-black sibling tree under [parent] (child index).
-  Iterable<CfbfDirectoryEntry> childrenOf(CfbfDirectoryEntry parent) sync* {
-    if (parent.child == cfbfNoStream) {
-      return;
+  /// Immutable children from the validated sibling tree under [parent].
+  List<CfbfDirectoryEntry> childrenOf(CfbfDirectoryEntry parent) {
+    _validateParent(parent);
+    return _children[parent.index] ?? const [];
+  }
+
+  /// Looks only in this storage using the portable CFB UTF-16 name key.
+  CfbfDirectoryEntry? child(CfbfDirectoryEntry parent, String name) {
+    _validateParent(parent);
+    return _names[parent.index]?[cfbfNameKey(name)];
+  }
+
+  void _validateParent(CfbfDirectoryEntry parent) {
+    if (parent.index < 0 ||
+        parent.index >= entries.length ||
+        !parent.isStorage ||
+        entries[parent.index].type != parent.type ||
+        entries[parent.index].child != parent.child) {
+      throw const CfbfException('Storage entry does not match this directory');
     }
-    final List<int> stack = <int>[parent.child];
-    final Set<int> seen = <int>{};
-    while (stack.isNotEmpty) {
-      final int index = stack.removeLast();
-      if (index == cfbfNoStream ||
-          !seen.add(index) ||
-          index >= entries.length) {
-        continue;
+  }
+
+  /// Every reachable sibling tree belongs to exactly one storage. Cache this
+  /// once for both raw and bounded callers; silently skipping cycles or shared
+  /// children changes stream identity and repeated walks can multiply work.
+  /// Allocation chains remain validated lazily when a stream is requested.
+  void _indexDirectory() {
+    final owners = <int, int>{root.index: -1};
+    final storages = <CfbfDirectoryEntry>[root];
+    for (var cursor = 0; cursor < storages.length; cursor++) {
+      final parent = storages[cursor];
+      final children = <CfbfDirectoryEntry>[];
+      final names = <String, CfbfDirectoryEntry>{};
+      final stack = <int>[parent.child];
+      while (stack.isNotEmpty) {
+        final index = stack.removeLast();
+        if (index == cfbfNoStream) continue;
+        if (index < 0 || index >= entries.length || owners.containsKey(index)) {
+          throw const CfbfException(
+            'Compound directory has a cycle or shared child',
+          );
+        }
+        owners[index] = parent.index;
+        final entry = entries[index];
+        final key = cfbfNameKey(entry.name);
+        if (entry.type == CfbfObjectType.empty ||
+            entry.type == CfbfObjectType.root ||
+            entry.name.isEmpty ||
+            names.containsKey(key)) {
+          throw const CfbfException(
+            'Invalid or duplicate compound directory entry',
+          );
+        }
+        if (!entry.isStorage && entry.child != cfbfNoStream) {
+          throw const CfbfException('Compound stream cannot have children');
+        }
+        children.add(entry);
+        names[key] = entry;
+        if (entry.isStorage) storages.add(entry);
+        stack.add(entry.leftSibling);
+        stack.add(entry.rightSibling);
       }
-      final CfbfDirectoryEntry entry = entries[index];
-      if (entry.type == CfbfObjectType.empty) {
-        continue;
-      }
-      yield entry;
-      stack.add(entry.leftSibling);
-      stack.add(entry.rightSibling);
+      _children[parent.index] = List.unmodifiable(children);
+      _names[parent.index] = Map.unmodifiable(names);
     }
   }
 
@@ -337,13 +384,7 @@ class CfbfFile {
     CfbfDirectoryEntry current = root;
     for (int i = 0; i < parts.length; i++) {
       final String segment = parts[i];
-      CfbfDirectoryEntry? next;
-      for (final CfbfDirectoryEntry child in childrenOf(current)) {
-        if (_cfbfNamesEqual(child.name, segment)) {
-          next = child;
-          break;
-        }
-      }
+      final next = child(current, segment);
       if (next == null) {
         return null;
       }
