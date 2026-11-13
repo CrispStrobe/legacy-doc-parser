@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 from independent_semantic_cases import CASES, W, package
@@ -112,6 +113,35 @@ class PathMatrixTest(unittest.TestCase):
                 output.writestr(name, data)
         self.assertEqual('docx', sniff(alias))
         self.assertEqual(package_facts(source), package_facts(alias))
+
+    def test_equal_body_cannot_hide_markdown_metadata_loss(self):
+        # An actual Pandoc 3.1.11.1 counterexample: non-standalone Markdown
+        # keeps BODY while dropping title/author. The runner must report both
+        # observations, not turn the body equality into a document-wide claim.
+        source = self.directory / 'metadata.docx'
+        package(source, '<w:p><w:r><w:t>BODY</w:t></w:r></w:p>')
+        ast = {'pandoc-api-version': [1, 23, 1],
+               'meta': {'title': {'t': 'MetaInlines', 'c': [{'t': 'Str', 'c': 'KEPT-TITLE'}]},
+                        'author': {'t': 'MetaList', 'c': [{'t': 'MetaInlines', 'c': [{'t': 'Str', 'c': 'KEPT-AUTHOR'}]}]}},
+               'blocks': [{'t': 'Para', 'c': [{'t': 'Str', 'c': 'BODY'}]}]}
+        reread = {**ast, 'meta': {}}
+        runner = self.runner()
+        runner.options.pandoc = Path('/not-invoked/pandoc')
+        node = {'id': 'source', 'format': 'docx', 'path': str(source)}
+        with patch.object(runner, 'command', side_effect=[json.dumps(ast).encode(), b'BODY\n', json.dumps(reread).encode()]):
+            runner.project(node, runner.output / 'source')
+        result = node['pandoc']['accept']
+        self.assertEqual('success', result['status'])
+        self.assertTrue(result['markdownRoundtrip']['equal'])
+        self.assertFalse(result['markdownMetadataRoundtrip']['equal'])
+        self.assertEqual({}, result['markdownMetadata'])
+        self.assertEqual(ast['meta'], result['metadata'])
+        retained = json.loads((runner.output / 'source/pandoc/accept/markdown-ast.json').read_text())
+        self.assertEqual(reread, retained)
+        runner.report['cases'] = [{'nodes': {'source': node}, 'comparisons': []}]
+        self.assertEqual(0, runner.finish())
+        self.assertEqual(0, runner.report['summary']['changedMarkdownBodies'])
+        self.assertEqual(1, runner.report['summary']['changedMarkdownMetadata'])
 
     def test_failed_dependency_is_unavailable_not_an_equality_pass(self):
         runner = self.runner()

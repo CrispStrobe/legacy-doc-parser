@@ -23,7 +23,14 @@ The Pandoc paths run with explicit `accept`, `reject` and `all` revision views.
 Both original AST and Markdown bytes are retained. The comparison normalizes
 only an unambiguously resolved embedded image target to its actual byte hash;
 it does not silently discard formatting nodes, field-related content, notes,
-text or link targets. Metadata is measured separately from the body AST.
+text or link targets. Metadata is measured separately from the body AST, both
+between DOCX paths and before/after the Markdown projection. Reports version 2
+retain `markdownMetadata`, `markdownMetadataRoundtrip` and an explicit body-only
+scope for `markdownRoundtrip`. A real title/author control produces equal body
+ASTs while ordinary non-standalone Markdown drops both metadata fields. This is
+a loss in that selected Pandoc projection, not evidence of a DOC parser defect.
+Version 1 reports did not include this second metadata comparison; their retained
+`ast.json` and `markdown-ast.json` allow a separately attributed replay.
 
 The original authored DOCX remains a reference after every cycle. Equality
 between later generations does not erase loss introduced in the first one.
@@ -101,8 +108,9 @@ unavailable projections, every attributed comparison and the original source
 contracts. The raw `case.json` and `report.json` preserve their observations;
 this tool never updates a golden or turns a difference into an expected pass.
 
-The eleven focused controls cover format mislabeling, unsafe/duplicate ZIP members,
+The twelve focused controls cover format mislabeling, unsafe/duplicate ZIP members,
 missing values and JSON types, image byte identity, footnote/endnote projection
-loss, namespace aliases, unavailable comparisons and failed/timed-out commands.
+loss, Markdown metadata loss with equal body content, namespace aliases,
+unavailable comparisons and failed/timed-out commands.
 They test the harness, not actual native conversion; real measurements require
 the installed tools and separately retained execution receipts.

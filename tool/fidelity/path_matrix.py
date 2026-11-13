@@ -270,9 +270,9 @@ class Runner:
         self.env = dict(os.environ, TMPDIR=str(self.output / 'tmp'), DART_SUPPRESS_ANALYTICS='true')
         if options.antiword_data:
             self.env['ANTIWORDHOME'] = str(options.antiword_data.resolve())
-        self.report = {'schema': 'legacy-doc-parser/path-matrix', 'version': 1,
+        self.report = {'schema': 'legacy-doc-parser/path-matrix', 'version': 2,
                        'status': 'running', 'comparisonMode': 'discovery; differences are not automatically parser defects',
-                       'scope': ['typed OOXML observations', 'Pandoc body AST/Markdown', 'optional Antiword DOC text'],
+                       'scope': ['typed OOXML observations', 'Pandoc body AST/Markdown', 'Pandoc metadata before and after Markdown', 'optional Antiword DOC text'],
                        'notMeasured': ['native rendering or Word layout', 'universal reader fidelity', 'Word editing behavior'],
                        'families': {'libreoffice': 'one family for DOC import/export and DOCX resave',
                                     'pandoc': 'one family for DOCX/Markdown readers and writers',
@@ -396,8 +396,8 @@ class Runner:
                 if len(raw) > MAX_BYTES:
                     raise ValueError('Pandoc AST exceeds budget')
                 ast = json.loads(raw)
-                if not isinstance(ast.get('blocks'), list):
-                    raise ValueError('Pandoc result has no block sequence')
+                if not isinstance(ast.get('blocks'), list) or not isinstance(ast.get('meta'), dict):
+                    raise ValueError('Pandoc result has no block sequence or metadata map')
                 ast_path = destination / 'ast.json'
                 write_json(ast_path, ast)
                 bindings = ast_image_parts(ast, parts)
@@ -406,6 +406,8 @@ class Runner:
                 (destination / 'output.md').write_bytes(markdown)
                 reread_raw = self.command([self.options.pandoc, '--sandbox', '--from=markdown', '--to=json', destination / 'output.md'], destination / 'read-markdown')
                 reread = json.loads(reread_raw)
+                if not isinstance(reread.get('blocks'), list) or not isinstance(reread.get('meta'), dict):
+                    raise ValueError('Markdown reread has no block sequence or metadata map')
                 write_json(destination / 'markdown-ast.json', reread)
                 md_projection = normalized_ast(reread, bindings)
                 node['pandoc'][view] = {'status': 'success', 'apiVersion': ast.get('pandoc-api-version'),
@@ -413,6 +415,9 @@ class Runner:
                     'metadata': ast.get('meta', {}), 'images': bindings,
                     'markdown': markdown.decode('utf-8'), 'markdownSha256': sha(markdown),
                     'markdownRoundtrip': differences(projected, md_projection),
+                    'markdownRoundtripScope': 'body AST only; metadata is measured separately',
+                    'markdownMetadata': reread['meta'],
+                    'markdownMetadataRoundtrip': differences(ast['meta'], reread['meta']),
                     'projectionScope': 'Pandoc body AST; equal AST does not preserve all OOXML stories, note kinds, field semantics or layout'}
             except Exception as error:
                 node['pandoc'][view] = {'status': 'error', 'error': str(error)}
@@ -534,9 +539,15 @@ class Runner:
             self.report['errors'].append({'error': 'Repository source or configuration changed during measurement'})
         comparisons = [c for case in self.report['cases'] for c in case['comparisons']]
         projected = [p for c in comparisons for p in c.get('pandoc', {}).values() if p['status'] == 'measured']
+        markdown = [p for case in self.report['cases'] for node in case['nodes'].values()
+                    for p in node.get('pandoc', {}).values() if p['status'] == 'success']
         self.report['summary'] = {'cases': len(self.report['cases']), 'comparisons': len(comparisons),
             'measuredPandocComparisons': len(projected), 'equalPandocAst': sum(p['ast']['equal'] for p in projected),
+            'equalPandocMetadata': sum(p['metadata']['equal'] for p in projected),
             'equalMarkdown': sum(p['markdownEqual'] for p in projected), 'executionErrors': len(self.report['errors']),
+            'measuredMarkdownRoundtrips': len(markdown),
+            'changedMarkdownBodies': sum(not p['markdownRoundtrip']['equal'] for p in markdown),
+            'changedMarkdownMetadata': sum(not p['markdownMetadataRoundtrip']['equal'] for p in markdown),
             'blockedComparisons': sum(c['status'] == 'blocked' for c in comparisons)}
         self.report['status'] = 'completed-with-errors' if self.report['errors'] else 'completed-discovery'
         self.checkpoint()
