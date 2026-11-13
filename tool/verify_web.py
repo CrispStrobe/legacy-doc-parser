@@ -35,6 +35,8 @@ def main():
     media_helper = (repository / "tool/media_web_acceptance.dart").as_uri()
     ink_helper = (repository / "tool/ink_web_acceptance.dart").as_uri()
     fields_helper = (repository / "tool/nested_field_web_acceptance.dart").as_uri()
+    stories_helper = (repository / "tool/story_unicode_web_acceptance.dart").as_uri()
+    compound_helper = (repository / "tool/compound_web_acceptance.dart").as_uri()
     ink_cases = []
     for source in sorted((repository / "test/fixtures/ink_wpf").glob("*/*.isf")):
         snapshot = source.with_name(source.name.replace(".roundtrip.isf", ".second-reloaded.json")
@@ -64,11 +66,15 @@ def main():
             f"import {json.dumps(media_helper)};\n"
             f"import {json.dumps(ink_helper)};\n"
             f"import {json.dumps(fields_helper)};\n"
+            f"import {json.dumps(stories_helper)};\n"
+            f"import {json.dumps(compound_helper)};\n"
             "void main() {\n"
             f"  final result = verifyWebConversion(base64Decode('{encoded}'));\n"
             "  print('Legacy DOC JavaScript acceptance passed: ${jsonEncode(result)}');\n"
             "  print('Media JavaScript acceptance passed: ${jsonEncode(verifyMediaWebAcceptance())}');\n"
             "  print('Nested field JavaScript acceptance passed: ${jsonEncode(verifyNestedFieldWebAcceptance())}');\n"
+            "  print('Story Unicode JavaScript acceptance passed: ${jsonEncode(verifyStoryUnicodeWebAcceptance())}');\n"
+            "  print('Compound allocation JavaScript acceptance passed: ${jsonEncode(verifyCompoundAllocationWebCases())}');\n"
             "  print('Ink budget JavaScript acceptance passed: ${jsonEncode(verifyInkBudgetWebAcceptance())}');\n"
             f"  final ink = verifyInkWebAcceptance(jsonDecode(utf8.decode(base64Decode('{encoded_ink}'))) as List);\n"
             "  print('Ink JavaScript acceptance passed: ${jsonEncode(ink)}');\n"
