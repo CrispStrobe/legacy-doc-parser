@@ -7,6 +7,7 @@ part of 'legacy_word_structured_parser.dart';
 class _OfficeArtProperties {
   final values = <int, int>{};
   final complex = <int, Uint8List>{};
+  final blipReferences = <int>{};
 
   void addAll(_OfficeArtProperties other) {
     for (final entry in other.values.entries) {
@@ -30,18 +31,30 @@ class _OfficeArtProperties {
       }
       values[entry.key] = value;
       complex.remove(entry.key);
+      if (other.blipReferences.contains(entry.key)) {
+        blipReferences.add(entry.key);
+      } else {
+        blipReferences.remove(entry.key);
+      }
     }
     for (final entry in other.complex.entries) {
       complex[entry.key] = entry.value;
       values.remove(entry.key);
+      blipReferences.remove(entry.key);
     }
   }
 }
 
 class _OfficeArtShapeReader {
-  _OfficeArtShapeReader(this.properties, this.type, this.flags);
+  _OfficeArtShapeReader(
+    this.properties,
+    this.type,
+    this.flags, {
+    this.fillImage,
+  });
   final _OfficeArtProperties properties;
   final int type, flags;
+  final LegacyWordImageAsset? fillImage;
   final unsupported = <int>{};
   Map<int, int> get p => properties.values;
   int pointCount = 0;
@@ -119,6 +132,10 @@ class _OfficeArtShapeReader {
             angleFixed16: _signed(0x018b, -360 * 65536, 360 * 65536),
             focusPercent: _signed(0x018c, -100, 100),
             rotateWithShape: _used(0x01bf, 5),
+            imageId: fillImage?.id,
+            imageSourceName: _fillImageName(),
+            imageNameFlags: p[0x0188],
+            recolorAsPicture: _used(0x01bf, 6),
           )
         : null;
     final line = p.keys.any((id) => id >= 0x01c0 && id <= 0x01ff)
@@ -194,7 +211,20 @@ class _OfficeArtShapeReader {
       if (properties.complex.containsKey(id)) unsupported.add(id);
     }
     final geometry = _geometry();
-    if (!const {null, 0, 7}.contains(fill?.type)) unsupported.add(0x0180);
+    final imageFill = const {1, 2, 3}.contains(fill?.type);
+    final resolvedImage =
+        fillImage?.isRenderable == true &&
+        (fill?.type != 1 || fillImage?.nativeBitmapBytes != null);
+    if (!const {null, 0, 7}.contains(fill?.type) &&
+        !(imageFill && resolvedImage)) {
+      unsupported.add(0x0180);
+    }
+    if (imageFill && !resolvedImage) unsupported.add(0x0186);
+    if (properties.complex.containsKey(0x0188) || (p[0x0188] ?? 0) != 0) {
+      // Linked/file/URL fill sources require their own mapping. A stored
+      // comment with a validated embedded BLIP does not create a live link.
+      unsupported.add(0x0188);
+    }
     for (final id in [0x0180, 0x0181, 0x0182, 0x0184, 0x018b, 0x018c, 0x01bf]) {
       if (properties.complex.containsKey(id)) unsupported.add(id);
     }
@@ -242,6 +272,8 @@ class _OfficeArtShapeReader {
       0x0182,
       0x0183,
       0x0184,
+      0x0187,
+      0x0188,
       0x018b,
       0x018c,
       0x01bf,
@@ -282,7 +314,8 @@ class _OfficeArtShapeReader {
       if (id >= 0x0140 &&
           id <= 0x02ff &&
           !mapped.contains(id) &&
-          !inactiveEmptyBlip) {
+          !inactiveEmptyBlip &&
+          !(id == 0x0186 && imageFill && resolvedImage)) {
         unsupported.add(id);
       }
       // WordArt and unmodeled shape/group properties can
@@ -303,7 +336,11 @@ class _OfficeArtShapeReader {
     // appearance beyond the direct solid-color subset.
     if (_used(0x01bf, 1) == true ||
         (_used(0x01bf, 2) == false && (fill?.type ?? 0) != 0) ||
-        _used(0x01bf, 6) == true) {
+        (_used(0x01bf, 6) == true &&
+            (properties.complex.containsKey(0x010d) ||
+                properties.complex.containsKey(0x0185) ||
+                (p[0x010d] ?? 0x20000000) != 0x20000000 ||
+                (p[0x0185] ?? 0x20000000) != 0x20000000))) {
       unsupported.add(0x01bf);
     }
     // fNoLineDrawDash requests a dashed indication even when the ordinary
@@ -375,6 +412,46 @@ class _OfficeArtShapeReader {
       return null;
     }
     return value;
+  }
+
+  String? _fillImageName() {
+    final bytes = properties.complex[0x0187];
+    if (bytes == null) {
+      if ((p[0x0187] ?? 0) != 0) unsupported.add(0x0187);
+      return null;
+    }
+    if (bytes.isEmpty) return null;
+    if (bytes.length.isOdd || bytes.length > 32768) {
+      unsupported.add(0x0187);
+      return null;
+    }
+    final input = _Bytes(bytes), count = bytes.length ~/ 2;
+    if (input.u16(bytes.length - 2) != 0) {
+      unsupported.add(0x0187);
+      return null;
+    }
+    final units = <int>[];
+    for (var index = 0; index < count - 1; index++) {
+      final unit = input.u16(index * 2);
+      if (unit == 0 || (unit >= 0xdc00 && unit <= 0xdfff)) {
+        unsupported.add(0x0187);
+        return null;
+      }
+      units.add(unit);
+      if (unit >= 0xd800 && unit <= 0xdbff) {
+        if (++index >= count - 1) {
+          unsupported.add(0x0187);
+          return null;
+        }
+        final low = input.u16(index * 2);
+        if (low < 0xdc00 || low > 0xdfff) {
+          unsupported.add(0x0187);
+          return null;
+        }
+        units.add(low);
+      }
+    }
+    return String.fromCharCodes(units);
   }
 
   String? _color(int id) {

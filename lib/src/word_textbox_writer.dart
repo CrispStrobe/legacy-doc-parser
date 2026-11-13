@@ -247,7 +247,7 @@ extension _WordTextboxes on _StructuredWordWriter {
       shape,
       includeFill:
           shape.fill != null &&
-          const {0, 7}.contains(shape.fill?.type ?? 0) &&
+          const {0, 1, 2, 3, 7}.contains(shape.fill?.type ?? 0) &&
           resolved(0x0180, 0x01bf),
       includeStroke:
           shape.line != null &&

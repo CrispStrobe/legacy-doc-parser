@@ -297,6 +297,38 @@ extension _WordShapes on _StructuredWordWriter {
       }
       return;
     }
+    if (const {1, 2, 3}.contains(fill.type)) {
+      final asset = _mediaAssets[fill.imageId];
+      if (asset == null ||
+          !asset.isRenderable ||
+          (fill.type == 1 && asset.nativeBitmapBytes == null)) {
+        return;
+      }
+      final type = switch (fill.type) {
+        1 => 'pattern',
+        2 => 'tile',
+        _ => 'frame',
+      };
+      final relation = _imageRelation(asset);
+      _xml.add('<v:fill type="$type" r:id="$relation"');
+      if (fill.type == 1) {
+        _xml.add(
+          ' color="#${_StructuredWordWriter._color(fill.color ?? 'FFFFFF')}"'
+          ' color2="#${_StructuredWordWriter._color(fill.backColor ?? 'FFFFFF')}"',
+        );
+        if (fill.backOpacityFixed16 != null) {
+          _xml.add(' o:opacity2="${_shapeOpacity(fill.backOpacityFixed16!)}"');
+        }
+      }
+      if (fill.opacityFixed16 != null) {
+        _xml.add(' opacity="${_shapeOpacity(fill.opacityFixed16!)}"');
+      }
+      if (fill.rotateWithShape case final rotate?) {
+        _xml.add(' rotate="${rotate ? 't' : 'f'}"');
+      }
+      _xml.add('/>');
+      return;
+    }
     if (fill.type != 7) return;
     // msofillShadeScale is the scaled VML gradient. Other gradient types
     // need distinct fill geometry and are not silently coerced to this type.

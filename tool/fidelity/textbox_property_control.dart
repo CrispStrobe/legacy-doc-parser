@@ -50,8 +50,8 @@ Uint8List _propertyRecord(Map<int, int?> values) {
 }
 
 void main(List<String> arguments) {
-  if (arguments.length != 3) {
-    throw ArgumentError('SOURCE.doc OUTPUT.doc PROPERTIES.json');
+  if (arguments.length != 3 && arguments.length != 4) {
+    throw ArgumentError('SOURCE.doc OUTPUT.doc PROPERTIES.json [PATTERN.blip]');
   }
   final inputPath = File(arguments[0]), outputPath = File(arguments[1]);
   if (outputPath.existsSync()) throw StateError('Output already exists.');
@@ -87,6 +87,49 @@ void main(List<String> arguments) {
   }
   final art = Uint8List.sublistView(table, offset, offset + length);
   final edits = <Map<String, Object?>>[];
+  final patternBlip = arguments.length == 4
+      ? File(arguments[3]).readAsBytesSync()
+      : null;
+  if (patternBlip != null &&
+      (changes[0x0180] != 1 ||
+          changes[0x4186] != 1 ||
+          patternBlip.length != 105 ||
+          _u16(patternBlip, 0) != 0x7a80 ||
+          _u16(patternBlip, 2) != 0xf01f ||
+          _u32(patternBlip, 4) != 97)) {
+    throw StateError('A pattern control requires one bounded DIB BLIP.');
+  }
+  var storeCount = 0;
+  Uint8List rewriteStore(Uint8List record) {
+    if (patternBlip == null) return record;
+    final type = _u16(record, 2);
+    if (type == 0xf001) {
+      final entries = _children(record);
+      if (entries.length != 1 || _u16(entries.single, 2) != 0xf007) {
+        throw StateError('Pattern control requires one global BLIP slot.');
+      }
+      storeCount++;
+      final prior = entries.single;
+      if (prior.length < 44 || prior.length < 44 + prior[41]) {
+        throw StateError('Invalid source FBSE extent.');
+      }
+      final payload = Uint8List.fromList(prior.sublist(8, 44 + prior[41]));
+      final data = ByteData.sublistView(payload);
+      payload[0] = 7;
+      payload[1] = 7;
+      payload.setRange(2, 18, patternBlip.sublist(8, 24));
+      data.setUint16(18, 0xff, Endian.little);
+      data.setUint32(20, patternBlip.length, Endian.little);
+      data.setUint32(24, 1, Endian.little);
+      data.setUint32(28, word.length, Endian.little);
+      return _record(0x1f, 0xf001, _record(0x72, 0xf007, payload));
+    }
+    if ((_u16(record, 0) & 15) != 15) return record;
+    return _record(_u16(record, 0), type, [
+      for (final child in _children(record)) ...rewriteStore(child),
+    ]);
+  }
+
   var targetCount = 0;
   Uint8List rewrite(Uint8List record, int depth) {
     if (depth > 64 || record.length != 8 + _u32(record, 4)) {
@@ -187,7 +230,12 @@ void main(List<String> arguments) {
       }
     }
   }
-  final rewritten = <int>[...art.sublist(0, cursor)];
+  final rewritten = <int>[
+    ...rewriteStore(Uint8List.sublistView(art, 0, cursor)),
+  ];
+  if (patternBlip != null && storeCount != 1) {
+    throw StateError('Pattern control requires exactly one global BLIP store.');
+  }
   while (cursor < art.length) {
     final label = art[cursor++];
     if (label > 1 || cursor + 8 > art.length) {
@@ -205,6 +253,12 @@ void main(List<String> arguments) {
   final newTable = Uint8List.fromList([...table, ...rewritten]);
   wordData.setUint32(pair, table.length, Endian.little);
   wordData.setUint32(pair + 4, rewritten.length, Endian.little);
+  final newWord = patternBlip == null
+      ? word
+      : Uint8List.fromList([...word, ...patternBlip]);
+  if (patternBlip != null) {
+    ByteData.sublistView(newWord).setUint32(64, newWord.length, Endian.little);
+  }
   final root = source.root;
   final writer = CfbfWriter(
     clsid: root.clsid,
@@ -228,7 +282,7 @@ void main(List<String> arguments) {
         writer.addStream(
           path,
           path == 'WordDocument'
-              ? word
+              ? newWord
               : path == tableName
               ? newTable
               : source.readEntry(entry),
@@ -257,6 +311,14 @@ void main(List<String> arguments) {
           entry.key.toRadixString(16): entry.value,
       },
       'sourceCoordinatesChanged': false,
+      if (patternBlip != null)
+        'patternBlip': {
+          'file': arguments[3],
+          'stream': 'WordDocument',
+          'offset': word.length,
+          'length': patternBlip.length,
+          'globalIndex': 1,
+        },
     }),
   );
 }

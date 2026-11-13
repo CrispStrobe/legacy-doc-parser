@@ -111,3 +111,63 @@ alpha on both independently authored and parser-produced VML. The parser keeps
 the schema-correct attribute, the explicit source value, and the existing
 partial-formatting limitation; it does not replace the gradient with a bitmap,
 change colors to mimic this renderer, or emit an invalid unqualified attribute.
+
+## Embedded picture, texture and monochrome pattern fills
+
+Anchored textbox fills now resolve the scalar, one-based `fillBlip` reference
+when its `fBid` flag is set and the fill is active. Drawing defaults and later
+property layers preserve or replace that flag with the operand. A local
+unflagged or complex override does not inherit a stale BLIP flag. Explicitly
+disabled fills, unanchored shapes, and inline PIC fill operands do not fetch
+unrelated global images. This follows the source
+[`fillBlip` contract](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/df4c1209-6ed5-4cd5-b3de-f0a86618b018).
+The fill model retains the resolved image identity and original stored comment.
+Comment names remain inert; nonzero file/URL/link flags remain guarded under
+the source [BLIP flags definition](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/3192b5fc-67ab-4255-93e6-c23dae102056).
+
+Qualified fill types 3, 2 and 1 emit VML `frame`, `tile` and `pattern`
+respectively, using an internal image relationship. Picture/texture assets
+reuse the existing validated image path. The pattern subset accepts exactly
+an 80-byte, 8-by-8, one-bit, uncompressed BITMAPINFOHEADER DIB with a two-entry
+black/white palette. Both row orientations and palette orders are retained.
+The source [DIB record](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/1393bf5e-6fa0-4665-b3ec-68199b555656)
+may have one or two UIDs. Its raw bytes and source reference remain unchanged;
+the package image adds only the 14-byte BMP file header required for the
+[bitmap file format](https://learn.microsoft.com/en-us/windows/win32/wic/bmp-format-overview).
+The parser charges the complete additional buffer to its media budget, and
+the package writer counts all embedded bytes. Other dimensions, bit depths,
+compression, header variants, palette values or malformed records stay inert.
+
+Pattern foreground/background colors, both opacity operands, and the used
+rotation bit remain source-valued. The recolor selector is harmless only when
+both selectable modifiers have their documented default `0x20000000` values;
+active unresolved modifiers retain their guard. The relevant operands are
+[`pictureFillCrMod`](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/684009ac-5b1f-4e2b-abd7-c5139afb8409)
+and [`fillCrMod`](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-odraw/2f24ad18-bf89-42f9-909f-3510194aa195).
+Alternate fill rectangles, explicit unmodeled tile sizes/origins and other
+active unknown properties continue to suppress the active fill element.
+
+The independent picture control matches both its authored OOXML and native
+DOC exactly. Texture and controlled DIB patterns at 96 and 75 DPI match the
+authored OOXML exactly, with zero word displacement against native DOC; their
+native DOC rasters differ in tiling. The original native pattern export is
+retained as a separate observation because it becomes a recolored type-2
+texture. It cannot qualify type-1 support. The bounded source helper instead
+replaces one global BLIP slot, appends a separately authored DIB record, and
+sets the literal type-1 operands without changing FSPA coordinates.
+
+The pinned native import paths differ: the binary
+[`ApplyFillAttributes`](https://github.com/LibreOffice/core/blob/2c87e51eeaa2b413ff4ae097b2705eea1995d8e5/filter/source/msfilter/msdffimp.cxx)
+and [`MatchSdrBoxIntoFlyBoxItem`](https://github.com/LibreOffice/core/blob/2c87e51eeaa2b413ff4ae097b2705eea1995d8e5/sw/source/filter/ww8/ww8graf.cxx)
+convert bitmap text-frame fills into a legacy tiled brush; the
+[VML fill importer](https://github.com/LibreOffice/core/blob/2c87e51eeaa2b413ff4ae097b2705eea1995d8e5/oox/source/vml/vmlformatting.cxx)
+uses a bitmap fill and reconstructs pattern colors. The remaining raster
+difference is retained as a consumer-path discrepancy, not a reason to add an
+unproven tile offset or to recolor the retained source image. The whole Word14
+layout and absent-width frame semantics remain separate from this fill scope.
+
+Eight required `textbox-fills/` schema cases exercise gradients, image fills,
+and the unknown gradient/DIB guards from independently declared FOPT operands.
+They include the correctly qualified secondary opacity attribute. Unit tests
+also cover BLIP flag inheritance, disabled/unanchored/PIC controls, inert names,
+malformed DIB variants, exact wrapper bytes and immutable source data.

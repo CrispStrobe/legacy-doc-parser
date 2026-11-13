@@ -111,6 +111,9 @@ EXPECTED_CASES = frozenset([
     *(f"textbox-tables/textbox-{story}-{margin}-{nesting}-{anchor}"
       for story in ("main", "header") for margin in ("default", "zero", "wide")
       for nesting in ("flat", "nested") for anchor in ("paragraph", "table")),
+    *(f"textbox-fills/{name}" for name in (
+        "gradient-hundred", "gradient-axial", "gradient-alpha", "picture",
+        "texture", "pattern", "unknown-gradient", "unknown-bitmap")),
 ])
 PACKAGES = (
     ("DocumentFormat.OpenXml", "3.3.0",

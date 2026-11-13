@@ -6,7 +6,10 @@ Uses the paint probe's source-hashed, sequential native measurement harness.
 The authored source packages do not use the parser's model or writer.
 """
 import json
+from pathlib import Path
+import shutil
 import struct
+import subprocess
 import zipfile
 import zlib
 
@@ -22,6 +25,8 @@ CASES = {
     "picture": '<v:fill type="frame" r:id="fillImage"/>',
     "texture": '<v:fill type="tile" r:id="fillImage"/>',
     "pattern": '<v:fill type="pattern" color="#6699CC" color2="#CC6633" r:id="patternImage"/>',
+    "pattern-dib": '<v:fill type="pattern" color="#6699CC" color2="#CC6633" r:id="patternDib"/>',
+    "pattern-dib75": '<v:fill type="pattern" color="#6699CC" color2="#CC6633" r:id="patternDib75"/>',
 }
 
 GRADIENT_PROPERTIES = {
@@ -34,25 +39,57 @@ GRADIENT_PROPERTIES = {
 
 
 def prepare_binary(args, name, binary, directory):
-    if name not in GRADIENT_PROPERTIES:
+    is_pattern = name in {"pattern-dib", "pattern-dib75"}
+    if name not in GRADIENT_PROPERTIES and not is_pattern:
         return binary, {"applied": False}
     # The native DOC exporter flattens textbox gradients to a midpoint color.
     # Restore independently specified source operands, without using parser
     # output or changing layout/anchor bytes. Retain the unmodified export.
-    properties = {"180": 7, "181": 0xCC9966, "183": 0x3366CC,
-                  **GRADIENT_PROPERTIES[name]}
+    properties = ({"180": 1, "181": 0xCC9966, "183": 0x3366CC, "4186": 1}
+                  if is_pattern else
+                  {"180": 7, "181": 0xCC9966, "183": 0x3366CC,
+                   **GRADIENT_PROPERTIES[name]})
     definitions = directory / "source-properties.json"
     probe.write(definitions, properties)
     controlled = directory / "binary" / "controlled.doc"
     argv = [args.dart, "run", probe.ROOT / "tool/fidelity/textbox_property_control.dart",
             binary, controlled, definitions]
+    extra = {}
+    if is_pattern:
+        # Native DOC export recolors a VML pattern and stores a type-2 texture.
+        # Author the literal type-1 monochrome DIB source, retaining that export.
+        dib = monochrome_dib(name.endswith("75"))
+        openssl = shutil.which("openssl")
+        if not openssl:
+            raise RuntimeError("The source DIB control needs OpenSSL MD4.")
+        uid = subprocess.run([openssl, "dgst", "-md4", "-provider", "legacy", "-binary"],
+                             input=dib, capture_output=True, check=True, timeout=30).stdout
+        if len(uid) != 16:
+            raise RuntimeError("Invalid source MD4 digest.")
+        blip = directory / "source-pattern.blip"
+        blip.write_bytes(struct.pack("<HHI", 0x7A80, 0xF01F, 17 + len(dib)) + uid + b"\xff" + dib)
+        argv.append(blip)
+        extra = {"patternBlipSha256": probe.digest(blip),
+                 "opensslSha256": probe.digest(Path(openssl)),
+                 "opensslVersion": probe.command([openssl, "version"]).strip()}
     receipt = json.loads(probe.command(argv, cwd=probe.ROOT))
     receipt.update(applied=True, inputSha256=probe.digest(binary),
                    outputSha256=probe.digest(controlled),
                    propertiesSha256=probe.digest(definitions),
-                   command=[str(value) for value in argv])
+                   command=[str(value) for value in argv], **extra)
     probe.write(directory / "source-control.json", receipt)
     return controlled, receipt
+
+
+def monochrome_dib(dpi75=False):
+    """Literal 8x8 uncompressed bottom-up two-color source, independent of Dart."""
+    density = 2953 if dpi75 else 3780
+    header = struct.pack("<IiiHHIIiiII", 40, 8, 8, 1, 1, 0, 32,
+                         density, density, 2, 2)
+    palette = b"\x00\x00\x00\x00\xff\xff\xff\x00"
+    rows = b"".join(bytes([sum(1 << (7 - x) for x in range(8) if (x + y) % 4 != 0),
+                           0, 0, 0]) for y in reversed(range(8)))
+    return header + palette + rows
 
 
 def png(pattern=False):
@@ -79,20 +116,26 @@ _package = probe.package
 
 def package(path, body):
     _package(path, body)
-    media = {name: png(name == "patternImage")
+    media = {name: ("png", png(name == "patternImage"))
              for name in ("fillImage", "patternImage") if f'r:id="{name}"' in body}
+    for name in ("patternDib", "patternDib75"):
+        if f'r:id="{name}"' in body:
+            dib = monochrome_dib(name.endswith("75"))
+            media[name] = ("bmp", struct.pack("<2sIHHI", b"BM", 14 + len(dib), 0, 0, 62) + dib)
     if not media:
         return
     with zipfile.ZipFile(path) as original:
         parts = {item.filename: (item, original.read(item)) for item in original.infolist()}
     relationship_path = "word/_rels/document.xml.rels"
     info, relationships = parts[relationship_path]
-    links = "".join(f'<Relationship Id="{name}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/{name}.png"/>' for name in media)
+    links = "".join(f'<Relationship Id="{name}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/{name}.{extension}"/>' for name, (extension, _) in media.items())
     parts[relationship_path] = (info, relationships.replace(b"</Relationships>", links.encode() + b"</Relationships>"))
     info, types = parts["[Content_Types].xml"]
-    parts["[Content_Types].xml"] = (info, types.replace(b"</Types>", b'<Default Extension="png" ContentType="image/png"/></Types>'))
-    for name, data in media.items():
-        info = zipfile.ZipInfo(f"word/media/{name}.png", date_time=(2026, 1, 1, 0, 0, 0))
+    additions = "".join(f'<Default Extension="{extension}" ContentType="image/{extension}"/>'
+                        for extension in sorted({value[0] for value in media.values()}))
+    parts["[Content_Types].xml"] = (info, types.replace(b"</Types>", additions.encode() + b"</Types>"))
+    for name, (extension, data) in media.items():
+        info = zipfile.ZipInfo(f"word/media/{name}.{extension}", date_time=(2026, 1, 1, 0, 0, 0))
         info.compress_type = zipfile.ZIP_DEFLATED
         info.external_attr = 0o100644 << 16
         parts[info.filename] = (info, data)

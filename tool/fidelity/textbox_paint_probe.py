@@ -43,6 +43,20 @@ def authored(paint):
 
 def compile_converter(root, destination, dart):
     before = source_receipt(root)
+    # Retain exact inputs at measurement time, including uncommitted versions.
+    # Later evidence packing must not depend on a still-unchanged worktree.
+    snapshots = destination.parent / "build-sources"
+    snapshots.mkdir(exist_ok=True)
+    for name, expected in before["files"].items():
+        raw = (root / name).read_bytes()
+        if hashlib.sha256(raw).hexdigest() != expected:
+            raise RuntimeError("Build input changed while retaining source: " + name)
+        target = snapshots / expected
+        if target.exists():
+            if target.read_bytes() != raw:
+                raise RuntimeError("Retained source hash collision")
+        else:
+            target.write_bytes(raw)
     identity = {
         "commit": command(["git", "rev-parse", "HEAD"], cwd=root).strip(),
         "tree": command(["git", "rev-parse", "HEAD^{tree}"], cwd=root).strip(),
