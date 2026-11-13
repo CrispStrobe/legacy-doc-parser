@@ -232,6 +232,17 @@ extension _WordLists on _StructuredWordParser {
         text.write('%${numberLevel + 1}');
       } else {
         final unit = template.codeUnitAt(i);
+        // Binary LVL placeholders are explicit character offsets. Both our
+        // public model and OOXML lvlText reserve %1..%9 and have no literal
+        // escape, so accepting this source text would change the label.
+        if (unit == 37 &&
+            i + 1 < template.length &&
+            template.codeUnitAt(i + 1) >= 49 &&
+            template.codeUnitAt(i + 1) <= 57) {
+          throw const FormatException(
+            'Unsupported Word list label with a literal percent-number sequence.',
+          );
+        }
         if (unit < 32 && unit != 9) {
           throw const FormatException(
             'Invalid control character in Word list label.',
