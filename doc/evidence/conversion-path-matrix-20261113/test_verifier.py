@@ -162,6 +162,41 @@ class EvidenceControls(unittest.TestCase):
             change_json(f, 'replay-source.json', lambda r: r['files'].__setitem__(path, verify.sha(f['replay-source/' + path])))
         self.reject(mutate, 'Exact replay source inventory', 'replay')
 
+    def test_narrowed_measured_source_inventory(self):
+        files = {p.relative_to(self.baseline).as_posix(): p.read_bytes()
+                 for p in self.baseline.rglob('*') if p.is_file()}
+        path = 'lib/src/legacy_word_structured_parser.dart'
+        report = json.loads(files['run/report.json'])
+        for name in ['sourceBefore', 'sourceAfterBuild', 'sourceAfter']:
+            report[name]['files'].pop(path)
+            report[name]['sha256'] = verify.sha(json.dumps(report[name]['files'], sort_keys=True, separators=(',', ':')).encode())
+        files['run/report.json'] = encode(report)
+        source = json.loads(files['source-identities.json'])
+        source['files'] = [r for r in source['files'] if r['path'] != path]
+        source['measuredSourceFiles'] -= 1
+        files['source-identities.json'] = encode(source)
+        del files['source/' + path]
+        original_manifest = verify.read(verify.HERE / 'baseline-manifest.json')
+        modes = {r['path']: r['mode'] for r in original_manifest['files']}
+        with tempfile.TemporaryDirectory(prefix='path-source-resealed-') as temporary:
+            root = Path(temporary)
+            packed = root / 'baseline.tar.xz'
+            with tarfile.open(packed, 'w:xz', preset=0) as tf:
+                for name, raw in sorted(files.items()):
+                    item = tarfile.TarInfo(name)
+                    item.size, item.mode = len(raw), int(modes[name], 8)
+                    tf.addfile(item, io.BytesIO(raw))
+            raw = packed.read_bytes()
+            manifest = {'schema': 1, 'archive': packed.name, 'archiveBytes': len(raw), 'archiveSha256': verify.sha(raw),
+                        'fileCount': len(files), 'rawBytes': sum(map(len, files.values())),
+                        'files': [{'path': n, 'bytes': len(b), 'sha256': verify.sha(b), 'mode': modes[n]}
+                                  for n, b in sorted(files.items())]}
+            (root / 'baseline-manifest.json').write_bytes(encode(manifest))
+            target = root / 'extracted'
+            verify.unpack(root, 'baseline', target)
+            with self.assertRaisesRegex(ValueError, 'Complete immutable measured source inventory'):
+                verify.check_sources(target, verify.BASELINE_PIN, verify.BASELINE_TREE, verify.HERE.parents[2])
+
 
 if __name__ == '__main__':
     unittest.main()

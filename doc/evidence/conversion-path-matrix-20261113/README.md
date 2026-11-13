@@ -26,6 +26,13 @@ their immutable source objects. Generated resolution inputs retain their exact
 measured hashes and are identified as generated, rather than claimed as Git
 objects.
 
+The complete source path set is derived from the immutable Git tree and the
+recorded `source_receipt` selection contract, including both generated inputs.
+Its exact count and path-set digest are pinned for offline verification, then
+independently rederived when Git checking is requested. Removing a compiler
+input from every mutually consistent receipt and its retained source copy
+therefore fails, even after resealing the archive.
+
 The original schema-5 `oracle.py` and `structure.py` are retained and checked
 against the baseline source receipt before replay. The final schema-6 observer
 does not overwrite those original observations. The six exact final replay
@@ -186,7 +193,7 @@ code, original fixture identities and auxiliary claims, then calls the exact
 final `verify_path_matrix.py` with the retained observer source. Eight matrix
 corruption controls reject altered derived values/roles, executable argv,
 Markdown input, parser-byte identity, summary values and erased reader errors.
-Twelve additional resealed auxiliary corruptions plus the positive original
+Thirteen additional resealed source/auxiliary corruptions plus the positive original
 control pass normally and under optimized Python. All guards are explicit and
 remain active under `python -O`.
 

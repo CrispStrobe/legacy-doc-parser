@@ -22,6 +22,7 @@ BASELINE_TREE = 'f8dc52c5a9f0f6b7b25e598be2136d6d5d01d420'
 OLD_RUNTIME = 'c5ff75e76163d9abbdd44a9f2a7c5ad210929289'
 FIXED_PIN = '1b8cc9e28aa9f4da2d0f0fa9318758bce0e923f1'
 FIXED_TREE = '8b826eb2239438565faefa718bd42da61107d95e'
+SOURCE_INVENTORIES = {'c05f187b99e46b6d8d1b6aed6610307f33e1725c': {'files': 154, 'pathSetSha256': 'a078fc9d486b28c99abe025cefd46d2270b15aa17fdc189a6ff1b7aede2df144'}, '1b8cc9e28aa9f4da2d0f0fa9318758bce0e923f1': {'files': 159, 'pathSetSha256': '4a9817f9682e00b4b1765c6ad05b3910a7c1ae3accd302990bd1afe4a379837e'}}
 W = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
 REPLAY_FILES = ['verify_path_matrix.py', 'path_matrix.py', 'oracle.py', 'structure.py', 'run.py', 'goldens.py']
 REPLAY_DIGESTS = {'tool/fidelity/verify_path_matrix.py': 'f398a8c665e2fcccaf82f0f5fd7679c24f8e58164a54320ae73763d960a29aaf', 'tool/fidelity/path_matrix.py': '79855b1191b770988c0b179b1761793bec9ea21257e4d29785c13a54144515fb', 'tool/fidelity/oracle.py': 'cd089a5b807d90023e582f1e23e9c30581f39736452321886e66e489e0a85395', 'tool/fidelity/structure.py': '39cba5c9e7fe0e94e310cb0d32a6ac96698d618dd7dd02929188795a7f20f729', 'tool/fidelity/run.py': '580b4887e2ea3a9d8a5e9644a06ab1813d5f6f5695dddfed4d52c1eaa2b1bc8c', 'tool/fidelity/goldens.py': '96e40fc84e19232d065615f3699862b0a01fa8fe06de19996b931a542840e3b5'}
@@ -87,6 +88,16 @@ def check_sources(folder, expected_pin, expected_tree, repository=None):
     require(source['schema'] == 1 and source['commit'] == report['repository']['commit'] == expected_pin and
             source['tree'] == report['repository']['tree'] == expected_tree, 'Measured source identity')
     expected = report['sourceBefore']['files']
+    names_digest = sha(json.dumps(sorted(expected), separators=(',', ':')).encode())
+    require({'files': len(expected), 'pathSetSha256': names_digest} == SOURCE_INVENTORIES[expected_pin],
+            'Complete immutable measured source inventory')
+    if repository:
+        tracked = subprocess.check_output(['git', 'ls-tree', '-rz', '--name-only', expected_pin], cwd=repository).decode().strip('\0').split('\0')
+        selected = {n for n in tracked if n in {'pubspec.yaml', 'tool/fidelity/corpus.json', 'test/fixtures/fidelity/goldens/manifest.json'}
+                    or (n.startswith('lib/') and n.endswith('.dart'))
+                    or (str(PurePosixPath(n).parent) == 'tool/fidelity' and PurePosixPath(n).suffix in ('.dart', '.py'))}
+        selected.update({'.dart_tool/package_config.json', 'pubspec.lock'})
+        require(set(expected) == selected, 'Complete Git-derived compiler/harness source contract')
     source_cwd = report['repository'].get('directory', report['commands'][0]['cwd'])
     paths = dict(expected)
     for case in report['cases']:
