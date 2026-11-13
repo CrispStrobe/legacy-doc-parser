@@ -1,5 +1,15 @@
 ## 0.1.0-dev.1
 
+- Reject UTF-16 scalars split across independent Word stories while retaining
+  valid supplementary characters split across physical text pieces.
+- Preserve field instruction TAB/CR/LF/CRLF exactly, including quoted literals,
+  and retain nonbreaking/soft hyphens and column breaks in cached field metadata.
+- Validate referenced compound allocation chains and declared table counts,
+  including invalid tails beyond logical data. Cache immutable allocation
+  snapshots and validated suffixes to bound repeated traversal; preserve legal
+  spare capacity and partial final mini-container compatibility.
+- Keep unsigned 64-bit byte helpers exact on VM and JavaScript through 2^53-1,
+  reject unsupported integer values, and preserve full-width raw FILETIME paths.
 - Apply declared WordDocument bounds and reserved-offset validation to the
   text-only API, and preserve column breaks as text separators.
 - Keep nested field results at their original character positions, suppress

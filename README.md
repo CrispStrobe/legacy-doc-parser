@@ -68,6 +68,9 @@ saved parser/app integration, complete validation and next bounded work.
 The [13 November parser audit](doc/parser-audit-20261113.md) records subsequent
 input/conversion hardening, portable acceptance and remaining native field
 rendering differences.
+The [audit follow-up](doc/parser-audit-20261113-followup.md) adds story-boundary,
+field-text and compound-allocation fixes, with 1,175 passing Dart tests and
+263 schema-valid DOCX outputs. All 260 earlier corpus outputs remain byte-exact.
 
 Use Dart 3.8 or later. `archive` is the runtime package dependency. A development
 Git dependency can be configured as follows; pin a reviewed full commit SHA
