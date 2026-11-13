@@ -1,5 +1,17 @@
 ## 0.1.0-dev.1
 
+- Apply declared WordDocument bounds and reserved-offset validation to the
+  text-only API, and preserve column breaks as text separators.
+- Keep nested field results at their original character positions, suppress
+  private descendants, and verify caller-supplied field types against their
+  actual instructions. Preserve formula fields with locked cached results.
+- Preserve CFB stream identities with portable simple UTF-16 name comparison,
+  and accept legacy version-3 uninitialized size high words while retaining
+  version-4 and physical-container bounds.
+- Bound aggregate ink inspection during conversion to 100,000 points and
+  4,096 strokes, charging attempted work before allocation. Retain every raw
+  payload and explicit limit diagnostics when inspection capacity is exhausted.
+
 - Decode complete bounded nonempty ISF strokes using independent Windows WPF
   inputs: packet compression, pen attributes, qualified transforms and pressure
   metric prefixes. Preserve raw packets and source bytes, and keep native Word

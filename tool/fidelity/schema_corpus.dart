@@ -7,10 +7,12 @@ import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 
 import 'header_textbox_alias_fixture.dart' as header_aliases;
 import 'image_appearance_probe.dart' as image_appearance;
+import 'ink_budget_fixture.dart' as ink_budget;
 import 'ink_schema_fixture.dart' as ink_strokes;
 import 'list_sequence_fixture.dart' as list_sequences;
 import 'metafile_probe.dart' as metafiles;
 import 'media_review_fixture.dart' as media_reviews;
+import 'nested_field_fixture.dart' as nested_fields;
 import 'note_boundary_fixture.dart' as note_boundaries;
 import 'note_format_fixture.dart' as note_formats;
 import 'packed_shape_probe.dart' as packed_shapes;
@@ -50,6 +52,24 @@ void main(List<String> arguments) {
       'output': output,
       'producer': producer,
     });
+  }
+
+  ink_budget.main(['${root.path}/ink-budget']);
+  record(
+    'ink-budget/aggregate',
+    'ink-budget/aggregate.doc',
+    'ink-budget/aggregate.docx',
+    'tool/fidelity/ink_budget_fixture.dart',
+  );
+
+  nested_fields.main(['${root.path}/nested-fields']);
+  for (final name in nested_fields.nestedFieldCases) {
+    record(
+      'nested-fields/$name',
+      'nested-fields/$name.doc',
+      'nested-fields/$name.docx',
+      'tool/fidelity/nested_field_fixture.dart',
+    );
   }
 
   ink_strokes.main(['${root.path}/ink-strokes']);

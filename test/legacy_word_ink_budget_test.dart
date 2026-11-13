@@ -6,9 +6,8 @@ import 'package:archive/archive.dart';
 import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 import 'package:test/test.dart';
 
-import 'support/media_word_fixture.dart';
+import 'support/ink_budget_fixture.dart';
 import 'support/officeart_shape_fixture.dart';
-import 'support/structured_word_fixture.dart';
 
 void main() {
   test('aggregate budgets accept only bounded nonnegative allowances', () {
@@ -26,11 +25,11 @@ void main() {
     }
     final zero = LegacyWordInkDecodeBudget(maxPoints: 0, maxStrokes: 0);
     expect(
-      decodeLegacyWordInk(_isf([]), budget: zero).status,
+      decodeLegacyWordInk(inkBudgetIsf([]), budget: zero).status,
       LegacyWordInkDecodeStatus.decoded,
     );
     expect(
-      decodeLegacyWordInk(_isf([1]), budget: zero).status,
+      decodeLegacyWordInk(inkBudgetIsf([1]), budget: zero).status,
       LegacyWordInkDecodeStatus.limitExceeded,
     );
     expect((zero.pointsUsed, zero.strokesUsed), (0, 0));
@@ -56,13 +55,13 @@ void main() {
     final budget = LegacyWordInkDecodeBudget(maxPoints: 5, maxStrokes: 2);
     for (final count in [2, 3]) {
       expect(
-        decodeLegacyWordInk(_isf([count]), budget: budget).status,
+        decodeLegacyWordInk(inkBudgetIsf([count]), budget: budget).status,
         LegacyWordInkDecodeStatus.decoded,
       );
     }
     expect((budget.pointsUsed, budget.strokesUsed), (5, 2));
     expect((budget.remainingPoints, budget.remainingStrokes), (0, 0));
-    final result = decodeLegacyWordInk(_isf([1]), budget: budget);
+    final result = decodeLegacyWordInk(inkBudgetIsf([1]), budget: budget);
     expect(result.status, LegacyWordInkDecodeStatus.limitExceeded);
     expect(result.reason, contains('aggregate stroke'));
     expect(result.strokes, isEmpty);
@@ -74,7 +73,10 @@ void main() {
       [10, ..._sized(_unsigned(2))], // Truncated second stroke.
     ]) {
       final budget = LegacyWordInkDecodeBudget(maxPoints: 5);
-      final result = decodeLegacyWordInk(_isf([3], tail: tail), budget: budget);
+      final result = decodeLegacyWordInk(
+        inkBudgetIsf([3], tail: tail),
+        budget: budget,
+      );
       expect(
         result.status,
         isIn([
@@ -84,7 +86,7 @@ void main() {
       );
       expect(result.strokes, isEmpty);
       expect(budget.pointsUsed, tail.first == 49 ? 3 : 5);
-      final later = decodeLegacyWordInk(_isf([3]), budget: budget);
+      final later = decodeLegacyWordInk(inkBudgetIsf([3]), budget: budget);
       expect(later.status, LegacyWordInkDecodeStatus.limitExceeded);
       expect(later.strokes, isEmpty);
     }
@@ -92,21 +94,21 @@ void main() {
 
   test('an over-budget later stroke never exposes a partial collection', () {
     final budget = LegacyWordInkDecodeBudget(maxPoints: 3);
-    final result = decodeLegacyWordInk(_isf([2, 2]), budget: budget);
+    final result = decodeLegacyWordInk(inkBudgetIsf([2, 2]), budget: budget);
     expect(result.status, LegacyWordInkDecodeStatus.limitExceeded);
     expect(result.strokes, isEmpty);
     expect((budget.pointsUsed, budget.strokesUsed), (2, 1));
     expect(
-      decodeLegacyWordInk(_isf([1]), budget: budget).status,
+      decodeLegacyWordInk(inkBudgetIsf([1]), budget: budget).status,
       LegacyWordInkDecodeStatus.decoded,
     );
   });
 
   test('binary DOC conversion caps total points and preserves every ISF', () {
     final payloads = [
-      for (final count in [60000, 60000, 40000, 1]) _isf([count]),
+      for (final count in [60000, 60000, 40000, 1]) inkBudgetIsf([count]),
     ];
-    final source = _inkDocument(payloads);
+    final source = inkBudgetWordFixture(payloads);
     final before = Uint8List.fromList(source);
     final document = parseLegacyWordDocument(source);
     final result = convertLegacyWordDocument(document);
@@ -142,8 +144,8 @@ void main() {
 
   test('predecoded public models cannot bypass the conversion allowance', () {
     final inks = [
-      LegacyWordOfficeArtInk(data: _isf([60000])),
-      LegacyWordOfficeArtInk(data: _isf([60000])),
+      LegacyWordOfficeArtInk(data: inkBudgetIsf([60000])),
+      LegacyWordOfficeArtInk(data: inkBudgetIsf([60000])),
     ];
     final cached = [for (final ink in inks) ink.decoding!];
     expect(
@@ -162,8 +164,8 @@ void main() {
   });
 
   test('repeated immutable ink references share one conversion inspection', () {
-    final shared = LegacyWordOfficeArtInk(data: _isf([60000]));
-    final last = LegacyWordOfficeArtInk(data: _isf([40000]));
+    final shared = LegacyWordOfficeArtInk(data: inkBudgetIsf([60000]));
+    final last = LegacyWordOfficeArtInk(data: inkBudgetIsf([40000]));
     final output = convertLegacyWordDocument(
       _publicDocument([shared, shared, last]),
     );
@@ -184,8 +186,8 @@ void main() {
   });
 
   test('inline and floating ink share the same document budget', () {
-    final first = LegacyWordOfficeArtInk(data: _isf([60000]));
-    final second = LegacyWordOfficeArtInk(data: _isf([60000]));
+    final first = LegacyWordOfficeArtInk(data: inkBudgetIsf([60000]));
+    final second = LegacyWordOfficeArtInk(data: inkBudgetIsf([60000]));
     final output = convertLegacyWordDocument(
       _publicDocument([second], pictureInk: first),
     );
@@ -199,9 +201,13 @@ void main() {
   });
 
   test('stroke capacity is aggregate even when point capacity remains', () {
-    final first = LegacyWordOfficeArtInk(data: _isf(List.filled(2048, 1)));
-    final second = LegacyWordOfficeArtInk(data: _isf(List.filled(2048, 1)));
-    final third = LegacyWordOfficeArtInk(data: _isf([1]));
+    final first = LegacyWordOfficeArtInk(
+      data: inkBudgetIsf(List.filled(2048, 1)),
+    );
+    final second = LegacyWordOfficeArtInk(
+      data: inkBudgetIsf(List.filled(2048, 1)),
+    );
+    final third = LegacyWordOfficeArtInk(data: inkBudgetIsf([1]));
     final output = convertLegacyWordDocument(
       _publicDocument([first, second, third]),
     );
@@ -216,8 +222,8 @@ void main() {
   });
 
   test('conversion limits do not poison standalone model inspection', () {
-    final first = LegacyWordOfficeArtInk(data: _isf([100000]));
-    final later = LegacyWordOfficeArtInk(data: _isf([1]));
+    final first = LegacyWordOfficeArtInk(data: inkBudgetIsf([100000]));
+    final later = LegacyWordOfficeArtInk(data: inkBudgetIsf([1]));
     final document = _publicDocument([first, later]);
     final output = convertLegacyWordDocument(document);
     expect(
@@ -247,88 +253,6 @@ List<int> _unsigned(int value) {
 
 List<int> _sized(List<int> bytes) => [..._unsigned(bytes.length), ...bytes];
 Uint8List _frame(List<int> body) => Uint8List.fromList([0, ..._sized(body)]);
-
-// Independently declared ISF Huffman-table-0 zero deltas. Each X/Y point is
-// encoded by one zero bit; no production encoder supplies expected counts.
-Uint8List _isf(List<int> counts, {List<int> tail = const []}) => _frame([
-  for (final count in counts) ...[
-    10,
-    ..._sized([
-      ..._unsigned(count),
-      0x80,
-      ...List.filled((count + 7) ~/ 8, 0),
-      0x80,
-      ...List.filled((count + 7) ~/ 8, 0),
-    ]),
-  ],
-  ...tail,
-]);
-
-Uint8List _envelope(Uint8List data) => Uint8List.fromList([
-  0x34,
-  0x1a,
-  0x7c,
-  0x93,
-  0x1d,
-  0x15,
-  0x10,
-  0x46,
-  0x9c,
-  0xa6,
-  0xa8,
-  0xcc,
-  0x9b,
-  0xdb,
-  0x5d,
-  0x83,
-  ...wordU32(data.length),
-  ...data,
-]);
-
-Uint8List _inkDocument(List<Uint8List> payloads) {
-  final count = payloads.length;
-  final shapes = [
-    for (var index = 0; index < count; index++)
-      ...officeArtRecord(0xf004, [
-        ...officeArtRecord(
-          0xf00a,
-          [...wordU32(1025 + index), ...wordU32(0x0a00)],
-          version: 2,
-          instance: 1,
-        ),
-        ...shapePropertyRecord(
-          values: {0x073f: 0x00090009},
-          complex: {0x0700: _envelope(payloads[index])},
-        ),
-      ], version: 15),
-  ];
-  return StructuredWordFixture(
-    pieces: [WordFixturePiece('${List.filled(count, '\x08').join()}\r')],
-    characterRuns: [
-      WordFixtureFkpRun(
-        8192,
-        8192 + count + 1,
-        properties: wordSprm(0x0855, [1]),
-      ),
-    ],
-    extraTablePairs: {
-      40: [
-        for (var index = 0; index < count; index++) ...wordU32(index),
-        ...wordU32(count + 1),
-        for (var index = 0; index < count; index++) ...[
-          ...wordU32(1025 + index),
-          ...wordU32(120),
-          ...wordU32(240),
-          ...wordU32(1560),
-          ...wordU32(960),
-          ...wordU16(0),
-          ...wordU32(0),
-        ],
-      ],
-      50: drawingContent(shape: Uint8List.fromList(shapes)),
-    },
-  ).build();
-}
 
 LegacyWordDocument _publicDocument(
   List<LegacyWordOfficeArtInk> inks, {
