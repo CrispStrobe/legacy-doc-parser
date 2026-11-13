@@ -49,6 +49,10 @@ class _StructuredWordWriter {
   final _numberingIds = <int>{};
   final _numberingReferences = <int, int>{};
   final _resolvedParagraphNumbering = <LegacyWordParagraph, int>{};
+  final _materializedParagraphNumbering =
+      <LegacyWordParagraph, _MaterializedNumberingLabel>{};
+  final _numberingTemplates = <(int, int), LegacyWordNumberingTemplate>{};
+  final _numberingActiveFields = <LegacyWordField, bool>{};
   final _numberingInstances = <int, _WordNumberingInstance>{};
   final _tableStyleDefinitions = <int, LegacyWordTableStyle>{};
   var _tableDepth = 0;
@@ -241,6 +245,7 @@ class _StructuredWordWriter {
     if (section != null) _section(section);
     _paragraphFormattingRevision(paragraph);
     _xml.add('</w:pPr>');
+    _materializedNumberingLabel(paragraph);
     _emitEventsThrough(paragraph.startCp);
     for (final run in paragraph.runs) {
       _run(run);

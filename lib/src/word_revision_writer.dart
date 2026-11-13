@@ -65,6 +65,7 @@ extension _WordRevisionWriter on _StructuredWordWriter {
     final numbered = listId != null && listId != 0;
     final outputId = _resolvedParagraphNumbering[paragraph];
     final supported = numbered && outputId != null;
+    final materialized = _materializedParagraphNumbering.containsKey(paragraph);
     if (change?.sourceRecord != null) {
       _preserveEvidence('numberingRevisionRecord', change!.sourceRecord!, {
         'cp': paragraph.startCp,
@@ -75,6 +76,27 @@ extension _WordRevisionWriter on _StructuredWordWriter {
         'authorIndex': change.revision.authorIndex,
         'rawDttm': change.revision.rawDate,
       });
+    }
+    if (materialized) {
+      _xml.add('<w:numPr><w:numId w:val="0"/></w:numPr>');
+      if (change != null) {
+        _incompleteRevision(
+          'materializedNumbering',
+          paragraph.startCp,
+          change.revision,
+          marked: true,
+          snapshot: change.original != null,
+        );
+        _evidenceRecords.last.addAll({
+          'originalNumbering': change.original,
+          'previouslyNumbered': change.previouslyNumbered,
+          'numberingInserted': change.inserted,
+          'reason':
+              'Literal label is retained as text; automatic numbering '
+              'revision accept/reject behavior cannot be reproduced',
+        });
+      }
+      return;
     }
     if (numbered && !supported) {
       limitations.add(LegacyWordConversionLimitation.fieldsLists);
@@ -339,7 +361,24 @@ extension _WordRevisionWriter on _StructuredWordWriter {
     _bool('pageBreakBefore', style.pageBreakBefore);
     _bool('widowControl', style.layout.widowControl);
     final listId = style.listId?.abs();
-    if (listId != null && listId != 0 && _numberingIds.contains(listId)) {
+    final template = _numberingTemplates[(listId, style.listLevel ?? 0)];
+    if (template != null && !template.nativeRepresentable) {
+      _xml.add('<w:numPr><w:numId w:val="0"/></w:numPr>');
+      limitations.add(LegacyWordConversionLimitation.revisions);
+      limitations.add(LegacyWordConversionLimitation.fieldsLists);
+      if (_evidenceRecords.length >= 20000) _tooComplex();
+      _evidenceRecords.add({
+        'kind': 'previousLiteralNumbering',
+        'cp': cp,
+        'definition': listId,
+        'level': style.listLevel ?? 0,
+        'reason':
+            'Previous literal numbering template is retained in evidence; '
+            'rejecting the property change cannot restore an automatic label',
+      });
+    } else if (listId != null &&
+        listId != 0 &&
+        _numberingIds.contains(listId)) {
       _xml.add(
         '<w:numPr><w:ilvl w:val="${style.listLevel ?? 0}"/><w:numId w:val="${_numberingReferences[listId]}"/></w:numPr>',
       );

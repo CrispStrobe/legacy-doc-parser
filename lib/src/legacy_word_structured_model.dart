@@ -399,6 +399,16 @@ class LegacyWordDisplayFieldRevision {
 
 enum LegacyWordListSuffix { tab, space, nothing }
 
+/// Nullable marker properties for which an explicitly supplied reset differs
+/// from the absence of an override on the paragraph mark's formatting.
+enum LegacyWordNumberingCharacterProperty {
+  fontSize,
+  color,
+  highlight,
+  position,
+  spacing,
+}
+
 class LegacyWordNumberingDefinition {
   const LegacyWordNumberingDefinition({
     required this.id,
@@ -430,12 +440,14 @@ class LegacyWordNumberingLevel {
     required this.level,
     required this.format,
     required this.text,
+    this.placeholderOffsets,
     this.startAt = 1,
     this.suffix = LegacyWordListSuffix.tab,
     this.legal = false,
     this.restartAfterLevel,
     this.paragraphStyle = const LegacyWordParagraphStyle(),
     this.characterStyle = const LegacyWordCharacterStyle(),
+    this.characterStyleOverrides = const {},
     this.markerAlignment = LegacyWordAlignment.left,
   });
   final int level;
@@ -443,8 +455,17 @@ class LegacyWordNumberingLevel {
   /// A supported OOXML number-format identifier, never an invented fallback.
   final String format;
 
-  /// %1..%9 placeholders; literal characters (including bullets) are retained.
+  /// The label template, with real placeholders represented as %1..%9.
+  /// Literal percent-number text remains unchanged. [placeholderOffsets]
+  /// distinguishes those literals from placeholders in parsed binary files.
   final String text;
+
+  /// Zero-based UTF-16 positions in [text] at which real %1..%9 placeholders
+  /// begin. An empty list means the entire label is literal. Null retains the
+  /// original public-model convention: every %1..%9 sequence is a placeholder
+  /// (except in bullet labels). Binary parsing always supplies explicit,
+  /// immutable offsets, so even an ordinary literal "%1" stays unambiguous.
+  final List<int>? placeholderOffsets;
   final int startAt;
   final LegacyWordListSuffix suffix;
   final bool legal;
@@ -455,6 +476,13 @@ class LegacyWordNumberingLevel {
   final LegacyWordAlignment markerAlignment;
   final LegacyWordParagraphStyle paragraphStyle;
   final LegacyWordCharacterStyle characterStyle;
+
+  /// Explicit nullable character-property overrides from the LVL/linked
+  /// style. For example, explicit automatic color remains distinct from an
+  /// absent color that inherits the paragraph mark. Non-null values always
+  /// override; public models may leave this empty to retain null-as-unspecified
+  /// inheritance. Binary parsing preserves these keys as an immutable set.
+  final Set<LegacyWordNumberingCharacterProperty> characterStyleOverrides;
 }
 
 sealed class LegacyWordBlock {

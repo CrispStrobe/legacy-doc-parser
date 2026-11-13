@@ -2,6 +2,74 @@
 
 import 'legacy_word_structured_model.dart';
 
+// Numbering inherits unspecified faces and nullable character properties from
+// the paragraph mark. Ordinary text/HTML runs must spell those properties out.
+// Explicit automatic-color/no-highlight resets remain distinct from absence;
+// do not borrow body-run styling or guess that a false boolean is unspecified.
+LegacyWordCharacterStyle resolveLegacyWordMarkerStyle(
+  LegacyWordNumberingLevel level,
+  LegacyWordCharacterStyle? mark,
+) {
+  final marker = level.characterStyle;
+  if (mark == null) return marker;
+  T? inherited<T>(
+    LegacyWordNumberingCharacterProperty property,
+    T? value,
+    T? parent,
+  ) =>
+      value ??
+      (level.characterStyleOverrides.contains(property) ? null : parent);
+  String? nonAscii(LegacyWordCharacterStyle style) =>
+      style.scriptFonts == null ? style.fontName : style.scriptFonts!.nonAscii;
+  String? eastAsia(LegacyWordCharacterStyle style) =>
+      style.scriptFonts == null ? style.fontName : style.scriptFonts!.eastAsia;
+  return LegacyWordCharacterStyle(
+    bold: marker.bold,
+    italic: marker.italic,
+    underline: marker.underline,
+    underlineStyle: marker.underlineStyle,
+    strike: marker.strike,
+    doubleStrike: marker.doubleStrike,
+    smallCaps: marker.smallCaps,
+    allCaps: marker.allCaps,
+    hidden: marker.hidden,
+    fontName: marker.fontName ?? mark.fontName,
+    scriptFonts: LegacyWordScriptFonts(
+      nonAscii: nonAscii(marker) ?? nonAscii(mark),
+      eastAsia: eastAsia(marker) ?? eastAsia(mark),
+      complexScript:
+          marker.scriptFonts?.complexScript ?? mark.scriptFonts?.complexScript,
+    ),
+    fontSizeHalfPoints: inherited(
+      LegacyWordNumberingCharacterProperty.fontSize,
+      marker.fontSizeHalfPoints,
+      mark.fontSizeHalfPoints,
+    ),
+    kerningThresholdHalfPoints: marker.kerningThresholdHalfPoints,
+    colorHex: inherited(
+      LegacyWordNumberingCharacterProperty.color,
+      marker.colorHex,
+      mark.colorHex,
+    ),
+    highlightHex: inherited(
+      LegacyWordNumberingCharacterProperty.highlight,
+      marker.highlightHex,
+      mark.highlightHex,
+    ),
+    verticalAlign: marker.verticalAlign,
+    positionHalfPoints: inherited(
+      LegacyWordNumberingCharacterProperty.position,
+      marker.positionHalfPoints,
+      mark.positionHalfPoints,
+    ),
+    spacingTwips: inherited(
+      LegacyWordNumberingCharacterProperty.spacing,
+      marker.spacingTwips,
+      mark.spacingTwips,
+    ),
+  );
+}
+
 /// Internal shared numbering interpreter for HTML and WordprocessingML.
 /// Each resolve call is one story/valid-selection scope. Source LSID connects
 /// compatible instances; an explicit LFOLVL start override keeps its own
@@ -30,12 +98,13 @@ class LegacyWordNumberingResolver {
             levels.containsKey(level.level) ||
             level.startAt < 0 ||
             level.startAt > 32767 ||
-            level.text.length > 1024 ||
+            level.text.length > 1033 ||
             (level.restartAfterLevel != null &&
                 (level.restartAfterLevel! < 0 ||
                     level.restartAfterLevel! > level.level))) {
           throw const FormatException('Invalid Word numbering level.');
         }
+        templates.putIfAbsent(level, () => LegacyWordNumberingTemplate(level));
         levels[level.level] = level;
         if (!definition.startOverrides.containsKey(level.level)) {
           final key = (_source(definition), level.level);
@@ -102,6 +171,8 @@ class LegacyWordNumberingResolver {
 
   final definitions = <int, LegacyWordNumberingDefinition>{};
   final levelsById = <int, Map<int, LegacyWordNumberingLevel>>{};
+  final templates =
+      Map<LegacyWordNumberingLevel, LegacyWordNumberingTemplate>.identity();
   final approximateDefinitions = <int>{};
   final _incompatibleLevels = <(int, int)>{};
   var _visitedItems = 0;
@@ -211,6 +282,7 @@ class LegacyWordNumberingResolver {
       output[paragraph] = LegacyWordResolvedNumbering(
         definition: definition,
         level: level,
+        template: templates[level]!,
         number: value,
         referenceNumbers: Map.unmodifiable(numbers),
         referenceFormats: Map.unmodifiable(formats),
@@ -225,6 +297,7 @@ class LegacyWordResolvedNumbering {
   const LegacyWordResolvedNumbering({
     required this.definition,
     required this.level,
+    required this.template,
     required this.number,
     required this.referenceNumbers,
     required this.referenceFormats,
@@ -232,10 +305,156 @@ class LegacyWordResolvedNumbering {
   });
   final LegacyWordNumberingDefinition definition;
   final LegacyWordNumberingLevel level;
+  final LegacyWordNumberingTemplate template;
   final int? number;
   final Map<int, int?> referenceNumbers;
   final Map<int, String> referenceFormats;
   final bool approximate;
+
+  /// Resolves only the source's real placeholders. Null means that a required
+  /// number format or missing ancestor cannot be reproduced exactly here.
+  String? labelText() {
+    final output = StringBuffer();
+    var position = 0;
+    void append(String text) {
+      if (text.length > 4096 - output.length) {
+        throw const FormatException(
+          'Word numbering label exceeds the size limit.',
+        );
+      }
+      output.write(text);
+    }
+
+    for (final offset in template.offsets) {
+      append(level.text.substring(position, offset));
+      final index = level.text.codeUnitAt(offset + 1) - 49;
+      final sourceFormat = referenceFormats[index];
+      if (sourceFormat == null || index > level.level) return null;
+      final value = referenceNumbers[index];
+      final number = sourceFormat == 'none' || sourceFormat == 'bullet'
+          ? ''
+          : value == null
+          ? null
+          : _listNumber(
+              value,
+              level.legal && sourceFormat != 'decimalZero'
+                  ? 'decimal'
+                  : sourceFormat,
+            );
+      if (number == null) return null;
+      append(number);
+      position = offset + 2;
+    }
+    append(level.text.substring(position));
+    return output.toString();
+  }
+}
+
+/// A validated snapshot of explicit binary placeholders or legacy public-model
+/// percent placeholders. UTF-16 offsets preserve supplementary characters and
+/// literal percent-number text without inventing invisible escape characters.
+class LegacyWordNumberingTemplate {
+  LegacyWordNumberingTemplate(LegacyWordNumberingLevel level) {
+    final explicit = level.placeholderOffsets;
+    final inferred = <int>[];
+    for (var at = 0; at + 1 < level.text.length; at++) {
+      if (_placeholderAt(level.text, at)) inferred.add(at);
+    }
+    if (explicit == null) {
+      if (level.text.length > 1024) {
+        throw const FormatException('Word list label exceeds the size limit.');
+      }
+      offsets = List.unmodifiable(
+        level.format == 'bullet' ? <int>[] : inferred,
+      );
+      nativeRepresentable = true;
+      return;
+    }
+    if (explicit.length > level.level + 1 ||
+        explicit.length > 9 ||
+        level.text.length - explicit.length > 1024 ||
+        (level.format == 'bullet' && explicit.isNotEmpty)) {
+      throw const FormatException('Invalid Word list label placeholders.');
+    }
+    var previous = -2;
+    for (final at in explicit) {
+      if (at < previous + 2 ||
+          at < 0 ||
+          at + 1 >= level.text.length ||
+          !_placeholderAt(level.text, at) ||
+          level.text.codeUnitAt(at + 1) - 49 > level.level) {
+        throw const FormatException(
+          'Invalid Word list label placeholder offset.',
+        );
+      }
+      previous = at;
+    }
+    offsets = List.unmodifiable(explicit);
+    nativeRepresentable = inferred.length == offsets.length;
+  }
+
+  late final List<int> offsets;
+  late final bool nativeRepresentable;
+
+  /// Reconstructs the source LVL label (before percent encoding). For a public
+  /// model this is an equivalent binary template, not claimed original bytes.
+  String binaryText(String text) {
+    final output = StringBuffer();
+    var position = 0;
+    for (final offset in offsets) {
+      output.write(text.substring(position, offset));
+      output.writeCharCode(text.codeUnitAt(offset + 1) - 49);
+      position = offset + 2;
+    }
+    output.write(text.substring(position));
+    return output.toString();
+  }
+
+  static bool _placeholderAt(String text, int at) =>
+      text.codeUnitAt(at) == 37 &&
+      text.codeUnitAt(at + 1) >= 49 &&
+      text.codeUnitAt(at + 1) <= 57;
+}
+
+String? _listNumber(int value, String format) {
+  if (format == 'decimal') return '$value';
+  if (format == 'decimalZero') return value.toString().padLeft(2, '0');
+  if (format == 'upperLetter' || format == 'lowerLetter') {
+    if (value < 1) return null;
+    // Word repeats letters after Z: AA, BB, ... ZZ, AAA, unlike spreadsheet
+    // column names. The bound prevents expansion before the label budget.
+    final repeats = (value - 1) ~/ 26 + 1;
+    if (repeats > 1024) return null;
+    final first = format == 'lowerLetter' ? 97 : 65;
+    return String.fromCharCode(first + (value - 1) % 26) * repeats;
+  }
+  if (format != 'upperRoman' && format != 'lowerRoman') return null;
+  if (value < 1 || value > 3999) return null;
+  const symbols = [
+    (1000, 'M'),
+    (900, 'CM'),
+    (500, 'D'),
+    (400, 'CD'),
+    (100, 'C'),
+    (90, 'XC'),
+    (50, 'L'),
+    (40, 'XL'),
+    (10, 'X'),
+    (9, 'IX'),
+    (5, 'V'),
+    (4, 'IV'),
+    (1, 'I'),
+  ];
+  final result = StringBuffer();
+  var remaining = value;
+  for (final (number, symbol) in symbols) {
+    while (remaining >= number) {
+      result.write(symbol);
+      remaining -= number;
+    }
+  }
+  final text = result.toString();
+  return format == 'lowerRoman' ? text.toLowerCase() : text;
 }
 
 class _Counter {
