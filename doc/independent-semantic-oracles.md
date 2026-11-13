@@ -1,5 +1,14 @@
 # Independent semantic inputs and oracle controls
 
+The current snapshot schema is **6**. It adds relationship-bound font charset
+declarations after a paired `02`/`01` font-table control exposed equal text and
+run properties with different native rendering. Font-table part names, relationship
+IDs, declaration order and hexadecimal case normalize; missing or changed
+charsets and duplicate definitions remain observable. Unrelated orphan parts do
+not supply metadata. Older schema-5 reports and exact measurement sources remain
+unchanged; they must not be relabeled or replayed as though they had measured
+this additional property. See [the source font fix](font-charsets.md).
+
 The fidelity oracle now measures field instructions and nesting, symbol font/code
 operands, resolved note references, bookmarks and hyperlink bindings separately
 from cached visible text. Its snapshot version is **5**. Existing sealed reports

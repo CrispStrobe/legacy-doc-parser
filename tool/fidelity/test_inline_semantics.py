@@ -137,5 +137,41 @@ class InlineSemanticsTest(unittest.TestCase):
         self.assertIn('inlineContent', self.changes(source, changed))
 
 
+    def test_bound_font_charset_changes_are_not_hidden_by_equal_pua_text(self):
+        body = '<w:p><w:r><w:rPr><w:rFonts w:ascii="Wingdings" w:hAnsi="Wingdings"/></w:rPr><w:t>\uf0fc</w:t></w:r></w:p>'
+
+        def font_package(value='02', path='fontTable.xml', rid='fonts', related=True):
+            table = f'<w:fonts xmlns:w="{W}"><w:font w:name="Wingdings"><w:charset w:val="{value}"/></w:font></w:fonts>'
+            return self.body(body, additional_parts={'word/' + path: table},
+                             relationships=[(rid, 'fontTable', path)] if related else [])
+
+        source = font_package()
+        changed = font_package('01')
+        self.assertEqual(6, snapshot(source)['oracleSchemaVersion'])
+        self.assertEqual(snapshot(source)['stories'], snapshot(changed)['stories'])
+        self.assertEqual(snapshot(source)['paragraphs'], snapshot(changed)['paragraphs'])
+        self.assertEqual({'fontCharsets'}, self.changes(source, changed))
+        self.assertEqual(set(), self.changes(source, font_package(path='metadata/fonts.xml', rid='renamed')))
+        self.assertEqual(set(), self.changes(font_package('B2'), font_package('b2')))
+        self.assertEqual(snapshot(font_package(related=False))['fontCharsets'], [])
+        self.assertIn('fontCharsets', self.changes(source, font_package(related=False)))
+
+    def test_font_declaration_order_normalizes_but_duplicates_and_absence_remain(self):
+        first = '<w:font w:name="A"><w:charset w:val="02"/></w:font>'
+        second = '<w:font w:name="B"><w:charset w:val="01"/></w:font>'
+
+        def font_package(content, root='fonts'):
+            return self.body('<w:p/>', additional_parts={'word/fonts.xml':
+                f'<w:{root} xmlns:w="{W}">{content}</w:{root}>'},
+                relationships=[('fonts', 'fontTable', 'fonts.xml')])
+
+        source = font_package(first + second)
+        self.assertEqual(set(), self.changes(source, font_package(second + first)))
+        self.assertEqual({'fontCharsets'}, self.changes(source, font_package(first + first + second)))
+        self.assertEqual({'fontCharsets'}, self.changes(source, font_package(first.replace('<w:charset w:val="02"/>', '') + second)))
+        with self.assertRaisesRegex(ValueError, 'fontTable'):
+            snapshot(font_package(first, root='document'))
+
+
 if __name__ == '__main__':
     unittest.main()

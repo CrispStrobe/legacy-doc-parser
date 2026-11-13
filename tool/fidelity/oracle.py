@@ -1040,6 +1040,35 @@ def _section_story_snapshot(tree, context, parents, story_facts):
     return records
 
 
+def _font_charset_snapshot(context, main):
+    """Bound font declarations, independent of relationship IDs/part names.
+
+    Font metadata can change substitution while all story text/run properties
+    remain equal. Preserve absence and duplicate definitions; do not infer a
+    charset from a family name or conflate DEFAULT with SYMBOL.
+    """
+    tables = []
+    for relation in context.relationships(main):
+        if relation['external'] or relation['type'] != 'fontTable':
+            continue
+        tree, _ = context.tree(relation['target'])
+        if tree.tag != '{' + W + '}fonts':
+            raise ValueError('The fontTable relationship does not select w:fonts')
+        entries = []
+        for font in tree.findall('w:font', NS):
+            charsets = []
+            for charset in font.findall('w:charset', NS):
+                attributes = local_attrs(charset)
+                value = attributes.get('val')
+                if isinstance(value, str) and re.fullmatch(r'[0-9a-fA-F]{2}', value):
+                    attributes['val'] = value.upper()
+                charsets.append(attributes)
+            entries.append({'name': font.get('{' + W + '}name'),
+                            'charsets': sorted(charsets, key=_json_fingerprint)})
+        tables.append(sorted(entries, key=_json_fingerprint))
+    return sorted(tables, key=_json_fingerprint)
+
+
 def snapshot(path):
     """Describe every reachable story; ids/part paths need not be unchanged."""
     parts = read_package(path)
@@ -1122,12 +1151,13 @@ def snapshot(path):
             continue
         sections.append({child.tag.rsplit('}', 1)[-1]: local_attrs(child)
                          for child in section if child.tag.rsplit('}', 1)[-1] not in ('headerReference', 'footerReference')})
-    result = {'oracleSchemaVersion': 5,
+    result = {'oracleSchemaVersion': 6,
             'stories': sorted(stories, key=lambda item: (item['kind'], item['text'])),
             'counts': dict(sorted(counts.items())), 'sections': sections,
             'imageDigests': sorted(media), 'externalLinks': sorted(links, key=str),
             'alternatives': sorted(alternatives, key=_json_fingerprint),
             'compatibility': compatibility,
+            'fontCharsets': _font_charset_snapshot(context, main),
             'sectionStories': _section_story_snapshot(tree, context, parents, story_facts),
             'styleDefaults': {'document': context.property(context.document_defaults),
                               'types': {kind: context.style(identifier)
@@ -1145,7 +1175,7 @@ def compare_semantics(reference, actual):
     differences = []
     for key in ('oracleSchemaVersion', 'stories', 'sections', 'imageDigests', 'externalLinks',
                 'paragraphs', 'revisions', 'tables', 'numbering', 'textboxes', 'comments', 'commentAnchors', 'inlineContent',
-                'alternatives', 'compatibility', 'sectionStories', 'styleDefaults',
+                'alternatives', 'compatibility', 'fontCharsets', 'sectionStories', 'styleDefaults',
                 'structure'):
         if reference.get(key) != actual.get(key):
             differences.append({'property': key, 'reference': reference.get(key), 'actual': actual.get(key)})
