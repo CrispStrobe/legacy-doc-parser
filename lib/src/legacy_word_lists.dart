@@ -176,6 +176,10 @@ extension _WordLists on _StructuredWordParser {
     final flags = input.u8(at + 5);
     final suffix = input.u8(at + 15);
     final restart = input.u8(at + 26);
+    // MS-DOC LVLF ignores both the start and restart metadata when the level
+    // has no number sequence, even when fNoRestart is set in the source.
+    final hasNumberSequence = nfc != 23 && nfc != 255;
+    final hasRestartThreshold = hasNumberSequence && (flags & 8) != 0;
     final format = nfc == 255
         ? 'none'
         : nfc < _numberFormats.length
@@ -183,10 +187,10 @@ extension _WordLists on _StructuredWordParser {
         : null;
     if (format == null ||
         const {8, 9, 15, 19}.contains(nfc) ||
-        (nfc != 23 && nfc != 255 && (start < 0 || start > 32767)) ||
+        (hasNumberSequence && (start < 0 || start > 32767)) ||
         (flags & 3) == 3 ||
         suffix > 2 ||
-        ((flags & 8) != 0 && restart > level)) {
+        (hasRestartThreshold && restart > level)) {
       throw const FormatException('Invalid Word list-level format.');
     }
     final papxLength = input.u8(at + 25);
@@ -260,10 +264,10 @@ extension _WordLists on _StructuredWordParser {
           level: level,
           format: format,
           text: text.toString(),
-          startAt: nfc == 23 || nfc == 255 ? 1 : start,
+          startAt: hasNumberSequence ? start : 1,
           suffix: LegacyWordListSuffix.values[suffix],
           legal: (flags & 4) != 0,
-          restartAfterLevel: (flags & 8) != 0 ? restart : null,
+          restartAfterLevel: hasRestartThreshold ? restart : null,
           markerAlignment:
               LegacyWordAlignment.values[(flags & 3) == 1
                   ? 1
