@@ -133,9 +133,25 @@ The existing app native cohort retains `partialFormatting`; its 13 assertions
 do not certify every document or preserve a complete set of page rasters.
 
 Hosted provider [run 43388810612](https://github.com/CrispStrobe/CrispCloud/actions/runs/43388810612)
-succeeds at exact runtime `86d5a218`. Earlier Office CI remains attributed to
-its earlier app checkpoint; final official-head hosted results must retain
-their actual head and toolchain rather than borrowing that older success.
+succeeds at exact runtime `86d5a218`. The separate provider
+[run 43390627091](https://github.com/CrispStrobe/CrispCloud/actions/runs/43390627091)
+also succeeds at official app head `fb81b2ac`. Its
+[complete output and queue receipt](https://github.com/CrispStrobe/CrispCloud/blob/9f924ff12321019c0f03a8483727af61fb3aef70/docs/evidence/provider-fb81b2ac-20261113/README.md)
+is saved on `checkpoint/app-final-next-20261113`; all 25 retained result/lock
+files agree with the downloaded artifact. The report checks 131 cases and
+34 mocks in each of four engines, plus 363 cross-decryptions. It records
+`passed: true` together with ten known gaps and `promotion_ready: false`.
+This Office integration does not change provider behavior or claim complete
+provider equivalence.
+
+The same receipt retains a timestamped observation of
+[Office run 43390627156](https://github.com/CrispStrobe/CrispCloud/actions/runs/43390627156)
+at `fb81b2ac`: at 08:20:09 UTC its first job was queued with no assigned runner
+and no executed steps. Read-only diagnosis found no same-branch active/pending
+run or same-group blocker; no workflow was restarted or cancelled. This is a
+dated queue observation, not hosted Office acceptance. Earlier successful
+Office CI remains attributed to its earlier app checkpoint. Later hosted
+results must retain their actual head, toolchain and observation time.
 
 General Word14 grouped/relative-size metadata, unsupported OfficeArt effects,
 arbitrary GDI behavior, broader review topology and native Word ink are not
