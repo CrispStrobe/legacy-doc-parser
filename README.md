@@ -112,6 +112,7 @@ Run the portable acceptance checks with:
 
 ```sh
 dart pub get
+dart format --output=none --set-exit-if-changed lib test tool example
 dart analyze
 dart test
 python3 tool/verify_web.py
