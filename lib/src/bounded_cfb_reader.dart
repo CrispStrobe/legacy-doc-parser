@@ -253,10 +253,11 @@ class BoundedCfbReader {
       for (var index = 0; index < size; index += 128) {
         final type = bytes[offset + index + 66];
         if ((type == 2 || type == 5) &&
-            (u32(offset + index + 124) != 0 ||
+            ((major == 4 && u32(offset + index + 124) != 0) ||
                 u32(offset + index + 120) > bytes.length)) {
-          // All preview inputs are smaller than 4 GiB. Check the raw high word
-          // too: JavaScript integer bit operations cannot represent uint64.
+          // Version 3 ignores historically uninitialized high DWORDs (MS-CFB
+          // §2.6.3). Version 4 uses all 64 bits; every preview input is below
+          // 4 GiB, so check its raw high word before JavaScript int operations.
           throw const FormatException('Compound stream exceeds its container');
         }
       }

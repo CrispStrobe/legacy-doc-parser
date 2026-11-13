@@ -216,6 +216,9 @@ class CfbfFile {
 
   /// readEntry API.
   Uint8List readEntry(CfbfDirectoryEntry entry) {
+    if (entry.streamSize < 0 || entry.streamSize > source.length) {
+      throw const CfbfException('Stream size exceeds its compound container');
+    }
     if (entry.streamSize == 0) {
       return Uint8List(0);
     }
@@ -265,6 +268,11 @@ class CfbfFile {
   }
 
   Uint8List _readFatStream(int startSector, int size) {
+    // Mini-stream reads call this directly for the root container, bypassing
+    // readEntry. Check its physical bound before allocating, too.
+    if (size < 0 || size > source.length) {
+      throw const CfbfException('Stream size exceeds its compound container');
+    }
     final Uint8List out = Uint8List(size);
     int remaining = size;
     int written = 0;
@@ -390,7 +398,9 @@ class CfbfFile {
       offset + 128 <= raw.length;
       offset += 128, index++
     ) {
-      entries.add(_parseDirectoryEntry(raw, offset, index));
+      entries.add(
+        _parseDirectoryEntry(raw, offset, index, header.majorVersion),
+      );
     }
     return entries;
   }
@@ -441,6 +451,7 @@ class CfbfFile {
     Uint8List raw,
     int offset,
     int index,
+    int majorVersion,
   ) {
     final ByteCursor cursor = ByteCursor(
       Uint8List.sublistView(raw, offset, offset + 128),
@@ -457,7 +468,22 @@ class CfbfFile {
     final createdRaw = cursor.copyBytes(8);
     final modifiedRaw = cursor.copyBytes(8);
     final int start = cursor.u32le();
-    final int size = cursor.u64le();
+    final int sizeLow = cursor.u32le();
+    final int sizeHigh = cursor.u32le();
+    // MS-CFB §2.6.3: historical version-3 writers left the high DWORD
+    // uninitialized. Only version 4 gives those bits stream-size meaning.
+    // These fields are unused for storage/unallocated directory entries.
+    var size = sizeLow;
+    if (majorVersion != 3 && (typeByte == 2 || typeByte == 5)) {
+      if (sizeHigh > 0x1fffff) {
+        throw const CfbfException(
+          'Stream size exceeds the portable integer range',
+        );
+      }
+      // JavaScript bitwise shifts discard the high word. Arithmetic retains
+      // exact unsigned metadata through 2^53-1; larger values fail explicitly.
+      size = sizeHigh * 0x100000000 + sizeLow;
+    }
 
     final int charCount = nameLen ~/ 2;
     final StringBuffer name = StringBuffer();

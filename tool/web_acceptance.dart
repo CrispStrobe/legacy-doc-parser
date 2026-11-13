@@ -7,10 +7,12 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 import 'package:legacy_doc_parser/src/bounded_cfb_reader.dart';
-import 'package:legacy_doc_parser/src/compound/cfbf_reader.dart' show CfbfFile;
+import 'package:legacy_doc_parser/src/compound/cfbf_reader.dart'
+    show CfbfException, CfbfFile;
 import 'package:legacy_doc_parser/src/compound/cfbf_writer.dart';
 import 'package:xml/xml.dart';
 
+import '../test/support/compound_size_fixture.dart';
 import '../test/support/media_word_fixture.dart';
 import '../test/support/structured_word_fixture.dart';
 
@@ -195,9 +197,108 @@ Map<String, Object?> verifyWebConversion(Uint8List fixture) {
     'oleMetadata': true,
     'vbaMetadata': vba,
     'cfbSimpleNames': _cfbNamesCase(),
+    'cfbVersionedStreamSizes': _cfbStreamSizeCase(),
     'boundedTextExtraction': _textExtractionCase(),
     'signatureValidityClaimed': false,
   };
+}
+
+bool _cfbStreamSizeCase() {
+  final expected = List.generate(4096, (index) => index & 255);
+  for (final highWord in [1, 0x80000000, 0xffffffff]) {
+    final source = compoundSizeFixture(highWord: highWord);
+    final before = Uint8List.fromList(source);
+    final bounded = BoundedCfbReader(source), raw = CfbfFile.fromBytes(source);
+    _check(
+      bounded.root.streamSize == 64 && raw.root.streamSize == 64,
+      'version-3 root ignores high DWORD',
+    );
+    _check(
+      _equal(bounded.readPath('Small')!, [1, 2, 3]) &&
+          _equal(raw.readPath('Small')!, [1, 2, 3]),
+      'version-3 mini-stream',
+    );
+    _check(
+      _equal(bounded.readPath('Large')!, expected) &&
+          _equal(raw.readPath('Large')!, expected),
+      'version-3 regular stream',
+    );
+    _check(_equal(source, before), 'version-3 source unchanged');
+  }
+  _check(
+    _equal(
+      BoundedCfbReader(compoundSizeFixture(version4: true)).readPath('Large')!,
+      expected,
+    ),
+    'independent version-4 bounded stream',
+  );
+  for (final source in [
+    compoundSizeFixture(version4: true, highWord: 1, root: false),
+    compoundSizeFixture(version4: true, highWord: 1, streams: false),
+    compoundSizeFixture(highWord: 0xffffffff, oversizedLowWord: true),
+    compoundSizeFixture(version4: true, oversizedLowWord: true),
+  ]) {
+    var rejected = false;
+    try {
+      BoundedCfbReader(source);
+    } on FormatException {
+      rejected = true;
+    }
+    _check(rejected, 'CFB version-specific physical size bounds');
+  }
+  for (final (high, low, expectedSize) in [
+    (1, 4096, 4294971392),
+    (0, 0x80000000, 2147483648),
+    (0, 0xffffffff, 4294967295),
+    (0x1fffff, 0xffffffff, 9007199254740991),
+  ]) {
+    final raw = CfbfFile.fromBytes(
+      compoundSizeFixture(
+        version4: true,
+        root: false,
+        highWord: high,
+        lowWord: low,
+      ),
+    );
+    _check(
+      raw.entryByName('Large')!.streamSize == expectedSize,
+      'raw version-4 portable unsigned stream metadata',
+    );
+    var rejected = false;
+    try {
+      raw.readPath('Large');
+    } on CfbfException {
+      rejected = true;
+    }
+    _check(rejected, 'raw version-4 stream rejected before allocation');
+  }
+  for (final highWord in [0x200000, 0x80000000, 0xffffffff]) {
+    var rejected = false;
+    try {
+      CfbfFile.fromBytes(
+        compoundSizeFixture(
+          version4: true,
+          root: false,
+          highWord: highWord,
+          lowWord: 0,
+        ),
+      );
+    } on CfbfException {
+      rejected = true;
+    }
+    _check(rejected, 'raw version-4 inexact metadata rejected');
+  }
+  final badRoot = CfbfFile.fromBytes(
+    compoundSizeFixture(streams: false, oversizedLowWord: true),
+  );
+  var rejectedRoot = false;
+  try {
+    badRoot.readPath('Small');
+  } on CfbfException {
+    rejectedRoot = true;
+  }
+  _check(rejectedRoot, 'raw mini-stream bounds root before allocation');
+  return true;
 }
 
 bool _cfbNamesCase() {
