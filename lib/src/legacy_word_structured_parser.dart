@@ -440,10 +440,15 @@ class _StructuredWordParser {
         properties,
         budget,
         warnings,
-        resolveParagraphStyle: (index) => resolve(index).paragraph,
+        resolveParagraphStyle: (index) =>
+            _paragraphStyleForSelection(index, tableContext),
       );
     }
     final styleIndex = properties['styleIndex'] as int? ?? prepared.styleIndex;
+    if (styles[styleIndex]?.kind != 1 &&
+        !(styleIndex == 0 && !styles.containsKey(0))) {
+      throw const FormatException('Invalid Word paragraph-style reference.');
+    }
     final resolved = resolve(styleIndex);
     final characterBase = _applyListFormatting(properties, resolved.character);
     final style = _paragraphStyle(properties, styleIndex);
