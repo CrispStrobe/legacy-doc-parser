@@ -338,7 +338,18 @@ extension _WordFormattingTables on _StructuredWordParser {
     if (style == null) {
       _styleActive.remove(index);
       if (index == 0 || index == 10) return const _ResolvedStyle({}, {});
-      throw const FormatException('Referenced Word style is missing.');
+      // Word treats a reference to an undefined style as Normal; refusing
+      // the whole document over one dangling istd lost documents Word and
+      // LibreOffice open normally.
+      if (!recover) {
+        throw const FormatException('Referenced Word style is missing.');
+      }
+      warnings.add(LegacyWordWarning.recoveredMissingStyle);
+      final normal = styles[0] == null
+          ? const _ResolvedStyle({}, {})
+          : _resolveStyle(0, depth + 1);
+      _resolvedStyles[index] = normal;
+      return normal;
     }
     final parent = style.parent == 0xfff
         ? const _ResolvedStyle({}, {})
