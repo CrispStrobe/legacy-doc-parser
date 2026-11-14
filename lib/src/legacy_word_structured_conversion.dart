@@ -101,10 +101,17 @@ class _StructuredWordWriter {
           section.endCp == 0;
       if (_sectionIndices.containsKey(section) ||
           section.startCp < 0 ||
+          (i == 0 && section.startCp != 0) ||
+          (i == sections.length - 1 && section.endCp != _mainEnd) ||
           (section.endCp <= section.startCp && !emptyInitial) ||
           (i > 0 && section.startCp != sections[i - 1].endCp)) {
         throw const FormatException('Invalid or duplicate Word section range.');
       }
+      // Public models retain the same source-domain contract as parsed DOC.
+      // An inactive revision still owns a stored previous property snapshot.
+      validateLegacyWordSectionGeometry(section);
+      final previous = section.formattingRevision?.previousSection;
+      if (previous != null) validateLegacyWordSectionGeometry(previous);
       _sectionIndices[section] = i;
       // MS-DOC sprmSBkc terminates this section. WordprocessingML w:type
       // instead places this section relative to the previous one. Shift only
@@ -156,6 +163,9 @@ class _StructuredWordWriter {
           }
       }
       if (endingSection != null) sectionIndex++;
+    }
+    if (sections.isNotEmpty && sectionIndex != sections.length - 1) {
+      throw const FormatException('A Word section boundary was not emitted.');
     }
     if (document.blocks.isEmpty || document.blocks.last is LegacyWordTable) {
       _xml.add('<w:p/>');
