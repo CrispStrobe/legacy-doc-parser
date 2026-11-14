@@ -70,6 +70,8 @@ class _StructuredWordWriter {
   var _olePlaceholderWritten = false;
   final _renderedTextboxes = <(String, String?)>{};
   final _unplacedTextboxes = <(LegacyWordTextboxReference, LegacyWordStory)>[];
+  final _unidentifiedTextboxSelfLinks =
+      Map<LegacyWordTextboxReference, LegacyWordDrawing>.identity();
   final _inertStories = <String, String>{};
   final _hiddenContentRanges = <(int, int)>[];
   final _renderingStories = <String>{};

@@ -675,14 +675,34 @@ extension _WordMedia on _StructuredWordWriter {
           drawings[(reference.inHeaderFooter, anchor.shapeId, anchor.anchorCp)];
       if (shape == null) return;
       final encoded = shape.textboxId;
-      if ((encoded != null &&
-              encoded != 0 &&
-              (encoded >> 16 != reference.id ||
-                  (encoded & 0xffff) != anchor.chainIndex)) ||
-          (shape.nextTextboxShapeId != null &&
-              shape.nextTextboxShapeId != 0 &&
-              shape.nextTextboxShapeId != nextShapeId)) {
+      if (encoded != null &&
+          encoded != 0 &&
+          (encoded >> 16 != reference.id ||
+              (encoded & 0xffff) != anchor.chainIndex)) {
         throw const FormatException('Conflicting Word textbox drawing link.');
+      }
+      if (shape.nextTextboxShapeId != null &&
+          shape.nextTextboxShapeId != 0 &&
+          shape.nextTextboxShapeId != nextShapeId) {
+        // POI Bug50936_1 retains singleton FTXBXS stories whose FSPA has no
+        // client textbox identity and points to itself. This does not prove
+        // a valid active chain. Preserve the source and its raw self-link as
+        // inert evidence, after validating the exact story/drawing ownership.
+        final unidentifiedSelfLink =
+            (encoded == null || encoded == 0) &&
+            reference.chainLength == 1 &&
+            reference.shapeId == shape.shapeId &&
+            reference.anchorCp == shape.anchorCp &&
+            reference.anchors.isEmpty &&
+            reference.headerAliases.isEmpty &&
+            reference.replicaAnchors.isEmpty &&
+            anchor.chainIndex == 0 &&
+            nextShapeId == null &&
+            shape.nextTextboxShapeId == shape.shapeId;
+        if (!unidentifiedSelfLink) {
+          throw const FormatException('Conflicting Word textbox drawing link.');
+        }
+        _unidentifiedTextboxSelfLinks[reference] = shape;
       }
     }
 
@@ -852,6 +872,7 @@ extension _WordMedia on _StructuredWordWriter {
           drawing == null ||
           drawing.shapeDeleted ||
           !_validDrawing(drawing) ||
+          _unidentifiedTextboxSelfLinks.containsKey(reference) ||
           (primaryAnchors.isEmpty && reference.chainLength != 1)) {
         limitations.add(LegacyWordConversionLimitation.embeddedObjects);
         // A declared multi-frame story without client links cannot be
@@ -1084,6 +1105,7 @@ extension _WordMedia on _StructuredWordWriter {
       });
     }
     for (final (reference, story) in _unplacedTextboxes) {
+      final selfLink = _unidentifiedTextboxSelfLinks[reference];
       final evidence = _wordPart('txbxContent');
       final path = 'word/textboxEvidence${_evidenceRecords.length + 1}.xml';
       _withStory(story, path, evidence, () => _blocks(story.blocks));
@@ -1110,7 +1132,13 @@ extension _WordMedia on _StructuredWordWriter {
               },
           ],
         'placementUnresolved': reference.placementUnresolved,
-        'reason': 'source placement not established',
+        if (selfLink != null) ...{
+          'anchorCp': selfLink.anchorCp,
+          'nextShapeId': selfLink.nextTextboxShapeId,
+        },
+        'reason': selfLink == null
+            ? 'source placement not established'
+            : 'unidentified singleton has a self-link',
       });
     }
     // Non-renderable/unreferenced assets are never silently discarded, even if
