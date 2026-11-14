@@ -63,56 +63,12 @@ format coverage, revision and drawing semantics, and a stable published API.
 The [fidelity status](doc/fidelity-status.md) gives the supported contracts and
 open gaps; the [oracle guide](doc/fidelity-oracles.md) explains how schema,
 semantic and native-rendering checks differ.
-The [current continuation handoff](doc/continuation-20261113-followup.md) records the
-saved parser/app integration, complete validation and next bounded work.
-The [13 November parser audit](doc/parser-audit-20261113.md) records subsequent
-input/conversion hardening, portable acceptance and remaining native field
-rendering differences.
-The [audit follow-up](doc/parser-audit-20261113-followup.md) adds story-boundary,
-field-text and compound-allocation fixes, with 1,175 passing Dart tests and
-263 schema-valid DOCX outputs. All 260 earlier corpus outputs remain byte-exact.
-The [third audit pass](doc/parser-audit-20261113-third-pass.md) adds exclusive
-compound-sector ownership, public-model and native-image validation, nested
-result controls, and list-label fixes. It passes 1,300 Dart tests and independent
-schema checks for 297 outputs; all 263 preceding DOCX outputs remain byte-exact.
-At that third-pass checkpoint, literal binary list labels containing `%1`–`%9`
-were explicitly unsupported; the fifth pass below supersedes that restriction.
-The [fourth audit pass](doc/parser-audit-20261113-fourth-pass.md) preserves
-literal/ancestor list labels and exact label TABs, validates text-only UTF-16
-before display filtering, and checks actual OLE/VBA container bytes before
-native activation. It passes 1,361 Dart tests and independent schema checks
-for 320 packages; all 297 preceding DOCX outputs remain byte-exact.
-The [fifth audit pass](doc/parser-audit-20261113-fifth-pass.md) adds bounded
-compound metadata and shared directory ownership, note-reference ownership,
-public formatting-domain checks, literal-percent list labels and sparse marker
-inheritance. It also adds `LegacyWordFieldMode.cachedResults` for callers that
-need stored field display without active field recalculation, with the field
-tree and revision history retained as inert evidence. Its historical acceptance
-receipts survived, but the interrupted evidence upload retained only 3,124 of
-14,103 inventoried files. See the [recovery index](doc/evidence/parser-audit-20261113-fifth-pass/README.md)
-for the exact retained and missing scope; native totals from the interrupted
-session are not new acceptance results.
-
-The [14 November audit continuation](doc/parser-audit-20261114.md) fixes section
-geometry and range coverage, validates hidden comment references, and repairs
-reusable compound byte-sink state. It brings all public-model export corpora
-into CI's SDK gate. Clean runtime `2f8a307` passes 3,688 Dart tests, 195 Python
-controls, 34 compiled-JavaScript groups and 1,426 schema validations.
-[Compact evidence](doc/evidence/parser-audit-20261114/README.md) retains the exact
-receipts and new section outputs; this pass makes no new native-rendering claim.
-
-The [14 November follow-up](doc/parser-audit-20261114-followup.md) fixes six
-further gaps: direct public cell shading, embedded-object Boolean operands,
-fixed heading levels, indirect paragraph-property replacement, bookmark
-validation and story boundaries, and textbox identities, ownership and chains.
-Clean tested source `a25e4ea824886327b97bde2873e6ef175a5ab971` passes 3,903 Dart
-tests, 197 Python controls, 38 compiled-JavaScript groups and 1,533 SDK package
-validations (1,114 DOC-derived and 419 public-model outputs). All 24 retained
-oracle inputs validate, 353 Dart files require no formatting changes, and the
-publish dry run reports zero warnings. The
-[follow-up evidence](doc/evidence/parser-audit-20261114-followup/README.md)
-identifies that tested source separately from later documentation commits;
-these checks add no new native-rendering claim.
+Current property and ownership contracts include bounded section geometry, cell
+shading, embedded-object operands, heading levels, bookmark/story boundaries,
+and textbox identities and chains. The [current audit](doc/parser-audit-20261114-followup.md)
+and [external corpus coverage](doc/external-property-compatibility-20261114.md)
+record independent evidence and remaining compatibility gaps. Passing semantic
+or schema checks does not establish identical native Word rendering.
 
 Use Dart 3.8 or later. `archive` is the runtime package dependency. A development
 Git dependency can be configured as follows; pin a reviewed full commit SHA
