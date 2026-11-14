@@ -59,11 +59,68 @@ Uint8List historicalListLevelFixture({required bool previousNumbered}) =>
       paragraph: [
         ...wordSprm(0x460b, wordU16(previousNumbered ? 1 : 0)),
         ...wordSprm(0x260a, [255]),
-        ...wordSprm(0x2659, [1]),
+        ...wordSprm(0x2664, [1]),
         ...wordSprm(0x460b, wordU16(previousNumbered ? 0 : 1)),
         ...wordSprm(0x260a, [0]),
       ],
     );
+
+Uint8List legacyNumberingParentFixture({
+  bool resolved = true,
+  bool history = false,
+  bool linked = false,
+  bool replaceLevel = true,
+  int legacyId = 2047,
+}) => listWordFixture(
+  paragraph: [
+    ...wordSprm(0x4600, wordU16(20)),
+    if (history) ...wordSprm(0x2664, [1]),
+    if (resolved) ...wordSprm(0x4600, wordU16(21)),
+  ],
+  listStyle: linked ? 21 : 0x0fff,
+  styles: {
+    0: const WordFixtureStyle(name: 'Normal', builtinId: 0),
+    20: WordFixtureStyle(
+      name: 'Legacy list',
+      parentIndex: 0,
+      paragraphProperties: [
+        ...wordSprm(0x260a, [10]),
+        ...wordSprm(0x460b, wordU16(legacyId)),
+        // ANLD80: decimal number with a dot suffix and a start of one.
+        // The old numbering is deliberately retained, never interpreted as
+        // a modern list index or fabricated numbering definition.
+        ...wordSprm(0xc63e, [
+          84,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          ...wordU16(0),
+          ...wordU16(24),
+          ...wordU16(1),
+          ...wordU16(0),
+          ...wordU16(0),
+          0,
+          0,
+          0,
+          0,
+          ...wordU16(46),
+          ...List.filled(62, 0),
+        ]),
+      ],
+    ),
+    21: WordFixtureStyle(
+      name: 'Modern list',
+      parentIndex: 20,
+      paragraphProperties: [
+        if (replaceLevel) ...wordSprm(0x260a, [0]),
+        ...wordSprm(0x460b, wordU16(1)),
+      ],
+    ),
+  },
+);
 
 const ignoredBorderModes = [
   'paragraph-direct',

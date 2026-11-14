@@ -780,6 +780,9 @@ class _StructuredWordParser {
     final outline = styleIndex >= 1 && styleIndex <= 9
         ? styleIndex - 1
         : properties['outline'] as int?;
+    final rawListId = properties['listId'] as int?;
+    final listLevel = _resolvedListLevel(properties);
+    final listId = rawListId == -2047 || listLevel == 12 ? 0 : rawListId;
     return LegacyWordParagraphStyle(
       layout: _paragraphLayout(properties),
       styleIndex: styleIndex,
@@ -802,8 +805,8 @@ class _StructuredWordParser {
       keepNext: properties['keepNext'] == true,
       keepTogether: properties['keepTogether'] == true,
       pageBreakBefore: properties['pageBreakBefore'] == true,
-      listId: properties['listId'] as int?,
-      listLevel: properties['listLevel'] as int?,
+      listId: listId,
+      listLevel: listId == null || listId == 0 ? null : listLevel,
       tabs: properties['tabs'] as List<LegacyWordTabStop>? ?? const [],
       borders:
           properties['borders']

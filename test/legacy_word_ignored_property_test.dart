@@ -83,6 +83,69 @@ void main() {
     });
   }
 
+  for (final linked in [false, true]) {
+    test('modern child resolves legacy ANLD parent, linked=$linked', () {
+      final bytes = legacyNumberingParentFixture(linked: linked);
+      final before = Uint8List.fromList(bytes);
+      final document = parseLegacyWordDocument(bytes);
+      final paragraph = document.blocks.single as LegacyWordParagraph;
+      expect(paragraph.style.listId, 1);
+      expect(paragraph.style.listLevel, 0);
+      expect(document.numbering.single.id, 1);
+      expect(_xml(bytes).findAllElements('numId', namespace: _w), hasLength(1));
+      expect(bytes, before);
+    });
+  }
+  for (final history in [false, true]) {
+    test(
+      'active legacy ANLD remains explicit unsupported, history=$history',
+      () {
+        expect(
+          () => parseLegacyWordDocument(
+            legacyNumberingParentFixture(resolved: history, history: history),
+          ),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              'Unsupported pre-Word 97 numbering.',
+            ),
+          ),
+        );
+      },
+    );
+  }
+  test('modern list cannot retain the legacy parent invalid level', () {
+    expect(
+      () => parseLegacyWordDocument(
+        legacyNumberingParentFixture(replaceLevel: false),
+      ),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          'Invalid Word list level.',
+        ),
+      ),
+    );
+  });
+  for (final invalid in [2048, 32767, 0x8000, 0xf800]) {
+    test('undefined legacy-looking list id $invalid remains rejected', () {
+      expect(
+        () => parseLegacyWordDocument(
+          legacyNumberingParentFixture(legacyId: invalid),
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            'Invalid Word list-instance index.',
+          ),
+        ),
+      );
+    });
+  }
+
   for (final mode in ignoredBorderModes) {
     for (final old in [false, true]) {
       test('BrcType FF preserves $mode border, old=$old', () {
@@ -160,17 +223,40 @@ void main() {
     final before = Uint8List.fromList(bytes);
     final document = parseLegacyWordDocument(bytes);
     expect(document.plainText, isNotEmpty);
-    expect(document.blocks.whereType<LegacyWordTable>(), isNotEmpty);
-    expect(_xml(bytes).rootElement.localName, 'document');
+    final xml = _xml(bytes);
+    // Checked independently against LibreOffice's direct DOC import. The
+    // form's visible text and table grid survive the ignored-border fix.
+    expect(
+      xml.findAllElements('t', namespace: _w).map((e) => e.innerText).join(),
+      hasLength(4897),
+    );
+    final tables = xml.findAllElements('tbl', namespace: _w).toList();
+    expect(tables, hasLength(2));
+    expect(xml.findAllElements('tc', namespace: _w), hasLength(52));
+    expect(
+      tables.map(
+        (table) => table
+            .findElements('tblGrid', namespace: _w)
+            .single
+            .findElements('gridCol', namespace: _w)
+            .length,
+      ),
+      [4, 1],
+    );
     expect(bytes, before);
   });
-  test('POI seven-column sample ignores a non-list inherited level', () {
+  test('POI seven-column sample resolves legacy numbering ancestors', () {
     final bytes = File(
       'test/fixtures/external/poi-20261114/poi/doc/57603-seven_columns.doc',
     ).readAsBytesSync();
     final before = Uint8List.fromList(bytes);
-    expect(() => parseLegacyWordDocument(bytes), returnsNormally);
-    expect(_xml(bytes).rootElement.localName, 'document');
+    final document = parseLegacyWordDocument(bytes);
+    final table = document.blocks.whereType<LegacyWordTable>().single;
+    expect(table.rows, hasLength(1));
+    expect(table.rows.single.cells, hasLength(7));
+    final xml = _xml(bytes);
+    expect(xml.findAllElements('gridCol', namespace: _w), hasLength(7));
+    expect(xml.findAllElements('t', namespace: _w), isEmpty);
     expect(bytes, before);
   });
   test('POI 56880 zeroed author table remains explicitly nonconforming', () {
