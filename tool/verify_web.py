@@ -63,6 +63,7 @@ def main():
         ("Public table formatting", "public_table_formatting_web_acceptance.dart", "verifyPublicTableFormattingWebAcceptance"),
         ("Public cell shading", "public_cell_shading_web_acceptance.dart", "verifyPublicCellShadingWebAcceptance"),
         ("Binary scalar domains", "scalar_sprm_web_acceptance.dart", "verifyScalarSprmWebAcceptance"),
+        ("Binary property contracts", "binary_property_contract_web_acceptance.dart", "verifyBinaryPropertyContractWebAcceptance"),
         ("Literal list labels", "list_literal_web_acceptance.dart", "verifyListLiteralWebAcceptance"),
         ("List label visibility", "list_visibility_web_acceptance.dart", "verifyListVisibilityWebAcceptance"),
         ("List marker formatting", "list_marker_style_web_acceptance.dart", "verifyListMarkerStyleWebAcceptance"),

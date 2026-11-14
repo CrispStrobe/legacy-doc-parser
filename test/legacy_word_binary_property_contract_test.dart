@@ -7,8 +7,8 @@ import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 import 'package:test/test.dart';
 import 'package:xml/xml.dart';
 
+import '../tool/binary_property_contract_web_acceptance.dart';
 import 'support/binary_property_contract_fixture.dart';
-import 'support/structured_word_fixture.dart';
 
 const _w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
@@ -25,6 +25,17 @@ XmlDocument _xml(LegacyWordDocument value) => XmlDocument.parse(
 );
 
 void main() {
+  test('shared binary property acceptance passes on the VM', () {
+    expect(verifyBinaryPropertyContractWebAcceptance(), {
+      'booleanCases': 4,
+      'invalidBooleansRejected': 10,
+      'headingCases': 48,
+      'indirectCases': 5,
+      'invalidIndirectRejected': 2,
+      'convertedPackages': 57,
+      'sourceBytesUnchanged': true,
+    });
+  });
   for (final piece in [false, true]) {
     for (final value in [2, 0x7f, 0x80, 0x81, 0xff]) {
       test('CFObj rejects non-Bool8 $value (piece=$piece)', () {
@@ -45,16 +56,7 @@ void main() {
       expect(document.fields.single.type, 'EMBED');
     });
     test('CFObj false leaves ordinary text unchanged (piece=$piece)', () {
-      final source = StructuredWordFixture(
-        pieces: [WordFixturePiece('A\r', prm: piece ? 0x76 << 1 : 0)],
-        characterRuns: [
-          WordFixtureFkpRun(
-            8192,
-            8194,
-            properties: piece ? const [] : wordSprm(0x0856, [0]),
-          ),
-        ],
-      ).build();
+      final source = binaryObjectFalseFlagFixture(pieceProperty: piece);
       final document = parseLegacyWordDocument(source);
       expect(document.plainText, 'A');
       expect(document.media.embeddedObjects, isEmpty);

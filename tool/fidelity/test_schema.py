@@ -147,6 +147,24 @@ class SchemaGateTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             schema.corpus_receipt(directory, {"case"})
 
+    def test_binary_contract_inventory_keeps_malformed_controls_out_of_successes(self):
+        prefix = "binary-contracts/"
+        required = {name.removeprefix(prefix) for name in schema.EXPECTED_CASES
+                    if name.startswith(prefix)}
+        self.assertEqual(57, len(required))
+        self.assertEqual({"bool8-fkp-false", "bool8-fkp-true", "bool8-piece-false", "bool8-piece-true"},
+                         {name for name in required if name.startswith("bool8-")})
+        self.assertEqual(45, len([name for name in required if name.startswith("heading-")]))
+        self.assertEqual({"normal-outline-0", "normal-outline-8", "normal-outline-9"},
+                         {name for name in required if name.startswith("normal-")})
+        self.assertEqual({"indirect-huge-first-replaces-tail", "indirect-huge-nonfirst-ignored",
+                          "indirect-huge-nonfirst-cycle-ignored", "indirect-huge-minimum-size",
+                          "indirect-table-to-huge-chain"},
+                         {name for name in required if name.startswith("indirect-")})
+        self.assertFalse(any("invalid" in name for name in required))
+        self.assertNotIn("indirect-huge-short-data", required)
+        self.assertNotIn("indirect-huge-first-cycle", required)
+
     def test_required_border_inventory_matches_the_independent_fixture_case_list(self):
         fixture = (schema.ROOT / "test/support/table_border_fixture.dart").read_text()
         names = re.findall(r"TableBorderCase\(\s*'([^']+)'", fixture)

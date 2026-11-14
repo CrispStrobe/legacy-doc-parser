@@ -8,6 +8,19 @@ import 'package:legacy_doc_parser/src/compound/cfbf_writer.dart';
 import 'media_word_fixture.dart';
 import 'structured_word_fixture.dart';
 
+/// False CFObj leaves ordinary text unchanged for either storage form.
+Uint8List binaryObjectFalseFlagFixture({bool pieceProperty = false}) =>
+    StructuredWordFixture(
+      pieces: [WordFixturePiece('A\r', prm: pieceProperty ? 0x76 << 1 : 0)],
+      characterRuns: [
+        WordFixtureFkpRun(
+          8192,
+          8194,
+          properties: pieceProperty ? const [] : wordSprm(0x0856, [0]),
+        ),
+      ],
+    ).build();
+
 /// MS-DOC 2.6.1: CFObj is Bool8, including the Prm0 isprm 0x76 form.
 /// The true positive is a typed EMBED separator with CFOle2 and a referenced
 /// object storage. Piece properties are applied to the separator alone.

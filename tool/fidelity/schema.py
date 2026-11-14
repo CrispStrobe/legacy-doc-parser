@@ -23,6 +23,15 @@ FIELD_VISIBILITY_CASES = (
     "cached-controls", "nested-cached-controls", "visible-result-child", "character-hidden-result",
 )
 EXPECTED_CASES = frozenset([
+    *(f"binary-contracts/bool8-{scope}-{value}"
+      for scope in ("fkp", "piece") for value in ("false", "true")),
+    *(f"binary-contracts/heading-{heading}-{scope}-outline-{outline}"
+      for heading in range(1, 10) for scope in ("fkp", "piece") for outline in (0, 9)),
+    *(f"binary-contracts/heading-{heading}-historical-outline-9" for heading in range(1, 10)),
+    *(f"binary-contracts/normal-outline-{outline}" for outline in (0, 8, 9)),
+    *(f"binary-contracts/indirect-{name}" for name in (
+        "huge-first-replaces-tail", "huge-nonfirst-ignored", "huge-nonfirst-cycle-ignored",
+        "huge-minimum-size", "table-to-huge-chain")),
     "symbols/plain", "symbols/deleted",
     "font-charsets/symbol", "font-charsets/default", "font-charsets/default-symbol-alias",
     "font-charsets/conflict", "font-charsets/unknown",
