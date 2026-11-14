@@ -7,6 +7,7 @@ import 'compound/cfbf_writer.dart';
 import 'legacy_word_metafile.dart';
 import 'legacy_word_number_formats.dart';
 import 'legacy_word_numbering.dart';
+import 'legacy_word_section_geometry.dart';
 import 'legacy_word_structured_model.dart';
 import 'legacy_word_structured_render.dart';
 import 'legacy_word_textbox_alias.dart';
