@@ -342,7 +342,7 @@ class _StructuredWordParser {
     final operations = _decodeSprms(
       bytes,
       budget,
-      stopAtTableProperties: true,
+      stopAtReplacingProperties: true,
       onPapxOrphanByte: recoverPapxOrphanByte
           ? () {
               warnings.add(LegacyWordWarning.recoveredNonconformingProperties);
@@ -361,7 +361,11 @@ class _StructuredWordParser {
       output.addAll(values);
     }
 
-    for (final operation in operations) {
+    for (var index = 0; index < operations.length; index++) {
+      final operation = operations[index];
+      // MS-DOC 2.6.2: PHugePapx is ignored outside the first array position,
+      // including its otherwise unusable Data-stream offset.
+      if (operation.code == 0x6646 && index != 0) continue;
       if (operation.code != 0x6646 &&
           operation.code != 0x646b &&
           operation.code != 0x6645) {
@@ -371,13 +375,15 @@ class _StructuredWordParser {
       final offset = operation.data.u32(0);
       final data = source.data;
       final length = data.u16(offset);
-      if (operation.code == 0x646b && length < 10) {
-        throw const FormatException('Invalid Word indirect table properties.');
+      final replacesRemainder =
+          operation.code == 0x646b || operation.code == 0x6646;
+      if (replacesRemainder && length < 10) {
+        throw const FormatException('Invalid Word indirect properties.');
       }
       final cached = _indirectProperties[offset];
       if (cached != null) {
         append(cached);
-        if (operation.code == 0x646b) break;
+        if (replacesRemainder) break;
         continue;
       }
       if (!_indirectActive.add(offset)) {
@@ -387,9 +393,8 @@ class _StructuredWordParser {
       _indirectActive.remove(offset);
       _indirectProperties[offset] = nested;
       append(nested);
-      // PTableProps replaces the remainder of its containing array; older
-      // table properties after it are intended for readers without styles.
-      if (operation.code == 0x646b) break;
+      // PTableProps and a first PHugePapx replace the remainder of the array.
+      if (replacesRemainder) break;
     }
     return output;
   }
@@ -765,7 +770,11 @@ class _StructuredWordParser {
   }
 
   LegacyWordParagraphStyle _paragraphStyle(_Props properties, int styleIndex) {
-    final outline = properties['outline'] as int?;
+    // Heading istd values have fixed outline levels. Apply this at the final
+    // style boundary so current and retained PWall states use their own istd.
+    final outline = styleIndex >= 1 && styleIndex <= 9
+        ? styleIndex - 1
+        : properties['outline'] as int?;
     return LegacyWordParagraphStyle(
       layout: _paragraphLayout(properties),
       styleIndex: styleIndex,

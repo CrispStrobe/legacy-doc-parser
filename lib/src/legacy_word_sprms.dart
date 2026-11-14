@@ -59,7 +59,7 @@ List<_Sprm> _decodeSprms(
   Uint8List bytes,
   _Budget budget, {
   void Function()? onPapxOrphanByte,
-  bool stopAtTableProperties = false,
+  bool stopAtReplacingProperties = false,
 }) {
   final input = _Bytes(bytes);
   final output = <_Sprm>[];
@@ -117,7 +117,10 @@ List<_Sprm> _decodeSprms(
     input.require(position, size);
     output.add(_Sprm(code, input.slice(position + prefix, size - prefix)));
     position += size;
-    if (stopAtTableProperties && code == 0x646b) break;
+    if (stopAtReplacingProperties &&
+        (code == 0x646b || (code == 0x6646 && output.length == 1))) {
+      break;
+    }
   }
   return output;
 }
@@ -187,7 +190,6 @@ const _toggleProperties = <int, String>{
   0x083c: 'hidden',
   0x2a53: 'doubleStrike',
   0x0855: 'special',
-  0x0856: 'object',
 };
 const _palette = <String?>[
   null,
@@ -387,6 +389,9 @@ void _applyCharacter(
         output['data'] = _boolean(data);
       case 0x080a:
         output['ole2'] = _boolean(data);
+      case 0x0856:
+        // CFObj is Bool8; CFSpec and the visual flags use ToggleOperand.
+        output['object'] = _boolean(data);
       // Language, proofing and revision-save identifiers do not change the
       // supported visual properties. Script language selection remains a limit.
       case 0x486d:
