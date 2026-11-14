@@ -34,21 +34,14 @@ void main() {
               value,
               historical: historical,
             );
-            expect(
-              () => parseLegacyWordDocument(bytes),
-              throwsFormatException,
-            );
+            expect(() => parseLegacyWordDocument(bytes), throwsFormatException);
           });
         }
       }
       for (final value in property.validValues) {
         test('binary ${property.name} $value $scope stays exact', () {
           final parsed = parseLegacyWordDocument(
-            sectionGeometryFixture(
-              property,
-              value,
-              historical: historical,
-            ),
+            sectionGeometryFixture(property, value, historical: historical),
           );
           final current = parsed.sections.single;
           final section = historical

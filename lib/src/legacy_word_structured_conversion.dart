@@ -482,9 +482,7 @@ class _StructuredWordWriter {
     // pgMar contract (MS-OI29500 2.1.218) stops at 31680. Retain valid binary
     // values in the model and reject this unsupported export explicitly.
     if ((section.gutterTwips ?? 0) > 31680) {
-      throw const FormatException(
-        'Word gutter exceeds the native DOCX limit.',
-      );
+      throw const FormatException('Word gutter exceeds the native DOCX limit.');
     }
     // CT_SectPrBase (inside sectPrChange) cannot contain header/footer
     // references or a nested change record.
