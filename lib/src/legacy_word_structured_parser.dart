@@ -786,7 +786,7 @@ class _StructuredWordParser {
     return LegacyWordParagraphStyle(
       layout: _paragraphLayout(properties),
       styleIndex: styleIndex,
-      styleName: styles[styleIndex]?.name,
+      styleName: _canonicalStyleName(styles[styleIndex]),
       headingLevel: outline != null && outline < 9 ? outline + 1 : null,
       alignment: switch (properties['alignment']) {
         1 => LegacyWordAlignment.center,
