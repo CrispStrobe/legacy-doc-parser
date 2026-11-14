@@ -28,7 +28,7 @@ class NativeTextProbeTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 load_cases(manifest)
             manifest.write_text(json.dumps({'cases': [case]}))
-            self.assertEqual(load_cases(manifest)[0]['source'], root / 'case.docx')
+            self.assertEqual(load_cases(manifest)[0]['source'], (root / 'case.docx').resolve())
 
     def test_a_later_matching_import_does_not_hide_initial_difference(self):
         with tempfile.TemporaryDirectory() as temporary:
