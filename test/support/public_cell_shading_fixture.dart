@@ -90,10 +90,8 @@ class PublicCellShadingCase {
   final String? previewColor;
   final bool approximatePreview;
 
-  LegacyWordDocument document() => publicCellShadingDocument(
-    legacy: legacy,
-    formatting: formatting,
-  );
+  LegacyWordDocument document() =>
+      publicCellShadingDocument(legacy: legacy, formatting: formatting);
 }
 
 LegacyWordDocument publicCellShadingDocument({

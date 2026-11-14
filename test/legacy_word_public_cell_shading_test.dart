@@ -49,8 +49,8 @@ void main() {
       if (expected != null && expected.pattern == null) {
         final manifest = archive.findFile('word/evidence/manifest.json');
         expect(manifest, isNotNull);
-        final evidence = jsonDecode(utf8.decode(manifest!.content))
-            as Map<String, dynamic>;
+        final evidence =
+            jsonDecode(utf8.decode(manifest!.content)) as Map<String, dynamic>;
         final records = evidence['records'] as List<dynamic>;
         final record = records.cast<Map<String, dynamic>>().singleWhere(
           (entry) => entry['kind'] == 'shading',
@@ -67,10 +67,7 @@ void main() {
       if (item.previewColor == null) {
         expect(html, isNot(contains('background-color:')));
       } else {
-        expect(
-          html,
-          contains('background-color:#${item.previewColor}'),
-        );
+        expect(html, contains('background-color:#${item.previewColor}'));
       }
       expect(
         html.contains('data-word-shading="approximate"'),
@@ -87,10 +84,7 @@ void main() {
         backgroundHex: 'FF0000',
       ),
     );
-    expect(
-      () => convertLegacyWordDocument(document),
-      throwsFormatException,
-    );
+    expect(() => convertLegacyWordDocument(document), throwsFormatException);
   });
 
   test('malformed formatting-only color cannot bypass DOCX validation', () {
