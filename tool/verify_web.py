@@ -57,6 +57,8 @@ def main():
     extra_helpers = [
         ("Section geometry", "section_geometry_web_acceptance.dart", "verifySectionGeometryWebAcceptance"),
         ("Public note ownership", "public_note_reference_web_acceptance.dart", "verifyPublicNoteReferenceWebAcceptance"),
+        ("Public bookmarks", "public_bookmark_web_acceptance.dart", "verifyPublicBookmarkWebAcceptance"),
+        ("Public textbox references", "public_textbox_reference_web_acceptance.dart", "verifyPublicTextboxReferenceWebAcceptance"),
         ("Compound generated matrix", "compound_property_acceptance.dart", "verifyCompoundPropertyAcceptance"),
         ("Generated field trees", "generated_field_tree_web_acceptance.dart", "verifyGeneratedFieldTreeWebAcceptance"),
         ("Public formatting", "public_formatting_web_acceptance.dart", "verifyPublicFormattingWebAcceptance"),

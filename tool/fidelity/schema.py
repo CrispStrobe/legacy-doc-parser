@@ -213,6 +213,19 @@ PUBLIC_CELL_SHADING_CASES = (
     "absent", "formatting-clear", "formatting-solid", "legacy-only", "both-equal",
     "legacy-override", "legacy-nil-override", "legacy-unmapped-override", "formatting-unmapped",
 )
+PUBLIC_BOOKMARK_CASES = (
+    "valid", "maximum-name", "international-name", "point-start", "point-end", "full-range",
+    "first-column", "last-column", "auxiliary", "adjacent-header-point", "adjacent-header-range",
+    "adjacent-footnote-point", "adjacent-footnote-range", "adjacent-comment-point",
+    "adjacent-comment-range", "auxiliary-end", "adjacent-footnote-end", "shared-auxiliary-point",
+)
+PUBLIC_TEXTBOX_REFERENCE_CASES = (
+    "single", "single-without-client", "chain", "chain-reversed", "chain-null-links",
+    "chain-zero-links", "recovered-chain", "unresolved-chain", "two-stories", "two-stories-reversed",
+    "single-header", "single-footer", "single-footnoteSeparator", "single-footnoteContinuationSeparator",
+    "single-footnoteContinuationNotice", "single-endnoteSeparator", "single-endnoteContinuationSeparator",
+    "single-endnoteContinuationNotice",
+)
 
 
 def _public_cases(names, *, output_suffix=".docx", source_suffix=None) -> dict:
@@ -292,6 +305,20 @@ PUBLIC_CORPORA = {
             )
             for value in values
         ),
+    },
+    "public-bookmarks": {
+        "generator": "tool/fidelity/public_bookmark_fixture.dart",
+        "cases": _public_cases((
+            *(f"visible-{name}" for name in PUBLIC_BOOKMARK_CASES),
+            *(f"hidden-{name}" for name in ("valid", "first-column", "last-column")),
+        )),
+    },
+    "public-textbox-references": {
+        "generator": "tool/fidelity/public_textbox_reference_fixture.dart",
+        "cases": _public_cases((
+            *(f"visible-{name}" for name in PUBLIC_TEXTBOX_REFERENCE_CASES),
+            *(f"hidden-{name}" for name in ("single", "chain")),
+        )),
     },
 }
 

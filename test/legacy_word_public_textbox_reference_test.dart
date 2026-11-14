@@ -7,12 +7,24 @@ import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 import 'package:test/test.dart';
 import 'package:xml/xml.dart';
 
+import '../tool/public_textbox_reference_web_acceptance.dart';
 import 'support/public_textbox_reference_fixture.dart';
 
 const _w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const _v = 'urn:schemas-microsoft-com:vml';
 
 void main() {
+  test('shared public textbox acceptance also passes on the VM', () {
+    expect(verifyPublicTextboxReferenceWebAcceptance(), {
+      'visibleCases': 17,
+      'headerOwnerCases': 8,
+      'inertEvidenceCases': 3,
+      'malformedInputsRejected': 38,
+      'convertedPackages': 20,
+      'sourceMetadataUnchanged': true,
+    });
+  });
+
   for (final mutation in publicTextboxInvalidCases) {
     test('public textbox rejects $mutation', () {
       expect(

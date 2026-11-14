@@ -7,11 +7,23 @@ import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 import 'package:test/test.dart';
 import 'package:xml/xml.dart';
 
+import '../tool/public_bookmark_web_acceptance.dart';
 import 'support/public_bookmark_fixture.dart';
 
 const _w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
 void main() {
+  test('shared public bookmark acceptance also passes on the VM', () {
+    expect(verifyPublicBookmarkWebAcceptance(), {
+      'visibleCases': 18,
+      'auxiliaryOwnerCases': 7,
+      'hiddenEvidenceCases': 3,
+      'malformedInputsRejected': 34,
+      'convertedPackages': 21,
+      'sourceMetadataUnchanged': true,
+    });
+  });
+
   for (final hidden in [false, true]) {
     for (final mutation in publicBookmarkInvalidCases) {
       test('public bookmark $mutation hidden=$hidden rejects', () {

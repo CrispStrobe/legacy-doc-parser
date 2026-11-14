@@ -277,18 +277,52 @@ class SchemaGateTest(unittest.TestCase):
         schema.write_json(directory / "cases.json", manifest)
         return directory, manifest, expected
 
-    def test_all_seven_public_inventories_have_independent_required_sizes(self):
+    def test_all_public_inventories_have_independent_required_sizes(self):
         self.assertEqual({
             "public-metafile": 24, "public-compound": 17,
             "public-formatting": 106, "public-table-formatting": 53,
             "cached-field-structure": 88, "display-field-evidence": 46,
             "public-section-geometry": 44,
+            "public-bookmarks": 21, "public-textbox-references": 20,
         }, {name: len(specification["cases"]) for name, specification in schema.PUBLIC_CORPORA.items()})
-        self.assertEqual(378, sum(len(item["cases"]) for item in schema.PUBLIC_CORPORA.values()))
+        self.assertEqual(419, sum(len(item["cases"]) for item in schema.PUBLIC_CORPORA.values()))
         for specification in schema.PUBLIC_CORPORA.values():
             self.assertTrue((schema.ROOT / specification["generator"]).is_file())
             outputs = [case["output"] for case in specification["cases"].values()]
             self.assertEqual(len(outputs), len(set(outputs)))
+
+    def test_public_semantic_inventories_require_terminal_owners_and_inert_controls(self):
+        required = {
+            "public-bookmarks": {
+                "visible-auxiliary-end", "visible-adjacent-footnote-end", "visible-shared-auxiliary-point",
+                "hidden-valid", "hidden-first-column", "hidden-last-column",
+            },
+            "public-textbox-references": {
+                "visible-single-header", "visible-single-footer", "visible-single-footnoteSeparator",
+                "visible-single-footnoteContinuationSeparator", "visible-single-footnoteContinuationNotice",
+                "visible-single-endnoteSeparator", "visible-single-endnoteContinuationSeparator",
+                "visible-single-endnoteContinuationNotice", "visible-unresolved-chain", "hidden-single", "hidden-chain",
+            },
+        }
+        for group, controls in required.items():
+            with self.subTest(group=group):
+                expected = schema.PUBLIC_CORPORA[group]["cases"]
+                self.assertLessEqual(controls, set(expected))
+                self.assertTrue(all(set(case) == {"output"} for case in expected.values()))
+                self.assertFalse(any(name.startswith(group + "/") for name in schema.EXPECTED_CASES))
+                directory = self.root / group
+                directory.mkdir()
+                manifest = []
+                for name, paths in expected.items():
+                    shutil.copyfile(self.directory / "valid.docx", directory / paths["output"])
+                    manifest.append({"name": name, "inputKind": "public-model", **paths})
+                schema.write_json(directory / "cases.json", manifest)
+                self.assertEqual(len(expected), len(schema.public_corpus_receipt(directory, expected)["cases"]))
+                for omitted in controls:
+                    with self.subTest(omitted=omitted):
+                        schema.write_json(directory / "cases.json", [case for case in manifest if case["name"] != omitted])
+                        with self.assertRaisesRegex(ValueError, "required case"):
+                            schema.public_corpus_receipt(directory, expected)
 
     def test_public_receipts_bind_model_metadata_outputs_and_optional_raw_inputs(self):
         for index, (raw, wrapped) in enumerate(((False, False), (False, True), (True, False), (True, True))):
