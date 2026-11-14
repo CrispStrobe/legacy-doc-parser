@@ -2,9 +2,9 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
-import 'package:crypto/crypto.dart';
 import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 import 'package:test/test.dart';
 import 'package:xml/xml.dart';
@@ -12,6 +12,10 @@ import 'package:xml/xml.dart';
 import 'support/fib_extension_fixture.dart';
 
 const _w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+
+String _sha256(Uint8List bytes) => Sha256.of(
+  bytes,
+).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
 
 void main() {
   for (final (version, minimum, dopLength) in [
@@ -135,7 +139,7 @@ void main() {
         final input = File(
           'test/fixtures/external/poi-20261114/poi/doc/$name',
         ).readAsBytesSync();
-        expect(sha256.convert(input).toString(), expectedSha);
+        expect(_sha256(input), expectedSha);
         final document = parseLegacyWordDocument(input);
         expect(
           document.plainText.replaceAll(RegExp(r'\s+'), ' ').trim(),
@@ -155,7 +159,7 @@ void main() {
           ),
         );
         expect(xml.findAllElements('t', namespace: _w), isNotEmpty);
-        expect(sha256.convert(input).toString(), expectedSha);
+        expect(_sha256(input), expectedSha);
       },
     );
   }
