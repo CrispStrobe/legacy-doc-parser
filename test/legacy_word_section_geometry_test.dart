@@ -7,11 +7,21 @@ import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 import 'package:test/test.dart';
 import 'package:xml/xml.dart';
 
+import '../tool/section_geometry_web_acceptance.dart';
 import 'support/section_geometry_fixture.dart';
 
 const _w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
 void main() {
+  test('section geometry shared JavaScript corpus passes on the VM', () {
+    expect(verifySectionGeometryWebAcceptance(), {
+      'publicRejected': 70,
+      'binaryRejected': 52,
+      'parsed': 48,
+      'emitted': 44,
+    });
+  });
+
   for (final property in sectionGeometryProperties) {
     for (final historical in [false, true]) {
       final scope = historical ? 'historical' : 'current';

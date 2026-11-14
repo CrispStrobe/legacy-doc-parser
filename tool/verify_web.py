@@ -55,6 +55,7 @@ def main():
     public_metafiles_helper = (repository / "tool/public_metafile_web_acceptance.dart").as_uri()
     public_compound_helper = (repository / "tool/public_compound_web_acceptance.dart").as_uri()
     extra_helpers = [
+        ("Section geometry", "section_geometry_web_acceptance.dart", "verifySectionGeometryWebAcceptance"),
         ("Public note ownership", "public_note_reference_web_acceptance.dart", "verifyPublicNoteReferenceWebAcceptance"),
         ("Compound generated matrix", "compound_property_acceptance.dart", "verifyCompoundPropertyAcceptance"),
         ("Generated field trees", "generated_field_tree_web_acceptance.dart", "verifyGeneratedFieldTreeWebAcceptance"),
