@@ -61,6 +61,7 @@ def main():
         ("Generated field trees", "generated_field_tree_web_acceptance.dart", "verifyGeneratedFieldTreeWebAcceptance"),
         ("Public formatting", "public_formatting_web_acceptance.dart", "verifyPublicFormattingWebAcceptance"),
         ("Public table formatting", "public_table_formatting_web_acceptance.dart", "verifyPublicTableFormattingWebAcceptance"),
+        ("Public cell shading", "public_cell_shading_web_acceptance.dart", "verifyPublicCellShadingWebAcceptance"),
         ("Binary scalar domains", "scalar_sprm_web_acceptance.dart", "verifyScalarSprmWebAcceptance"),
         ("Literal list labels", "list_literal_web_acceptance.dart", "verifyListLiteralWebAcceptance"),
         ("List label visibility", "list_visibility_web_acceptance.dart", "verifyListVisibilityWebAcceptance"),

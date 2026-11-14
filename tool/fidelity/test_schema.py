@@ -262,11 +262,11 @@ class SchemaGateTest(unittest.TestCase):
     def test_all_seven_public_inventories_have_independent_required_sizes(self):
         self.assertEqual({
             "public-metafile": 24, "public-compound": 17,
-            "public-formatting": 106, "public-table-formatting": 44,
+            "public-formatting": 106, "public-table-formatting": 53,
             "cached-field-structure": 88, "display-field-evidence": 46,
             "public-section-geometry": 44,
         }, {name: len(specification["cases"]) for name, specification in schema.PUBLIC_CORPORA.items()})
-        self.assertEqual(369, sum(len(item["cases"]) for item in schema.PUBLIC_CORPORA.values()))
+        self.assertEqual(378, sum(len(item["cases"]) for item in schema.PUBLIC_CORPORA.values()))
         for specification in schema.PUBLIC_CORPORA.values():
             self.assertTrue((schema.ROOT / specification["generator"]).is_file())
             outputs = [case["output"] for case in specification["cases"].values()]

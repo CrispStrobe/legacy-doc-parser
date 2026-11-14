@@ -7,11 +7,21 @@ import 'package:legacy_doc_parser/legacy_doc_parser.dart';
 import 'package:test/test.dart';
 import 'package:xml/xml.dart';
 
+import '../tool/public_cell_shading_web_acceptance.dart';
 import 'support/public_cell_shading_fixture.dart';
 
 const _w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 
 void main() {
+  test('shared cell shading acceptance also passes on the VM', () {
+    expect(verifyPublicCellShadingWebAcceptance(), {
+      'cases': 9,
+      'htmlPreviews': 9,
+      'unmappedEvidenceCases': 2,
+      'malformedInputsRejected': 2,
+    });
+  });
+
   for (final item in publicCellShadingCases) {
     test('cell shading model preserves ${item.name}', () {
       final table = item.document().blocks.single as LegacyWordTable;

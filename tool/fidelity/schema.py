@@ -200,6 +200,10 @@ PUBLIC_COMPOUND_MUTATIONS = (
     "valid", "not-compound", "missing-required-stream",
     "storage-instead-of-stream", "wrong-path", "truncated-stream",
 )
+PUBLIC_CELL_SHADING_CASES = (
+    "absent", "formatting-clear", "formatting-solid", "legacy-only", "both-equal",
+    "legacy-override", "legacy-nil-override", "legacy-unmapped-override", "formatting-unmapped",
+)
 
 
 def _public_cases(names, *, output_suffix=".docx", source_suffix=None) -> dict:
@@ -240,11 +244,12 @@ PUBLIC_CORPORA = {
     },
     "public-table-formatting": {
         "generator": "tool/fidelity/public_table_formatting_fixture.dart",
-        "cases": _public_cases(
-            f"{kind}-{scope}-{name}" for scope in ("base", "conditional")
-            for kind, names in (("character", PUBLIC_CHARACTER_CASES), ("paragraph", PUBLIC_PARAGRAPH_CASES))
-            for name in names
-        ),
+        "cases": _public_cases((
+            *(f"{kind}-{scope}-{name}" for scope in ("base", "conditional")
+              for kind, names in (("character", PUBLIC_CHARACTER_CASES), ("paragraph", PUBLIC_PARAGRAPH_CASES))
+              for name in names),
+            *(f"cell-shading-{name}" for name in PUBLIC_CELL_SHADING_CASES),
+        )),
     },
     "cached-field-structure": {
         "generator": "tool/fidelity/cached_field_structure_fixture.dart",
