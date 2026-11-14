@@ -30,20 +30,29 @@ literal list templates, sparse marker inheritance/reset properties and numbered
 paragraph visibility. Invalid binary controls remain retained source inputs;
 they do not count as successful conversions.
 
-Separate public-model generators produce 325 additional controls:
-`public_metafile_fixture.dart` (24), `public_compound_fixture.dart` (17),
-`public_formatting_fixture.dart` (106), `public_table_formatting_fixture.dart`
-(44), `cached_field_structure_fixture.dart` (88), and
-`display_field_evidence_fixture.dart` (46). They cover image/OLE/VBA activation,
-formatting, field-event structure and revision evidence. These outputs are not
-binary-DOC-derived cases. Their raw
-inputs and model descriptions must remain alongside the DOCX/DOCM outputs
-when validating them with the built validator. Package schema validation does
-not validate or execute the contents of an OLE object or a VBA project.
+The same gate generates and validates 369 public-model controls in seven
+separately named groups: `public_metafile_fixture.dart` (24),
+`public_compound_fixture.dart` (17), `public_formatting_fixture.dart` (106),
+`public_table_formatting_fixture.dart` (44),
+`cached_field_structure_fixture.dart` (88),
+`display_field_evidence_fixture.dart` (46), and
+`public_section_geometry_fixture.dart` (44). The required names and output/raw
+input paths are independently pinned by `PUBLIC_CORPORA` in
+`tool/fidelity/schema.py`. Together with the DOC-derived corpus, the gate
+requires 1,415 successful package validations, excluding validator controls.
 
-The corpus is generated twice, and every retained source, output, and metadata
-file must match byte-for-byte. The second generation is also checked against
-the complete required inventory.
+The public groups cover image/OLE/VBA activation, formatting, field-event
+structure, revision evidence, and current/historical section scalar bounds.
+They are authored public models, not binary-DOC-derived cases. Each group
+retains its model descriptions in `cases.json`; metafile and compound cases
+also retain their raw inputs beside the DOCX/DOCM packages. Missing or extra
+cases/files, output aliases, substituted paths, escaping paths, and unchecked
+baseline manifests fail the gate. Package schema validation does not validate
+or execute the contents of an OLE object or a VBA project.
+
+Each DOC-derived and public corpus is generated twice, and every retained
+source, output, and metadata file must match byte-for-byte. Both generations
+are checked against their complete required inventories before validation.
 
 Every run compiles fresh validator sources, checks all three resolved dependency
 assembly hashes, and requires the validator's positive, malformed XML,
@@ -56,7 +65,10 @@ control fails the gate. Inputs and validator artifacts must remain unchanged.
 `report.json` records source hashes for the parser, generator, fixture helpers,
 native DOC inputs, dependency declarations, and validator; compiler/runtime
 identity and hashes; per-case binary/output hashes; all stage results; and the
-hash of the complete SDK report. The SDK report preserves every error, part,
+hash of each complete SDK report. Its `publicCorpora` entries separately record
+each public generator, manifest hash, output/raw-input hashes, determinism
+receipt, and SDK validation receipt; `counts` distinguishes DOC-derived and
+public-model packages. The SDK reports preserve every error, part,
 and XPath. Git HEAD and dirty-worktree status are separate fields; an uncommitted
 run is identified by its source hashes rather than assigned to a clean commit.
 Failed stages leave their completed artifacts and receipts in place.
