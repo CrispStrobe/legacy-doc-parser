@@ -93,6 +93,14 @@ receipts survived, but the interrupted evidence upload retained only 3,124 of
 for the exact retained and missing scope; native totals from the interrupted
 session are not new acceptance results.
 
+The [14 November audit continuation](doc/parser-audit-20261114.md) fixes section
+geometry and range coverage, validates hidden comment references, and repairs
+reusable compound byte-sink state. It brings all public-model export corpora
+into CI's SDK gate. Clean runtime `2f8a307` passes 3,688 Dart tests, 195 Python
+controls, 34 compiled-JavaScript groups and 1,426 schema validations.
+[Compact evidence](doc/evidence/parser-audit-20261114/README.md) retains the exact
+receipts and new section outputs; this pass makes no new native-rendering claim.
+
 Use Dart 3.8 or later. `archive` is the runtime package dependency. A development
 Git dependency can be configured as follows; pin a reviewed full commit SHA
 instead of `main` for reproducible consumer builds and retain the lockfile.

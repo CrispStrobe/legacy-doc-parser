@@ -18,6 +18,18 @@ every Word document or every renderer.
 
 ## Evidence is versioned
 
+The [14 November audit continuation](parser-audit-20261114.md) validates clean
+runtime **2f8a307** with 3,688 Dart tests, 195 Python controls, 34 compiled
+JavaScript acceptance groups and 1,426 schema-valid packages (1,057 DOC-derived
+and 369 public-model outputs). It fixes current/historical section scalar
+domains, missing public section coverage, hidden comment-reference validation,
+and compound byte-sink reuse. All seven public export corpora now run inside
+the SDK gate with independent inventories, hashes and repeated generation.
+The [saved receipt and logs](evidence/parser-audit-20261114/README.md) are new
+portable/schema evidence; they do not replace missing historical native
+artifacts or certify physical layout and editor review behavior.
+
+
 The [fifth parser audit](parser-audit-20261113-fifth-pass.md) is implemented
 through runtime `6b57d17` and merged in `83acdf1`. It adds source-aware
 literal-percent list labels, complete supported marker inheritance and resets,

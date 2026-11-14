@@ -18,7 +18,7 @@ project with `dotnet publish`. The separate GitHub Actions job runs this gate
 without LibreOffice, Word, or Quds installed.
 
 The required DOC-to-DOCX inventory is defined by `EXPECTED_CASES` in
-`tool/fidelity/schema.py` and currently contains 1,046 conversions. It covers
+`tool/fidelity/schema.py` and currently contains 1,057 conversions. It covers
 table geometry and revisions, shapes, metafiles, media, ink, fields, list
 labels and sequences, section formatting, notes, headers, footers and textbox
 boundaries, alongside retained native DOC inputs. The generator calls the
@@ -39,7 +39,7 @@ separately named groups: `public_metafile_fixture.dart` (24),
 `public_section_geometry_fixture.dart` (44). The required names and output/raw
 input paths are independently pinned by `PUBLIC_CORPORA` in
 `tool/fidelity/schema.py`. Together with the DOC-derived corpus, the gate
-requires 1,415 successful package validations, excluding validator controls.
+requires 1,426 successful package validations, excluding validator controls.
 
 The public groups cover image/OLE/VBA activation, formatting, field-event
 structure, revision evidence, and current/historical section scalar bounds.
