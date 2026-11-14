@@ -18,6 +18,24 @@ every Word document or every renderer.
 
 ## Evidence is versioned
 
+The [14 November follow-up](parser-audit-20261114-followup.md) validates clean
+source **a25e4ea824886327b97bde2873e6ef175a5ab971**, separately from subsequent
+documentation commits. Its six repairs preserve direct public cell shading,
+enforce the embedded-object Bool8 operand, retain fixed built-in heading
+levels, apply indirect paragraph-property replacement correctly, validate
+bookmark metadata and story boundaries before visibility fallback, and check
+textbox identities, owners and source chains before placement fallback.
+Valid header/footer and six Hdd separator/continuation owners remain supported.
+
+The combined gate passes 3,903 Dart tests, 197 Python controls, 38 compiled
+JavaScript groups and 1,533 independent SDK package validations: 1,114
+DOC-derived outputs and 419 public-model outputs in nine groups. All 24
+retained oracle inputs validate; 353 Dart files need no formatting changes,
+and the publish dry run reports zero warnings. The
+[follow-up receipt and logs](evidence/parser-audit-20261114-followup/README.md)
+retain the exact source and acceptance evidence. No new native rendering or
+editor accept/reject measurement is claimed by this pass.
+
 The [14 November audit continuation](parser-audit-20261114.md) validates clean
 runtime **2f8a307** with 3,688 Dart tests, 195 Python controls, 34 compiled
 JavaScript acceptance groups and 1,426 schema-valid packages (1,057 DOC-derived

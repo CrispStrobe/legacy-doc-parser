@@ -101,6 +101,19 @@ controls, 34 compiled-JavaScript groups and 1,426 schema validations.
 [Compact evidence](doc/evidence/parser-audit-20261114/README.md) retains the exact
 receipts and new section outputs; this pass makes no new native-rendering claim.
 
+The [14 November follow-up](doc/parser-audit-20261114-followup.md) fixes six
+further gaps: direct public cell shading, embedded-object Boolean operands,
+fixed heading levels, indirect paragraph-property replacement, bookmark
+validation and story boundaries, and textbox identities, ownership and chains.
+Clean tested source `a25e4ea824886327b97bde2873e6ef175a5ab971` passes 3,903 Dart
+tests, 197 Python controls, 38 compiled-JavaScript groups and 1,533 SDK package
+validations (1,114 DOC-derived and 419 public-model outputs). All 24 retained
+oracle inputs validate, 353 Dart files require no formatting changes, and the
+publish dry run reports zero warnings. The
+[follow-up evidence](doc/evidence/parser-audit-20261114-followup/README.md)
+identifies that tested source separately from later documentation commits;
+these checks add no new native-rendering claim.
+
 Use Dart 3.8 or later. `archive` is the runtime package dependency. A development
 Git dependency can be configured as follows; pin a reviewed full commit SHA
 instead of `main` for reproducible consumer builds and retain the lockfile.

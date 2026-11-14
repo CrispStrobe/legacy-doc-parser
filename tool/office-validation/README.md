@@ -18,7 +18,7 @@ project with `dotnet publish`. The separate GitHub Actions job runs this gate
 without LibreOffice, Word, or Quds installed.
 
 The required DOC-to-DOCX inventory is defined by `EXPECTED_CASES` in
-`tool/fidelity/schema.py` and currently contains 1,057 conversions. It covers
+`tool/fidelity/schema.py` and currently contains 1,114 conversions. It covers
 table geometry and revisions, shapes, metafiles, media, ink, fields, list
 labels and sequences, section formatting, notes, headers, footers and textbox
 boundaries, alongside retained native DOC inputs. The generator calls the
@@ -30,25 +30,45 @@ literal list templates, sparse marker inheritance/reset properties and numbered
 paragraph visibility. Invalid binary controls remain retained source inputs;
 they do not count as successful conversions.
 
-The same gate generates and validates 369 public-model controls in seven
+The [14 November follow-up](../../doc/parser-audit-20261114-followup.md) adds
+57 binary property-contract conversions: direct/Prm0 embedded-object Boolean
+flags, current and historical built-in heading levels, ordinary outline
+levels, and bounded indirect paragraph-property ordering and replacement.
+Twelve malformed binary controls retain their DOC inputs without successful
+outputs. The same contracts run in compiled JavaScript.
+
+The same gate generates and validates 419 public-model controls in nine
 separately named groups: `public_metafile_fixture.dart` (24),
 `public_compound_fixture.dart` (17), `public_formatting_fixture.dart` (106),
-`public_table_formatting_fixture.dart` (44),
+`public_table_formatting_fixture.dart` (53),
 `cached_field_structure_fixture.dart` (88),
-`display_field_evidence_fixture.dart` (46), and
-`public_section_geometry_fixture.dart` (44). The required names and output/raw
+`display_field_evidence_fixture.dart` (46),
+`public_section_geometry_fixture.dart` (44),
+`public_bookmark_fixture.dart` (21), and
+`public_textbox_reference_fixture.dart` (20). The required names and output/raw
 input paths are independently pinned by `PUBLIC_CORPORA` in
 `tool/fidelity/schema.py`. Together with the DOC-derived corpus, the gate
-requires 1,426 successful package validations, excluding validator controls.
+requires 1,533 successful package validations, excluding validator controls.
 
 The public groups cover image/OLE/VBA activation, formatting, field-event
-structure, revision evidence, and current/historical section scalar bounds.
+structure, revision evidence, current/historical section scalar bounds,
+direct cell-shading precedence, bookmark ownership and hidden metadata, and
+textbox chain ordering, source-domain ownership and inert placement evidence.
 They are authored public models, not binary-DOC-derived cases. Each group
 retains its model descriptions in `cases.json`; metafile and compound cases
 also retain their raw inputs beside the DOCX/DOCM packages. Missing or extra
 cases/files, output aliases, substituted paths, escaping paths, and unchecked
 baseline manifests fail the gate. Package schema validation does not validate
 or execute the contents of an OLE object or a VBA project.
+
+The complete follow-up gate passed on clean tested source
+`a25e4ea824886327b97bde2873e6ef175a5ab971`: 3,903 Dart tests, 197 Python controls,
+38 compiled-JavaScript groups and all 1,533 SDK packages. The 24-input oracle
+check also passed, 353 Dart files were already formatted, and the publish dry
+run reported zero warnings. The
+[saved evidence](../../doc/evidence/parser-audit-20261114-followup/README.md)
+distinguishes this tested source from later documentation commits and retains
+the earlier dated passes separately.
 
 Each DOC-derived and public corpus is generated twice, and every retained
 source, output, and metadata file must match byte-for-byte. Both generations
