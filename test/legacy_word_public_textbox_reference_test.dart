@@ -24,6 +24,18 @@ void main() {
       );
     });
   }
+  for (final mutation in publicTextboxHiddenInvalidCases) {
+    test('hidden public textbox rejects $mutation', () {
+      expect(
+        () => convertLegacyWordDocument(
+          publicTextboxReferenceDocument(mutation, hidden: true),
+        ),
+        throwsA(
+          anyOf(isA<FormatException>(), isA<LegacyWordConversionException>()),
+        ),
+      );
+    });
+  }
   for (final mutation in publicTextboxValidCases) {
     test('public textbox preserves source chain for $mutation', () {
       final document = publicTextboxReferenceDocument(mutation);
@@ -39,7 +51,9 @@ void main() {
       );
       final archive = ZipDecoder().decodeBytes(result.bytes);
       final xml = XmlDocument.parse(
-        utf8.decode(archive.findFile('word/document.xml')!.content),
+        utf8.decode(
+          archive.findFile(publicTextboxOutputPart(mutation))!.content,
+        ),
       );
       final rects = xml.findAllElements('rect', namespace: _v).toList();
       final boxes = xml.findAllElements('txbxContent', namespace: _w).toList();
@@ -58,6 +72,17 @@ void main() {
             .map((text) => text.innerText)
             .join();
         expect(text, 'One');
+        final manifest =
+            jsonDecode(
+                  utf8.decode(
+                    archive.findFile('word/evidence/manifest.json')!.content,
+                  ),
+                )
+                as Map;
+        final record = (manifest['records'] as List).cast<Map>().singleWhere(
+          (record) => record['kind'] == 'textbox',
+        );
+        expect(record['chainLength'], 2);
         expect(
           result.limitations,
           contains(LegacyWordConversionLimitation.embeddedObjects),
@@ -100,6 +125,53 @@ void main() {
         );
       } else {
         expect(words, ['One']);
+        if (publicTextboxOutputPart(mutation) != 'word/document.xml') {
+          final main = XmlDocument.parse(
+            utf8.decode(archive.findFile('word/document.xml')!.content),
+          );
+          expect(main.findAllElements('txbxContent', namespace: _w), isEmpty);
+        }
+      }
+    });
+  }
+  for (final mutation in ['single', 'chain']) {
+    test('hidden valid public textbox retains $mutation as inert evidence', () {
+      final result = convertLegacyWordDocument(
+        publicTextboxReferenceDocument(mutation, hidden: true),
+      );
+      final archive = ZipDecoder().decodeBytes(result.bytes);
+      final main = XmlDocument.parse(
+        utf8.decode(archive.findFile('word/document.xml')!.content),
+      );
+      expect(main.findAllElements('txbxContent', namespace: _w), isEmpty);
+      final evidence = archive.files.singleWhere(
+        (file) => file.name.startsWith('word/textboxEvidence'),
+      );
+      expect(
+        XmlDocument.parse(utf8.decode(evidence.content))
+            .findAllElements('t', namespace: _w)
+            .map((text) => text.innerText)
+            .join(),
+        'One',
+      );
+      final manifest =
+          jsonDecode(
+                utf8.decode(
+                  archive.findFile('word/evidence/manifest.json')!.content,
+                ),
+              )
+              as Map;
+      final record = (manifest['records'] as List).cast<Map>().singleWhere(
+        (record) => record['kind'] == 'textbox',
+      );
+      expect(record['chainLength'], mutation == 'single' ? 1 : 2);
+      if (mutation == 'chain') {
+        expect(
+          (record['anchors'] as List).map(
+            (anchor) => (anchor as Map)['shapeId'],
+          ),
+          [42, 43],
+        );
       }
     });
   }

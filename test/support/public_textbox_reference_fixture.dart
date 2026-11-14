@@ -25,6 +25,25 @@ const publicTextboxInvalidCases = [
   'wrong-drawing-next',
   'invalid-recovery-length',
   'unproved-recovery',
+  'single-wrong-first-shape',
+  'single-wrong-first-anchor',
+  'single-header-in-main',
+  'single-header-in-footnote',
+  'single-body-in-header',
+  'single-body-in-textbox',
+  'chain-body-in-header',
+];
+
+const publicTextboxHiddenInvalidCases = [
+  'wrong-drawing-id',
+  'wrong-drawing-index',
+  'wrong-drawing-next',
+  'single-wrong-first-shape',
+  'single-wrong-first-anchor',
+  'single-header-in-main',
+  'single-header-in-footnote',
+  'single-body-in-header',
+  'chain-body-in-header',
 ];
 
 const publicTextboxValidCases = [
@@ -38,9 +57,61 @@ const publicTextboxValidCases = [
   'unresolved-chain',
   'two-stories',
   'two-stories-reversed',
+  'single-header',
+  'single-footer',
+  'single-footnoteSeparator',
+  'single-footnoteContinuationSeparator',
+  'single-footnoteContinuationNotice',
+  'single-endnoteSeparator',
+  'single-endnoteContinuationSeparator',
+  'single-endnoteContinuationNotice',
 ];
 
-LegacyWordDocument publicTextboxReferenceDocument(String mutation) {
+String publicTextboxOutputPart(String mutation) {
+  if (mutation == 'single-header') return 'word/header1.xml';
+  if (mutation == 'single-footer') return 'word/footer1.xml';
+  if (mutation.startsWith('single-footnote')) return 'word/footnotes.xml';
+  if (mutation.startsWith('single-endnote')) return 'word/endnotes.xml';
+  return 'word/document.xml';
+}
+
+LegacyWordDocument publicTextboxReferenceDocument(
+  String mutation, {
+  bool hidden = false,
+}) {
+  final ownerKind = switch (mutation) {
+    'single-header' ||
+    'single-body-in-header' ||
+    'chain-body-in-header' => LegacyWordStoryKind.header,
+    'single-footer' => LegacyWordStoryKind.footer,
+    'single-header-in-footnote' => LegacyWordStoryKind.footnote,
+    'single-footnoteSeparator' => LegacyWordStoryKind.footnoteSeparator,
+    'single-footnoteContinuationSeparator' =>
+      LegacyWordStoryKind.footnoteContinuationSeparator,
+    'single-footnoteContinuationNotice' =>
+      LegacyWordStoryKind.footnoteContinuationNotice,
+    'single-endnoteSeparator' => LegacyWordStoryKind.endnoteSeparator,
+    'single-endnoteContinuationSeparator' =>
+      LegacyWordStoryKind.endnoteContinuationSeparator,
+    'single-endnoteContinuationNotice' =>
+      LegacyWordStoryKind.endnoteContinuationNotice,
+    _ => null,
+  };
+  final inHeaderFooter =
+      mutation.startsWith('single-header') ||
+      mutation == 'single-footer' ||
+      mutation.startsWith('single-footnote') ||
+      mutation.startsWith('single-endnote');
+  final firstCp = mutation == 'single-body-in-textbox'
+      ? 101
+      : ownerKind != null && mutation != 'chain-body-in-header'
+      ? 201
+      : 1;
+  final secondCp = mutation == 'chain-body-in-header' ? 201 : 3;
+  final noteOwner =
+      mutation.startsWith('single-footnote') ||
+      mutation.startsWith('single-endnote');
+  final endnote = mutation.startsWith('single-endnote');
   final twoReferences =
       mutation.startsWith('duplicate-') &&
           mutation != 'duplicate-index' &&
@@ -87,14 +158,14 @@ LegacyWordDocument publicTextboxReferenceDocument(String mutation) {
   final anchors = <LegacyWordTextboxAnchor>[
     LegacyWordTextboxAnchor(
       shapeId: 42,
-      anchorCp: 1,
+      anchorCp: firstCp,
       chainIndex: firstIndex,
       nextShapeId: firstNext,
     ),
     if (!single)
       LegacyWordTextboxAnchor(
         shapeId: mutation == 'duplicate-anchor' ? 42 : 43,
-        anchorCp: mutation == 'duplicate-anchor' ? 1 : 3,
+        anchorCp: mutation == 'duplicate-anchor' ? firstCp : secondCp,
         chainIndex: secondIndex,
         nextShapeId: secondNext,
       ),
@@ -102,15 +173,20 @@ LegacyWordDocument publicTextboxReferenceDocument(String mutation) {
   final first = LegacyWordTextboxReference(
     id: firstId,
     storyId: 'box-1',
-    inHeaderFooter: false,
-    shapeId: mutation == 'wrong-first-shape' ? 43 : 42,
+    inHeaderFooter: inHeaderFooter,
+    shapeId: mutation == 'single-wrong-first-shape'
+        ? 99
+        : mutation == 'wrong-first-shape'
+        ? 43
+        : 42,
     anchorCp: mutation == 'duplicate-story-unplaced'
         ? 50
-        : mutation == 'wrong-first-anchor'
+        : mutation == 'wrong-first-anchor' ||
+              mutation == 'single-wrong-first-anchor'
         ? 2
         : mutation == 'wrong-first-shape'
         ? 3
-        : 1,
+        : firstCp,
     chainLength: chainLength,
     declaredChainLength: mutation == 'invalid-recovery-length'
         ? 2
@@ -135,11 +211,26 @@ LegacyWordDocument publicTextboxReferenceDocument(String mutation) {
     endCp: cp + text.length + 1,
     runs: [LegacyWordRun(startCp: cp, endCp: cp + text.length, text: text)],
   );
+  LegacyWordParagraph hiddenParagraph(int cp) => LegacyWordParagraph(
+    startCp: cp,
+    endCp: cp + 10,
+    runs: [LegacyWordRun(startCp: cp + 7, endCp: cp + 8, text: '1')],
+  );
+  LegacyWordField field(int cp, String storyId) => LegacyWordField(
+    id: cp,
+    storyId: storyId,
+    startCp: cp,
+    separatorCp: cp + 6,
+    endCp: cp + 9,
+    instruction: ' PAGE',
+    storedResult: '1',
+    type: 'PAGE',
+  );
   LegacyWordDrawing drawing(int shapeId, int cp, int index, int storyId) =>
       LegacyWordDrawing(
         shapeId: shapeId,
         anchorCp: cp,
-        headerStory: false,
+        headerStory: inHeaderFooter,
         leftTwips: index * 1440,
         topTwips: 0,
         rightTwips: (index + 1) * 1440,
@@ -173,14 +264,14 @@ LegacyWordDocument publicTextboxReferenceDocument(String mutation) {
         ),
       );
   return LegacyWordDocument(
-    blocks: [paragraph(0, 'ABCD')],
+    blocks: [hidden ? hiddenParagraph(0) : paragraph(0, 'ABCD')],
     sections: const [],
     plainText: 'ABCD',
     safeHtml: '',
     stories: [
       LegacyWordStory(
         id: 'box-1',
-        kind: mutation == 'wrong-story-kind'
+        kind: mutation == 'wrong-story-kind' || inHeaderFooter
             ? LegacyWordStoryKind.headerTextbox
             : LegacyWordStoryKind.textbox,
         startCp: 100,
@@ -199,6 +290,46 @@ LegacyWordDocument publicTextboxReferenceDocument(String mutation) {
           plainText: 'Two',
           safeHtml: '',
         ),
+      if (ownerKind != null)
+        LegacyWordStory(
+          id: 'owner',
+          kind: ownerKind,
+          startCp: 200,
+          endCp: hidden ? 210 : 205,
+          blocks: [hidden ? hiddenParagraph(200) : paragraph(200, 'HOST')],
+          plainText: hidden ? '1' : 'HOST',
+          safeHtml: '',
+          headerFooterType:
+              ownerKind == LegacyWordStoryKind.header ||
+                  ownerKind == LegacyWordStoryKind.footer
+              ? LegacyWordHeaderFooterType.normal
+              : null,
+        ),
+      if (noteOwner)
+        LegacyWordStory(
+          id: 'note',
+          kind: endnote
+              ? LegacyWordStoryKind.endnote
+              : LegacyWordStoryKind.footnote,
+          startCp: 300,
+          endCp: 305,
+          blocks: [paragraph(300, 'Note')],
+          plainText: 'Note',
+          safeHtml: '',
+        ),
+    ],
+    fields: [
+      if (hidden) field(0, 'main'),
+      if (hidden && ownerKind != null) field(200, 'owner'),
+    ],
+    noteReferences: [
+      if (noteOwner)
+        LegacyWordNoteReference(
+          id: 1,
+          anchorCp: hidden ? 7 : 0,
+          storyId: 'note',
+          endnote: endnote,
+        ),
     ],
     textboxReferences: [
       if (mutation == 'two-stories-reversed') second,
@@ -207,11 +338,11 @@ LegacyWordDocument publicTextboxReferenceDocument(String mutation) {
     ],
     media: LegacyWordMediaCatalog.from(
       drawings: [
-        drawing(42, 1, 0, 1),
+        drawing(42, firstCp, 0, 1),
         if ((!single || twoReferences) &&
             !sameDrawing &&
             mutation != 'unresolved-chain')
-          drawing(43, 3, twoReferences ? 0 : 1, twoReferences ? 2 : 1),
+          drawing(43, secondCp, twoReferences ? 0 : 1, twoReferences ? 2 : 1),
       ],
     ),
   );

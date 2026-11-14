@@ -11,6 +11,7 @@ const publicBookmarkInvalidCases = [
   'reversed-range',
   'end-overrun',
   'cross-story',
+  'gap-point',
   'missing-first-column',
   'missing-last-column',
   'negative-first-column',
@@ -37,11 +38,17 @@ const publicBookmarkValidCases = [
   'adjacent-footnote-range',
   'adjacent-comment-point',
   'adjacent-comment-range',
+  'auxiliary-end',
+  'adjacent-footnote-end',
+  'shared-auxiliary-point',
 ];
 
 String publicBookmarkOutputPart(String mutation) {
-  if (mutation == 'auxiliary') return 'word/header1.xml';
-  if (mutation.startsWith('adjacent-') && mutation.endsWith('-range')) {
+  if (mutation == 'auxiliary' || mutation == 'auxiliary-end') {
+    return 'word/header1.xml';
+  }
+  if (mutation == 'shared-auxiliary-point') return 'word/footer1.xml';
+  if (mutation.startsWith('adjacent-') && !mutation.endsWith('-point')) {
     if (mutation.contains('-header-')) return 'word/header1.xml';
     if (mutation.contains('-footnote-')) return 'word/footnotes.xml';
     return 'word/comments.xml';
@@ -110,8 +117,12 @@ LegacyWordDocument publicBookmarkDocument(
       bookmarks: [
         LegacyWordBookmark(
           name: 'Boundary',
-          startCp: 2,
-          endCp: mutation.endsWith('-point') ? 2 : 3,
+          startCp: mutation.endsWith('-end') ? 4 : 2,
+          endCp: mutation.endsWith('-end')
+              ? 4
+              : mutation.endsWith('-point')
+              ? 2
+              : 3,
         ),
       ],
     );
@@ -136,6 +147,8 @@ LegacyWordDocument publicBookmarkDocument(
       end = 1000;
     case 'cross-story':
       end = 102;
+    case 'gap-point':
+      start = end = 50;
     case 'missing-first-column':
       last = 0;
     case 'missing-last-column':
@@ -170,6 +183,8 @@ LegacyWordDocument publicBookmarkDocument(
     case 'auxiliary':
       start = 100;
       end = 104;
+    case 'auxiliary-end' || 'shared-auxiliary-point':
+      start = end = 104;
   }
   final bookmark = LegacyWordBookmark(
     name: name,
@@ -202,8 +217,8 @@ LegacyWordDocument publicBookmarkDocument(
         type: 'PAGE',
       ),
     ],
-    stories: const [
-      LegacyWordStory(
+    stories: [
+      const LegacyWordStory(
         id: 'header',
         kind: LegacyWordStoryKind.header,
         startCp: 100,
@@ -219,6 +234,23 @@ LegacyWordDocument publicBookmarkDocument(
         safeHtml: '',
         headerFooterType: LegacyWordHeaderFooterType.normal,
       ),
+      if (mutation == 'shared-auxiliary-point')
+        const LegacyWordStory(
+          id: 'footer',
+          kind: LegacyWordStoryKind.footer,
+          startCp: 104,
+          endCp: 108,
+          blocks: [
+            LegacyWordParagraph(
+              startCp: 104,
+              endCp: 108,
+              runs: [LegacyWordRun(startCp: 104, endCp: 107, text: 'Ftr')],
+            ),
+          ],
+          plainText: 'Ftr',
+          safeHtml: '',
+          headerFooterType: LegacyWordHeaderFooterType.normal,
+        ),
     ],
     bookmarks: [
       if (mutation == 'duplicate-name-hidden-last') duplicate,
