@@ -44,7 +44,7 @@ String extractLegacyWordText(Uint8List bytes) {
   if (fib.u16(0) != 0xa5ec) {
     throw const FormatException('This is not a Word binary document.');
   }
-  if (!const {0x00c1, 0x00d9, 0x0101, 0x010c, 0x0112}.contains(fib.u16(2))) {
+  if (!const {0x00c1, 0x00c2, 0x00d9, 0x0101, 0x010c, 0x0112}.contains(fib.u16(2))) {
     throw const FormatException(
       'This older Word binary version is not supported. Save it as DOCX.',
     );
