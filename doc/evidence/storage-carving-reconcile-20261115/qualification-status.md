@@ -1,6 +1,6 @@
 # Corrected parser qualification
 
-The app-facing canonical source pin is **5ba4993c24c88eb366ffbb4f5e16b8da6b418064**. It retains all five incoming PRs, repairs the reproduced preservation/limit defects, and uses mirror-safe evidence paths. Later commits in this branch add qualification evidence only unless explicitly reported otherwise.
+The corrected runtime source was first saved and qualified at **5ba4993c24c88eb366ffbb4f5e16b8da6b418064**. It retains all five incoming PRs, repairs the reproduced preservation/limit defects, and uses mirror-safe evidence paths. Observed main `7df906d2` contributes source-equivalent merge ancestry and README capability bullets, now consolidated without changing production/test/dependency bytes; `main-reconciliation.json` records the object identities. Later qualification records identify their exact saved commit.
 
 ## Completed gate
 
