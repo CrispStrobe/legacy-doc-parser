@@ -15,3 +15,7 @@ The standalone development graph uses archive 4.7.1, test 1.33.0 and XML 6.6.1. 
 A separate read-only review found no concrete defect in aggregate accounting, bounded views, UTF16 piece scaling/scalar validation, or the explicit conservative charset profile. Runtime results above establish only their recorded scope, not native Office rendering or broad schema acceptance.
 
 No GitHub Actions run was awaited or restarted.
+
+## Host-discovered compound-directory gap
+
+The host integration gate exposed a case absent from the original 143-suite inventory: valid allocation metadata and intact referenced Word/CLX streams with a zeroed compound root directory. The underlying reader throws `CfbfException`, while the conversion fallback currently catches only `FormatException`. A generated canonical fixture now matches that host damage pattern and checks explicit recovery, source preservation, strict/default refusal, DOCM refusal, encryption/obfuscation refusal, missing FIB refusal, and the input bound. The original successful gates remain scoped to their recorded source and inventory; this correction has not yet passed acceptance. The new exact inventory contains 144 ordinary suites.
