@@ -17,3 +17,14 @@ Word6 encoding review cross-checks the independent LibreOffice reader: [ww8scan.
 All 143 ordinary `test/**/*_test.dart` suites are candidates for the final parser unit gate. These files contain no explicit skips, private absolute corpus paths, environment-variable dependence, or external process calls. External/private corpus tools are outside this inventory.
 
 No GitHub Actions run was awaited or restarted.
+
+## Evidence path relocation
+
+The two compressed package graph/configuration snapshots originally saved
+under `dependency-setup/after/.dart_tool/` at `00fe6b31` are now ordinary
+`after/dart_tool-*.json.gz` evidence files. This keeps the exact standalone
+mirror compatible with its generated-directory exclusion without weakening
+that guard. `evidence-path-mapping.json` records original/current paths and
+identical hashes. Raw snapshots and `receipt.json` are unchanged; the original
+output artifact index is retained as `original-output-artifacts.json`, and the
+current enclosing indexes use the relocated paths.
