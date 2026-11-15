@@ -8,7 +8,7 @@ The corrected runtime source was first saved and qualified at **5ba4993c24c88eb3
 
 `strict-analysis/` records a clean **17-file analysis with fatal infos enabled** at saved `09c8b3731edb60bf6e5309578260af36b9433570`. It reports no issues; source, commit identity, package inputs and tool hashes stayed unchanged. This source-equivalent main-consolidation commit is the app-facing source pin.
 
-The complete 143-suite ordinary parser run is still pending. Its exact inventory is saved alongside this status.
+`all-parser-final/` records the complete ordinary unit inventory: **143 requested suites and 4,122 passing tests**, with zero failures, errors, skips, missing suites or unexpected suites. The exact saved receipt head was `97c930ba336f120863bb526f4796284aba344cca`; production, tests and dependency declarations are byte-identical to app-facing source pin `09c8b3731edb60bf6e5309578260af36b9433570`. Source, commit identity, resolved inputs and tool hashes stayed unchanged during the gate. The raw machine stream, per-suite results, exact inventory, and before/after snapshots are retained alongside this status.
 
 The standalone development graph uses archive 4.7.1, test 1.33.0 and XML 6.6.1. The host app's committed graph uses archive 4.6.0; host application acceptance is recorded separately on the byte-matched managed parser source. No dependency declaration or committed host lock was changed.
 
