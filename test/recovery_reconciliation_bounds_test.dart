@@ -212,6 +212,15 @@ void main() {
     );
   }
 
+  test('Word 6 explicitly declared en-US ANSI keeps Windows-1252 text', () {
+    final bytes = _word6(
+      encoded: [0x80, 0xc4, 13],
+      characters: 3,
+      locale: 0x0409,
+    );
+    expect(extractLegacyWordText(bytes), '€Ä');
+  });
+
   test('comment omission keeps a bookmark at the next story boundary', () {
     const main = 'A\x02\x05B\r';
     const comment = '\x05Note\r';
