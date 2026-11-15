@@ -8,7 +8,7 @@ The explicit app source `41885d7d1d67348f5abe3579b99d9d2951fc909f` pins canonica
 
 `changed-suite/` records **18 tests passed**, zero failures, errors or skips, at exact saved pin `08296edbee08da013a8ff718798972552ccd03f7`. Those 18 comprise the previous 17 reconciliation tests plus one added test. The gate snapshots confirm unchanged source, HEAD, resolution inputs and tools.
 
-Strict analysis of the changed test file is pending and will be saved separately before final acceptance for this observed pin.
+`strict-analysis/` records a clean strict analysis of the changed test file with fatal infos enabled, also on exact pin `08296edbee08da013a8ff718798972552ccd03f7`. It reports no issues, and source, HEAD, resolved inputs and tools remained unchanged. Both fresh gates are complete.
 
 ## Retained complete-run scope
 

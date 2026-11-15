@@ -107,5 +107,15 @@
     "added_tests": 1,
     "full_runtime_rerun": false
   },
-  "policy": "No new source intake beyond explicitly observed pin. No production edits or package-resolution changes. No Actions wait or polling."
+  "policy": "No new source intake beyond explicitly observed pin. No production edits or package-resolution changes. No Actions wait or polling.",
+  "fresh_strict_analysis": {
+    "head": "08296edbee08da013a8ff718798972552ccd03f7",
+    "files": [
+      "test/recovery_reconciliation_bounds_test.dart"
+    ],
+    "fatal_infos": true,
+    "result": "No issues found",
+    "inputs_and_commit_stable": true,
+    "returncode": 0
+  }
 }
