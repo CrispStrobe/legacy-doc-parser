@@ -89,6 +89,20 @@ String extractLegacyWordText(Uint8List bytes) {
   if (table == null) {
     throw const FormatException('The selected Word text table is missing.');
   }
+  return _readableBody(
+    _textFromClx(word, fib, table, clxOffset, clxLength, characterCount),
+  );
+}
+
+/// Main-body text through the piece table (CLX) in [table].
+String _textFromClx(
+  Uint8List word,
+  _WordBytes fib,
+  Uint8List table,
+  int clxOffset,
+  int clxLength,
+  int characterCount,
+) {
   final textTable = _WordBytes(table);
   textTable.require(clxOffset, clxLength);
   if (clxLength < 5) {
@@ -160,7 +174,7 @@ String extractLegacyWordText(Uint8List bytes) {
   if (extracted != characterCount) {
     throw const FormatException('Word text is incomplete.');
   }
-  return _readableBody(output.toString());
+  return output.toString();
 }
 
 // [MS-DOC] FcCompressed uses these mappings, not an arbitrary locale code page.
@@ -261,4 +275,196 @@ class _WordBytes {
     require(offset, 4);
     return data.getUint32(offset, Endian.little);
   }
+}
+
+/// Main-body text recovered from a Word 97+ file whose compound directory is
+/// damaged (overwritten directory or FAT entries, truncated chains), so that
+/// neither this parser nor Word can open it.
+///
+/// Word writes the WordDocument stream first, starting at sector 0, and the
+/// FAT usually survives when the directory does not. The WordDocument stream
+/// is read from its FIB; the table stream is found as the FAT chain whose
+/// bytes hold a valid piece table (CLX) at the FIB's `fcClx`, and the text is
+/// read through that piece table exactly as [extractLegacyWordText] does.
+/// Returns `null` when either stream cannot be found; formatting, pictures,
+/// tables and notes are not recovered.
+String? recoverLegacyWordText(Uint8List bytes) {
+  const maxCharacters = 4 * 1024 * 1024;
+  const magic = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
+  if (bytes.length < 1024) return null;
+  for (var i = 0; i < magic.length; i++) {
+    if (bytes[i] != magic[i]) return null;
+  }
+  final header = ByteData.sublistView(bytes);
+  final shift = header.getUint16(30, Endian.little);
+  if (shift != 9 && shift != 12) return null;
+  final sectorSize = 1 << shift;
+  final firstSector = sectorSize; // the header occupies one sector (512 → 512)
+  final sectorCount = (bytes.length - firstSector) ~/ sectorSize;
+  if (sectorCount < 1) return null;
+
+  // The FAT sectors listed in the header; unusable entries are skipped.
+  final fat = <int>[];
+  final fatSectors = header.getUint32(44, Endian.little);
+  for (var i = 0; i < 109 && i < fatSectors; i++) {
+    final sector = header.getUint32(76 + i * 4, Endian.little);
+    if (sector >= sectorCount) {
+      fat.addAll(List.filled(sectorSize ~/ 4, 0xFFFFFFFF));
+      continue;
+    }
+    final base = firstSector + sector * sectorSize;
+    for (var j = 0; j < sectorSize; j += 4) {
+      fat.add(header.getUint32(base + j, Endian.little));
+    }
+  }
+
+  // Locate the FIB: sector 0 for Word-written files, else the first sector
+  // that carries the Word 97+ signature.
+  bool isFib(int sector) {
+    final at = firstSector + sector * sectorSize;
+    return header.getUint16(at, Endian.little) == 0xa5ec &&
+        const {
+          0x00c1,
+          0x00d9,
+          0x0101,
+          0x010c,
+          0x0112,
+        }.contains(header.getUint16(at + 2, Endian.little));
+  }
+
+  var start = -1;
+  for (var sector = 0; sector < sectorCount && sector < 64; sector++) {
+    if (isFib(sector)) {
+      start = sector;
+      break;
+    }
+  }
+  if (start < 0) return null;
+
+  // The FAT is trusted only if it marks its own sectors as FAT sectors; an
+  // overwritten FAT holds arbitrary values that would send chains astray.
+  var fatSane = fat.isNotEmpty;
+  for (var i = 0; i < 109 && i < fatSectors; i++) {
+    final sector = header.getUint32(76 + i * 4, Endian.little);
+    if (sector >= fat.length || fat[sector] != 0xFFFFFFFD) fatSane = false;
+  }
+  if (!fatSane) fat.clear();
+
+  // WordDocument: its FAT chain, or (FAT lost) the contiguous bytes from its
+  // FIB, which is how Word allocates it.
+  final contiguousWord = Uint8List.sublistView(
+    bytes,
+    firstSector + start * sectorSize,
+  );
+  var word = fatSane
+      ? _chainBytes(
+              bytes,
+              fat,
+              start,
+              firstSector: firstSector,
+              sectorSize: sectorSize,
+              sectorCount: sectorCount,
+              limit: 64 * 1024 * 1024,
+            ) ??
+            contiguousWord
+      : contiguousWord;
+  final cbMac = ByteData.sublistView(word).getUint32(64, Endian.little);
+  if (cbMac >= 1024 && cbMac <= word.length) {
+    word = Uint8List.sublistView(word, 0, cbMac);
+  }
+  final fib = _WordBytes(word);
+  try {
+    if ((fib.u16(10) & 0x8100) != 0) return null; // encrypted / obfuscated
+    final csw = fib.u16(32);
+    if (csw != 14) return null;
+    final cslwOffset = 34 + csw * 2;
+    final cslw = fib.u16(cslwOffset);
+    if (cslw != 22) return null;
+    final longStart = cslwOffset + 2;
+    final characterCount = fib.u32(longStart + 3 * 4);
+    if (characterCount == 0 || characterCount > maxCharacters) return null;
+    final pairCountOffset = longStart + cslw * 4;
+    final pairCount = fib.u16(pairCountOffset);
+    if (pairCount < 34 || pairCount > 183) return null;
+    final clxPair = pairCountOffset + 2 + 33 * 8;
+    final clxOffset = fib.u32(clxPair);
+    final clxLength = fib.u32(clxPair + 4);
+    if (clxLength < 5 || clxLength > 16 * 1024 * 1024) return null;
+
+    // The table stream is a FAT chain no other entry points into, or (FAT
+    // lost) a contiguous run starting at some sector. Only a piece table that
+    // validates at exactly fcClx, accounting for every character, counts.
+    final pointedTo = <int>{
+      for (final next in fat)
+        if (next < sectorCount) next,
+    };
+    Iterable<Uint8List?> candidates() sync* {
+      for (var head = 0; head < sectorCount && head < fat.length; head++) {
+        if (head == start || pointedTo.contains(head)) continue;
+        if (fat[head] >= 0xFFFFFFFC && fat[head] != 0xFFFFFFFE) continue;
+        yield _chainBytes(
+          bytes,
+          fat,
+          head,
+          firstSector: firstSector,
+          sectorSize: sectorSize,
+          sectorCount: sectorCount,
+          limit: clxOffset + clxLength,
+        );
+      }
+      // Small table streams live in the mini stream (64-byte mini sectors),
+      // so a contiguous table can start at any 64-byte boundary.
+      final wordAt = firstSector + start * sectorSize;
+      for (var at = firstSector; ; at += 64) {
+        if (at + clxOffset + clxLength > bytes.length) break;
+        if (at == wordAt) continue;
+        if (bytes[at + clxOffset] != 1 && bytes[at + clxOffset] != 2) continue;
+        yield Uint8List.sublistView(bytes, at, at + clxOffset + clxLength);
+      }
+    }
+
+    for (final table in candidates()) {
+      if (table == null || table.length < clxOffset + clxLength) continue;
+      if (table[clxOffset] != 1 && table[clxOffset] != 2) continue;
+      try {
+        final text = _textFromClx(
+          word,
+          fib,
+          table,
+          clxOffset,
+          clxLength,
+          characterCount,
+        );
+        return _readableBody(text);
+      } on FormatException {
+        continue;
+      }
+    }
+    return null;
+  } on FormatException {
+    return null;
+  }
+}
+
+Uint8List? _chainBytes(
+  Uint8List bytes,
+  List<int> fat,
+  int head, {
+  required int firstSector,
+  required int sectorSize,
+  required int sectorCount,
+  required int limit,
+}) {
+  final out = BytesBuilder(copy: false);
+  final visited = <int>{};
+  var sector = head;
+  while (out.length < limit) {
+    if (sector >= sectorCount || !visited.add(sector)) return null;
+    final at = firstSector + sector * sectorSize;
+    out.add(Uint8List.sublistView(bytes, at, at + sectorSize));
+    final next = sector < fat.length ? fat[sector] : 0xFFFFFFFF;
+    if (next == 0xFFFFFFFE) break;
+    sector = next;
+  }
+  return out.takeBytes();
 }
