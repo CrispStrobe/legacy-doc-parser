@@ -41,6 +41,7 @@ String extractLegacyWordText(Uint8List bytes) {
     throw const FormatException('The WordDocument stream is missing.');
   }
   var fib = _WordBytes(word);
+  if (fib.u16(0) == 0xa5dc) return _word6Text(word);
   if (fib.u16(0) != 0xa5ec) {
     throw const FormatException('This is not a Word binary document.');
   }
@@ -468,3 +469,111 @@ Uint8List? _chainBytes(
   }
   return out.takeBytes();
 }
+
+/// Text of a Word 6.0 / Word 95 document (`wIdent` 0xA5DC, nFib 101–105).
+///
+/// Only the main text is read: these files have 8-bit text in the
+/// WordDocument stream, either at `fcMin` (fast-saved files are complex and
+/// carry their piece table in the same stream at `fcClx`). The character
+/// set is Windows-1252 or, for Macintosh files, Mac Roman.
+String _word6Text(Uint8List word) {
+  const maxCharacters = 4 * 1024 * 1024;
+  final fib = _WordBytes(word);
+  final nFib = fib.u16(2);
+  if (nFib < 101 || nFib > 105) {
+    throw const FormatException(
+      'This older Word binary version is not supported. Save it as DOCX.',
+    );
+  }
+  final flags = fib.u16(10);
+  if ((flags & 0x0100) != 0) {
+    throw const FormatException(
+      'This Word document is encrypted. Open it in Word and save an unlocked copy.',
+    );
+  }
+  final mac = fib.u16(0x14) == 256;
+  final characterCount = fib.u32(0x34);
+  if (characterCount > maxCharacters) {
+    throw const FormatException('Word text exceeds the preview size limit.');
+  }
+  if (characterCount == 0) return '';
+  int decode(int byte) => byte < 0x80
+      ? byte
+      : mac
+      ? _macRoman.codeUnitAt(byte - 0x80)
+      : (_windows1252[byte] ?? byte);
+  final output = StringBuffer();
+  if ((flags & 0x0004) == 0) {
+    final fcMin = fib.u32(0x18);
+    fib.require(fcMin, characterCount);
+    for (var i = 0; i < characterCount; i++) {
+      output.writeCharCode(decode(word[fcMin + i]));
+    }
+    return _readableBody(output.toString());
+  }
+  // Complex (fast-saved): the CLX lives in the WordDocument stream.
+  final clxOffset = fib.u32(0x1a2);
+  final clxLength = fib.u32(0x1a6);
+  fib.require(clxOffset, clxLength);
+  var position = clxOffset;
+  final end = clxOffset + clxLength;
+  while (position < end && word[position] == 1) {
+    fib.require(position + 1, 2);
+    position += 3 + fib.u16(position + 1);
+  }
+  if (position + 5 > end || word[position] != 2) {
+    throw const FormatException('Word has no valid text piece table.');
+  }
+  final pieceBytes = fib.u32(position + 1);
+  position += 5;
+  if (pieceBytes < 16 ||
+      (pieceBytes - 4) % 12 != 0 ||
+      position + pieceBytes > end) {
+    throw const FormatException('Invalid Word text piece table size.');
+  }
+  final pieceCount = (pieceBytes - 4) ~/ 12;
+  if (fib.u32(position) != 0) {
+    throw const FormatException('Invalid Word text piece count or start.');
+  }
+  final pcdStart = position + (pieceCount + 1) * 4;
+  var extracted = 0;
+  for (var index = 0; index < pieceCount; index++) {
+    final start = fib.u32(position + index * 4);
+    final next = fib.u32(position + (index + 1) * 4);
+    if (next <= start) {
+      throw const FormatException('Word text positions are not ordered.');
+    }
+    if (start >= characterCount) continue;
+    final count = (next < characterCount ? next : characterCount) - start;
+    final fc = fib.u32(pcdStart + index * 8 + 2);
+    fib.require(fc, count);
+    for (var i = 0; i < count; i++) {
+      output.writeCharCode(decode(word[fc + i]));
+    }
+    extracted += count;
+  }
+  if (extracted != characterCount) {
+    throw const FormatException('Word text is incomplete.');
+  }
+  return _readableBody(output.toString());
+}
+
+/// Windows-1252 in 0x80–0x9F (the rest of the high half is Latin-1).
+const _windows1252 = <int, int>{0x80: 0x20ac, ..._compressedUnicode};
+
+/// Mac Roman 0x80–0xFF.
+const _macRoman =
+    '\u{c4}\u{c5}\u{c7}\u{c9}\u{d1}\u{d6}\u{dc}\u{e1}\u{e0}\u{e2}'
+    '\u{e4}\u{e3}\u{e5}\u{e7}\u{e9}\u{e8}\u{ea}\u{eb}\u{ed}\u{ec}'
+    '\u{ee}\u{ef}\u{f1}\u{f3}\u{f2}\u{f4}\u{f6}\u{f5}\u{fa}\u{f9}'
+    '\u{fb}\u{fc}\u{2020}\u{b0}\u{a2}\u{a3}\u{a7}\u{2022}\u{b6}\u{df}'
+    '\u{ae}\u{a9}\u{2122}\u{b4}\u{a8}\u{2260}\u{c6}\u{d8}\u{221e}'
+    '\u{b1}\u{2264}\u{2265}\u{a5}\u{b5}\u{2202}\u{2211}\u{220f}'
+    '\u{3c0}\u{222b}\u{aa}\u{ba}\u{3a9}\u{e6}\u{f8}\u{bf}\u{a1}\u{ac}'
+    '\u{221a}\u{192}\u{2248}\u{2206}\u{ab}\u{bb}\u{2026}\u{a0}\u{c0}'
+    '\u{c3}\u{d5}\u{152}\u{153}\u{2013}\u{2014}\u{201c}\u{201d}'
+    '\u{2018}\u{2019}\u{f7}\u{25ca}\u{ff}\u{178}\u{2044}\u{20ac}'
+    '\u{2039}\u{203a}\u{fb01}\u{fb02}\u{2021}\u{b7}\u{201a}\u{201e}'
+    '\u{2030}\u{c2}\u{ca}\u{c1}\u{cb}\u{c8}\u{cd}\u{ce}\u{cf}\u{cc}'
+    '\u{d3}\u{d4}\u{f8ff}\u{d2}\u{da}\u{db}\u{d9}\u{131}\u{2c6}'
+    '\u{2dc}\u{af}\u{2d8}\u{2d9}\u{2da}\u{b8}\u{2dd}\u{2db}\u{2c7}';

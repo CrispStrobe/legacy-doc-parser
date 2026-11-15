@@ -93,9 +93,11 @@ class LegacyWordStructuredConversion {
   final List<String> signatureEvidenceParts;
   bool get signatureValidityClaimed => false;
 
-  /// The source's compound structure was damaged beyond structured
-  /// conversion; [bytes] holds only the recovered main-body text
-  /// (see [recoverLegacyWordText]). Every limitation is listed.
+  /// Structured conversion was impossible (a destroyed compound directory,
+  /// a Word 6.0/95 file, or structure that contradicts itself) and [bytes]
+  /// holds only the main-body text (see [recoverLegacyWordText] and
+  /// [extractLegacyWordText]). Every limitation is listed. Only with
+  /// `recover: true`.
   final bool recoveredTextOnly;
 }
 
@@ -142,7 +144,9 @@ LegacyWordStructuredConversion convertLegacyWord(
     // With [recover], a file whose compound directory is destroyed still
     // yields its text when the WordDocument stream itself is intact.
     if (!recover || format != LegacyWordOutputFormat.docx) rethrow;
-    final text = recoverLegacyWordText(bytes);
+    // Then any file whose text is readable although its structure is not
+    // (Word 6.0/95 files have no structured reader at all).
+    final text = recoverLegacyWordText(bytes) ?? _plainTextOrNull(bytes);
     if (text == null) rethrow;
     return LegacyWordStructuredConversion(
       bytes: _plainTextDocx(text),
@@ -157,6 +161,14 @@ LegacyWordStructuredConversion convertLegacyWord(
     format: format,
     fieldMode: fieldMode,
   );
+}
+
+String? _plainTextOrNull(Uint8List bytes) {
+  try {
+    return extractLegacyWordText(bytes);
+  } on FormatException {
+    return null;
+  }
 }
 
 /// Serializes an already parsed document using the same bounded writer.
